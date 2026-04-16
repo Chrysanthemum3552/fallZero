@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">낙상제로</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_title">낙상제로에 오신 것을 환영합니다</string>
+    <string name="onboarding_subtitle">낙상 예방 운동으로 건강한 생활을 시작하세요</string>
+    <string name="btn_start">시작하기</string>
+
+    <!-- Survey Step 1: 기본 정보 -->
+    <string name="survey_title">기본 정보 입력</string>
+    <string name="survey_gender">성별</string>
+    <string name="survey_age">나이</string>
+    <string name="survey_male">남성</string>
+    <string name="survey_female">여성</string>
+    <string name="btn_next">다음</string>
+    <string name="btn_complete">완료 후 검사 시작</string>
+
+    <!-- Survey Step 2: STEADI 낙상 위험 설문 -->
+    <string name="steadi_title">낙상 위험 설문 (CDC STEADI)</string>
+    <string name="steadi_q1">지난 1년 동안 넘어진 적이 있으신가요?</string>
+    <string name="steadi_q2">서 있거나 걸을 때 불안정한 느낌이 드시나요?</string>
+    <string name="steadi_q3">넘어질까봐 두려우신가요?</string>
+    <string name="steadi_yes">예</string>
+    <string name="steadi_no">아니오</string>
+
+    <!-- Home -->
+    <string name="home_title">홈</string>
+    <string name="home_today_exercise">오늘의 운동</string>
+    <string name="home_start_exercise">운동 시작</string>
+    <string name="home_start_exam">낙상 위험 검사</string>
+    <string name="home_view_report">내 보고서 보기</string>
+    <string name="home_settings">설정</string>
+    <string name="home_share_guardian">보호자에게 보내기</string>
+    <string name="home_cast_tv">TV로 보내기</string>
+
+    <!-- Exam -->
+    <string name="exam_title">낙상 위험 검사</string>
+    <string name="exam_phase_chair">의자 일어서기 검사 (30초)</string>
+    <string name="exam_phase_balance">균형 검사</string>
+    <string name="exam_ready">준비</string>
+    <string name="exam_start">검사 시작</string>
+    <string name="exam_balance_fail">이 단계 종료</string>
+    <string name="exam_result_title">검사 결과</string>
+    <string name="exam_high_risk">낙상 위험군</string>
+    <string name="exam_low_risk">낙상 안전군</string>
+
+    <!-- Exercise -->
+    <string name="exercise_title">운동</string>
+    <string name="exercise_count_format">%d / %d</string>
+    <string name="exercise_complete">운동 완료!</string>
+    <string name="exercise_guide_title">운동 가이드</string>
+    <string name="exercise_calibrating">첫 2회는 캘리브레이션 중입니다</string>
+    <string name="exercise_coaching_cue">조금 더 해볼까요?</string>
+
+    <!-- Report -->
+    <string name="report_title">보고서 (1/3) — 검사 결과</string>
+    <string name="report_page2_title">보고서 (2/3) — 훈련 이행</string>
+    <string name="report_page3_title">보고서 (3/3) — 운동 진척</string>
+    <string name="report_btn_next">다음 페이지</string>
+    <string name="report_btn_prev">이전 페이지</string>
+    <string name="report_no_data">데이터가 없습니다</string>
+
+    <!-- Settings -->
+    <string name="settings_title">설정</string>
+    <string name="settings_notifications">운동 알림 (오전 9시·오후 1시·오후 8시)</string>
+
+    <!-- Camera -->
+    <string name="camera_permission_required">카메라 권한이 필요합니다</string>
+    <string name="camera_setup_title">카메라 준비</string>
+    <string name="camera_position_guide">카메라 앞 2미터 거리에 서주세요</string>
+    <string name="camera_align_phone">폰을 수직으로 세워주세요</string>
+    <string name="camera_ready">준비 완료!</string>
+
+    <!-- TTS messages -->
+    <string name="tts_exercise_start">운동을 시작합니다</string>
+    <string name="tts_exercise_complete">운동이 완료되었습니다</string>
+    <string name="tts_count_format">%d회</string>
+    <string name="tts_error_posture">자세를 확인해주세요</string>
+</resources>

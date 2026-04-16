@@ -1,0 +1,19 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/app/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# MediaPipe model (빌드 시 자동 다운로드됨 — 커밋 불필요)
+app/src/main/assets/pose_landmarker_lite.task
+app/src/main/assets/pose_landmarker_full.task
+app/src/main/assets/pose_landmarker_heavy.task
+
+# Claude Code
+.claude/

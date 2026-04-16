@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="24dp">
+
+        <!-- ── Step 1: 기본 정보 ── -->
+        <LinearLayout
+            android:id="@+id/section_step1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="visible"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/survey_title"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="32dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/survey_gender"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="32dp" />
+
+            <RadioGroup
+                android:id="@+id/rg_gender"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <RadioButton
+                    android:id="@+id/rb_male"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/survey_male"
+                    android:layout_marginEnd="24dp" />
+
+                <RadioButton
+                    android:id="@+id/rb_female"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/survey_female" />
+            </RadioGroup>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/survey_age"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="24dp" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/til_age"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/et_age"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="number"
+                    android:hint="나이를 입력하세요 (만 나이)" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_next"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="@string/btn_next"
+                android:textSize="18sp"
+                android:layout_marginTop="32dp" />
+        </LinearLayout>
+
+        <!-- ── Step 2: STEADI 설문 ── -->
+        <LinearLayout
+            android:id="@+id/section_step2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/steadi_title"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="32dp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="아래 질문에 솔직하게 답해주세요. (CDC STEADI 기준)"
+                android:textSize="14sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="8dp" />
+
+            <!-- Q1 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="1. 지난 1년 동안 넘어진 적이 있으신가요?"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="28dp" />
+
+            <RadioGroup
+                android:id="@+id/rg_q1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+                <RadioButton android:id="@+id/rb_q1_yes" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/steadi_yes"
+                    android:layout_marginEnd="24dp" />
+                <RadioButton android:id="@+id/rb_q1_no" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/steadi_no"
+                    android:checked="true" />
+            </RadioGroup>
+
+            <!-- Q2 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="2. 서 있거나 걸을 때 불안정한 느낌이 드시나요?"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="20dp" />
+
+            <RadioGroup
+                android:id="@+id/rg_q2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+                <RadioButton android:id="@+id/rb_q2_yes" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/steadi_yes"
+                    android:layout_marginEnd="24dp" />
+                <RadioButton android:id="@+id/rb_q2_no" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/steadi_no"
+                    android:checked="true" />
+            </RadioGroup>
+
+            <!-- Q3 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="3. 넘어질까봐 두려우신가요?"
+                android:textSize="16sp"
+                android:textColor="@color/text_primary"
+                android:layout_marginTop="20dp" />
+
+            <RadioGroup
+                android:id="@+id/rg_q3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+                <RadioButton android:id="@+id/rb_q3_yes" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/steadi_yes"
+                    android:layout_marginEnd="24dp" />
+                <RadioButton android:id="@+id/rb_q3_no" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:text="@string/steadi_no"
+                    android:checked="true" />
+            </RadioGroup>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_complete"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="@string/btn_complete"
+                android:textSize="18sp"
+                android:layout_marginTop="40dp"
+                android:layout_marginBottom="32dp" />
+
+        </LinearLayout>
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

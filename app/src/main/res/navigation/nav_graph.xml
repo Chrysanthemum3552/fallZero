@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/onboardingFragment">
+
+    <!-- ───────── Global actions (SessionFlow 자동 진행용) ───────── -->
+    <action android:id="@+id/action_global_preflight"
+        app:destination="@id/preFlightFragment"
+        app:popUpTo="@id/homeFragment" />
+    <action android:id="@+id/action_global_exercise"
+        app:destination="@id/exerciseFragment"
+        app:popUpTo="@id/homeFragment" />
+    <action android:id="@+id/action_global_exam"
+        app:destination="@id/examFragment"
+        app:popUpTo="@id/homeFragment" />
+    <action android:id="@+id/action_global_exam_result"
+        app:destination="@id/examResultFragment"
+        app:popUpTo="@id/homeFragment" />
+    <action android:id="@+id/action_global_rest"
+        app:destination="@id/restFragment"
+        app:popUpTo="@id/homeFragment" />
+    <action android:id="@+id/action_global_rotation"
+        app:destination="@id/sideRotationFragment"
+        app:popUpTo="@id/homeFragment" />
+    <action android:id="@+id/action_global_home"
+        app:destination="@id/homeFragment"
+        app:popUpTo="@id/homeFragment"
+        app:popUpToInclusive="true" />
+
+    <!-- ───────── 온보딩 플로우 ───────── -->
+    <fragment
+        android:id="@+id/onboardingFragment"
+        android:name="com.fallzero.app.ui.onboarding.OnboardingFragment"
+        android:label="온보딩"
+        tools:layout="@layout/fragment_onboarding">
+        <action
+            android:id="@+id/action_onboarding_to_survey"
+            app:destination="@id/surveyFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/surveyFragment"
+        android:name="com.fallzero.app.ui.onboarding.SurveyFragment"
+        android:label="설문"
+        tools:layout="@layout/fragment_survey">
+        <action
+            android:id="@+id/action_survey_to_home"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/onboardingFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <!-- ───────── 사전 점검 (폰 직립 + 전신 감지) ───────── -->
+    <fragment
+        android:id="@+id/preFlightFragment"
+        android:name="com.fallzero.app.ui.onboarding.PreFlightFragment"
+        android:label="준비 단계"
+        tools:layout="@layout/fragment_pre_flight" />
+
+    <!-- 옆으로 회전 단계 -->
+    <fragment
+        android:id="@+id/sideRotationFragment"
+        android:name="com.fallzero.app.ui.onboarding.SideRotationFragment"
+        android:label="옆으로 돌아주세요"
+        tools:layout="@layout/fragment_side_rotation" />
+
+    <!-- 휴식 카운트다운 -->
+    <fragment
+        android:id="@+id/restFragment"
+        android:name="com.fallzero.app.ui.onboarding.RestFragment"
+        android:label="휴식"
+        tools:layout="@layout/fragment_rest" />
+
+    <!-- ───────── 홈 ───────── -->
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.fallzero.app.ui.home.HomeFragment"
+        android:label="홈"
+        tools:layout="@layout/fragment_home">
+        <action
+            android:id="@+id/action_home_to_exercise_guide"
+            app:destination="@id/exerciseGuideFragment" />
+        <action
+            android:id="@+id/action_home_to_exam"
+            app:destination="@id/preFlightFragment" />
+        <action
+            android:id="@+id/action_home_to_report"
+            app:destination="@id/reportFragment" />
+        <action
+            android:id="@+id/action_home_to_settings"
+            app:destination="@id/settingsFragment" />
+    </fragment>
+
+    <!-- ───────── 검사 플로우 ───────── -->
+    <fragment
+        android:id="@+id/examFragment"
+        android:name="com.fallzero.app.ui.exam.ExamFragment"
+        android:label="낙상 위험 검사"
+        tools:layout="@layout/fragment_exam" />
+
+    <fragment
+        android:id="@+id/examResultFragment"
+        android:name="com.fallzero.app.ui.exam.ExamResultFragment"
+        android:label="검사 결과"
+        tools:layout="@layout/fragment_exam_result">
+        <action
+            android:id="@+id/action_result_to_home"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/homeFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <!-- ───────── 운동 플로우 ───────── -->
+    <fragment
+        android:id="@+id/exerciseGuideFragment"
+        android:name="com.fallzero.app.ui.exercise.ExerciseGuideFragment"
+        android:label="운동 가이드"
+        tools:layout="@layout/fragment_exercise_guide">
+        <action
+            android:id="@+id/action_guide_to_preview"
+            app:destination="@id/exercisePreviewFragment" />
+        <action
+            android:id="@+id/action_guide_to_preflight"
+            app:destination="@id/preFlightFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/exercisePreviewFragment"
+        android:name="com.fallzero.app.ui.exercise.ExercisePreviewFragment"
+        android:label="운동 미리보기"
+        tools:layout="@layout/fragment_exercise_preview">
+        <action
+            android:id="@+id/action_preview_to_preflight"
+            app:destination="@id/preFlightFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/exerciseFragment"
+        android:name="com.fallzero.app.ui.exercise.ExerciseFragment"
+        android:label="운동"
+        tools:layout="@layout/fragment_exercise" />
+
+    <!-- ───────── 보고서 (3페이지) ───────── -->
+    <fragment
+        android:id="@+id/reportFragment"
+        android:name="com.fallzero.app.ui.report.ReportFragment"
+        android:label="보고서 1"
+        tools:layout="@layout/fragment_report">
+        <action
+            android:id="@+id/action_report_to_page2"
+            app:destination="@id/reportPage2Fragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/reportPage2Fragment"
+        android:name="com.fallzero.app.ui.report.ReportPage2Fragment"
+        android:label="보고서 2"
+        tools:layout="@layout/fragment_report_page2">
+        <action
+            android:id="@+id/action_report2_to_page1"
+            app:destination="@id/reportFragment"
+            app:popUpTo="@id/reportFragment"
+            app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_report2_to_page3"
+            app:destination="@id/reportPage3Fragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/reportPage3Fragment"
+        android:name="com.fallzero.app.ui.report.ReportPage3Fragment"
+        android:label="보고서 3"
+        tools:layout="@layout/fragment_report_page3">
+        <action
+            android:id="@+id/action_report3_to_page2"
+            app:destination="@id/reportPage2Fragment"
+            app:popUpTo="@id/reportPage2Fragment"
+            app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_report3_to_home"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/homeFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <!-- ───────── 설정 ───────── -->
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.fallzero.app.ui.settings.SettingsFragment"
+        android:label="설정"
+        tools:layout="@layout/fragment_settings" />
+
+</navigation>
