@@ -31,16 +31,16 @@ class ExerciseGuideFragment : Fragment() {
         val cameraDirection: String  // "측면 촬영" or "정면 촬영"
     )
 
-    // 표시 순서: 정면 운동 먼저(2,8), 그 다음 측면(1,3,4,5,6,7) — 실제 세션 순서와 일치
+    // 표시 순서 = 실제 세션 순서: 정면(2,7,8) → 회전 → 측면(4,5,6,1,3)
     private val exercises = listOf(
         ExerciseInfo(2, "옆으로 다리 들기", "벽이나 의자를 잡고 서서 한쪽 다리를 옆으로 들어 올렸다 내리기 (좌우 각 10회)", "정면 촬영"),
+        ExerciseInfo(7, "의자에서 일어서기", "의자에서 팔을 가슴에 교차한 채 일어섰다 앉기 (10회)", "정면 촬영"),
         ExerciseInfo(8, "한 발로 서서 균형 잡기", "탠덤 서기와 외발 서기로 균형 유지", "정면 촬영"),
-        ExerciseInfo(1, "앉아서 무릎 펴기", "의자에 앉아 한쪽 다리를 앞으로 쭉 뻗어 올렸다 내리기 (좌우 각 10회)", "측면 촬영"),
-        ExerciseInfo(3, "뒤로 무릎 굽히기", "벽이나 의자를 잡고 서서 한쪽 무릎을 뒤로 굽혀 발뒤꿈치 올리기 (좌우 각 10회)", "측면 촬영"),
         ExerciseInfo(4, "발뒤꿈치 들기", "양발 발뒤꿈치를 동시에 들어 올렸다 내리기 (10회)", "측면 촬영"),
         ExerciseInfo(5, "발끝 들기", "양발 발끝을 들어 올렸다 내리기 (10회)", "측면 촬영"),
         ExerciseInfo(6, "무릎 살짝 굽히기", "양발 어깨 너비로 벌리고 무릎을 살짝 굽혔다 펴기 (10회)", "측면 촬영"),
-        ExerciseInfo(7, "의자에서 일어서기", "의자에서 팔을 가슴에 교차한 채 일어섰다 앉기 (10회)", "측면 촬영")
+        ExerciseInfo(1, "앉아서 무릎 펴기", "의자에 앉아 한쪽 다리를 앞으로 쭉 뻗어 올렸다 내리기 (좌우 각 10회)", "측면 촬영"),
+        ExerciseInfo(3, "뒤로 무릎 굽히기", "벽이나 의자를 잡고 서서 한쪽 무릎을 뒤로 굽혀 발뒤꿈치 올리기 (좌우 각 10회)", "측면 촬영")
     )
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {

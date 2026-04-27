@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
@@ -100,5 +101,135 @@
         app:layout_constraintBottom_toTopOf="@id/btn_start_exam"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- ─────────────── 일시정지 overlay (사용자 카메라 이탈 시) ───────────────
+         frame이 2초 이상 안 들어오면 표시. 검사세션 측정 중 사용자가 카메라 시야 벗어나면 자동 일시정지.
+         균형 검사: 현재 stage 처음부터 재시작 / 의자 일어서기: 시간 멈춤 + 카운트 보존. -->
+    <FrameLayout
+        android:id="@+id/pause_overlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#A0000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⏸"
+                android:textSize="64sp"
+                android:textColor="#FFFFFF"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="카메라 앞으로 와주세요"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ─────────────── 안내 overlay (균형 4단계 + 의자 검사 시작 전) ───────────────
+         검사세션 측정 로직은 일절 건드리지 않고, 진입 시점에 멘트 + 동영상 placeholder만 표시.
+         세로 모드 화면 가득 — 동영상 영역이 화면 대부분, 자막은 하단에 작게. -->
+    <FrameLayout
+        android:id="@+id/guidance_overlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#F0000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <TextView
+                android:id="@+id/tv_guidance_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginHorizontal="16dp"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                tools:text="1단계 · 두 발 나란히 서기" />
+
+            <FrameLayout
+                android:id="@+id/video_placeholder"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginHorizontal="16dp"
+                android:background="#33FFFFFF"
+                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintBottom_toTopOf="@id/tv_guidance_text"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    android:text="@string/guidance_video_placeholder"
+                    android:textColor="#CCCCCC"
+                    android:textSize="18sp" />
+
+                <TextView
+                    android:id="@+id/tv_guidance_countdown"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:textSize="120sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:gravity="center"
+                    android:visibility="gone"
+                    tools:text="3" />
+            </FrameLayout>
+
+            <TextView
+                android:id="@+id/tv_guidance_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:layout_marginHorizontal="20dp"
+                android:textSize="14sp"
+                android:lineSpacingMultiplier="1.25"
+                android:textColor="#E0E0E0"
+                android:gravity="center"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                tools:text="1단계, 두 발 나란히 서기입니다..." />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

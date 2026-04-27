@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@android:color/black">
@@ -91,5 +92,139 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- ─────────────── 일시정지 overlay (사용자 카메라 이탈 시) ───────────────
+         frame이 2초 이상 안 들어오면 표시. 카메라 화면 위 + 안내 overlay 아래.
+         clickable=true로 카메라 영역 터치 차단. 카메라 화면은 살짝 보여 사용자 자세 확인 가능. -->
+    <FrameLayout
+        android:id="@+id/pause_overlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#A0000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:orientation="vertical"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⏸"
+                android:textSize="64sp"
+                android:textColor="#FFFFFF"
+                android:gravity="center" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="카메라 앞으로 와주세요"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center" />
+        </LinearLayout>
+    </FrameLayout>
+
+    <!-- ─────────────── 안내 overlay (운동 시작 전 / 양측 전환 시) ───────────────
+         세로 모드 화면 가득 — 동영상 영역이 화면 대부분(~65%)을 차지하고
+         제목은 상단, 안내 멘트는 하단에 자막처럼 작게 표시. 카운트다운은 영상 영역 위에 큰 숫자로 떠있음. -->
+    <FrameLayout
+        android:id="@+id/guidance_overlay"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:background="#F0000000"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <!-- 상단 제목 (작게) -->
+            <TextView
+                android:id="@+id/tv_guidance_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:layout_marginHorizontal="16dp"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF"
+                android:gravity="center"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                tools:text="옆으로 다리 들기" />
+
+            <!-- 동영상 영역 (화면 대부분 차지, 16:9 비율 또는 가능한 큰 크기) -->
+            <FrameLayout
+                android:id="@+id/video_placeholder"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_marginTop="12dp"
+                android:layout_marginHorizontal="16dp"
+                android:background="#33FFFFFF"
+                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintBottom_toTopOf="@id/tv_guidance_text"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:gravity="center"
+                    android:text="@string/guidance_video_placeholder"
+                    android:textColor="#CCCCCC"
+                    android:textSize="18sp" />
+
+                <!-- 카운트다운 숫자 (영상 영역 한가운데 큰 글씨) -->
+                <TextView
+                    android:id="@+id/tv_guidance_countdown"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:textSize="120sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFFFFF"
+                    android:gravity="center"
+                    android:visibility="gone"
+                    tools:text="3" />
+            </FrameLayout>
+
+            <!-- 하단 자막 멘트 (작게) -->
+            <TextView
+                android:id="@+id/tv_guidance_text"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="24dp"
+                android:layout_marginHorizontal="20dp"
+                android:textSize="14sp"
+                android:lineSpacingMultiplier="1.25"
+                android:textColor="#E0E0E0"
+                android:gravity="center"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                tools:text="옆으로 다리 들기 운동입니다..." />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+    </FrameLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

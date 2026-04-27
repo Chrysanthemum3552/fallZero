@@ -88,13 +88,13 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val subtitle = buildString {
             append(step.subtitle.ifEmpty { "핸드폰을 수직으로 세워주세요." })
             if (SessionFlow.requiresChair()) {
-                append("\n\n이번 루틴은 의자가 필요합니다.\n카메라 옆에 의자를 두고 시작해주세요.")
+                append("\n\n이번 루틴은 의자가 필요합니다.\n카메라 앞에 의자를 두고 시작해주세요.\n의자가 다리를 일부 가려도 괜찮습니다.")
             }
         }
         binding.tvSubtitle.text = subtitle
 
         ttsManager?.speak(if (SessionFlow.requiresChair())
-            "이번 루틴은 의자가 필요합니다. 핸드폰을 수직으로 세워주세요."
+            "이번 루틴은 의자가 필요합니다. 카메라 앞에 의자를 두고 핸드폰을 수직으로 세워주세요."
         else "핸드폰을 수직으로 세워주세요.")
 
         startPhoneLevelPhase()
@@ -241,17 +241,21 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>?
     ): Boolean {
         if (landmarks == null || landmarks.size < 33) return false
-        // 필수 부위: nose(0), shoulders(11,12), hips(23,24), knees(25,26), ankles(27,28)
-        val keyIdx = intArrayOf(0, 11, 12, 23, 24, 25, 26, 27, 28)
-        val visible = keyIdx.count { landmarks[it].visibility().orElse(0f) > 0.5f }
-        if (visible < 8) return false
 
+        // ─── 상반신 5개 (nose, shoulders, hips) — 의자가 가리면 안 되는 부위. 엄격하게. ───
+        val upperKeyIdx = intArrayOf(0, 11, 12, 23, 24)
+        val upperVisible = upperKeyIdx.count { landmarks[it].visibility().orElse(0f) > 0.3f }
+        if (upperVisible < 5) return false
+
+        // ─── 하반신 (knees, ankles) — visibility 검증 생략. ───
+        // 의자 등받이가 무릎/발목을 가려 visibility가 매우 낮아져도 MediaPipe는 추정 좌표를 제공.
+        // 그 추정 좌표로 span 검증만 수행. 의자 활용 시나리오 지원의 핵심.
         val noseY = landmarks[0].y()
         val ankleY = maxOf(landmarks[27].y(), landmarks[28].y())
         val span = ankleY - noseY
-        // 전신이 화면의 50~95% 차지해야 적정 거리
-        if (span < 0.50f || span > 0.97f) return false
-        if (noseY < 0.02f || ankleY > 0.99f) return false
+        // 전신이 화면의 30~97% (의자에 가려진 ankle 추정값은 약간 위쪽일 수 있어 30%까지 허용)
+        if (span < 0.30f || span > 0.97f) return false
+        if (noseY < 0.02f) return false
         return true
     }
 

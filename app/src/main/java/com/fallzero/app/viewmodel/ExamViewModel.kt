@@ -60,6 +60,15 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     private var balanceEngine = BalanceEngine(targetCount = 1, stage = 1)
     private var balanceStageTimerJob: Job? = null
     private var currentBalanceStage = 0
+    // 균형 단계 통과 후 마지막 카운트 음성 발화 대기 중 (1.5초) — 중복 launch 방지
+    @Volatile private var balanceCountAwaiting = false
+    // 사용자 이탈 일시정지 가드. 사용 시 frame 처리 차단 + 의자 timer 멈춤.
+    @Volatile private var isPausedForUserAway = false
+
+    // 의자 일어서기 일시정지/복귀를 위한 시간 누적 변수.
+    private var chairStandStartTime = 0L
+    private var chairStandPausedElapsed = 0L  // 일시정지 동안 누적된 시간 (이만큼 startTime에서 빼야 정확한 elapsed)
+    private var chairStandPauseStartMs = 0L
 
     companion object {
         const val CHAIR_STAND_DURATION_MS = 30_000L
@@ -81,6 +90,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         balanceStageReached = 0
         tandemTimeSec = 0f
         currentBalanceStage = 0
+        balanceCountAwaiting = false
+        isPausedForUserAway = false
         startNextBalanceStage()
     }
 
@@ -135,21 +146,83 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun startChairStand() {
         chairStandEngine.reset()
         chairCount = 0
-        val startTime = System.currentTimeMillis()
+        chairStandStartTime = System.currentTimeMillis()
+        chairStandPausedElapsed = 0L
+        chairStandPauseStartMs = 0L
         chairStandTimerJob?.cancel()
         chairStandTimerJob = viewModelScope.launch {
             while (true) {
-                val elapsed = System.currentTimeMillis() - startTime
+                if (isPausedForUserAway) {
+                    // 일시정지 — elapsed 계산하지 않고 phase emit도 보류 (UI는 pause overlay 표시 중)
+                    delay(100)
+                    continue
+                }
+                // pausedElapsed 만큼 빼서 실제 측정 시간 계산 (일시정지 시간 제외)
+                val elapsed = System.currentTimeMillis() - chairStandStartTime - chairStandPausedElapsed
                 _phase.value = ExamPhase.ChairStand(elapsed, chairCount, isRunning = true)
                 if (elapsed >= CHAIR_STAND_DURATION_MS) break
                 delay(100)
             }
             chairCount = chairStandEngine.currentCount
+            // 마지막 카운트 음성("열" 등)이 cut off 되지 않도록 1.5초 대기 후 완료 phase
+            delay(1500)
             _phase.value = ExamPhase.ChairStandComplete(chairCount)
         }
     }
 
+    /**
+     * 사용자가 카메라 시야에서 이탈했을 때 Fragment에서 호출. 모든 측정 단계에서 작동.
+     * - 균형 검사: 현재 stage의 측정 stop. 복귀 시 stage 처음부터 재시작 (Q2: 임상적 정의에 맞음).
+     * - 의자 일어서기: 시간 누적 멈춤 + 카운트(chairStandEngine.currentCount) 그대로 보존 (Q3).
+     */
+    fun pauseForUserAway() {
+        if (isPausedForUserAway) return
+        isPausedForUserAway = true
+
+        when (_phase.value) {
+            is ExamPhase.Balance -> {
+                // 균형 stage 측정 중단 + BalanceEngine 리셋 (elapsedSec=0으로) — 복귀 시 재시작
+                balanceStageTimerJob?.cancel()
+                balanceEngine.reset()
+            }
+            is ExamPhase.ChairStand -> {
+                // 일시정지 시작 시각 기록 (resume에서 누적된 paused 시간 계산)
+                chairStandPauseStartMs = System.currentTimeMillis()
+            }
+            else -> {}
+        }
+    }
+
+    /**
+     * 사용자가 다시 카메라 앞에 돌아왔을 때 Fragment의 1.5초 buffer 후 호출.
+     * - 균형 검사: 현재 stage 처음부터 재시작 (actuallyStartBalanceStage).
+     * - 의자 일어서기: 누적 paused 시간을 chairStandPausedElapsed에 더해 elapsed 계산 보정.
+     */
+    fun resumeFromUserAway() {
+        if (!isPausedForUserAway) return
+
+        when (_phase.value) {
+            is ExamPhase.Balance -> {
+                isPausedForUserAway = false
+                // 현재 stage를 처음부터 재시작 (BalancePrepare 안내 화면은 거치지 않음 — 사용자 이미 자세 잡고 있음)
+                actuallyStartBalanceStage(currentBalanceStage)
+            }
+            is ExamPhase.ChairStand -> {
+                if (chairStandPauseStartMs > 0L) {
+                    chairStandPausedElapsed += System.currentTimeMillis() - chairStandPauseStartMs
+                    chairStandPauseStartMs = 0L
+                }
+                isPausedForUserAway = false
+            }
+            else -> {
+                isPausedForUserAway = false
+            }
+        }
+    }
+
     fun processLandmarks(landmarks: List<NormalizedLandmark>) {
+        // 사용자 이탈 일시정지 중에는 엔진 처리 차단 (Fragment에서 1.5초 buffer 후 resume 호출)
+        if (isPausedForUserAway) return
         when (val p = _phase.value) {
             is ExamPhase.ChairStand -> {
                 if (!p.isRunning) return
@@ -168,12 +241,20 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                     isStable = isStableNow,
                     errorHint = result.errorMessage  // "발을 더 모아주세요" 등
                 )
-                if (result.isCountIncremented) {
-                    // 단계 통과
+                if (result.isCountIncremented && !balanceCountAwaiting) {
+                    // 단계 통과 — "열" 카운트 음성 발화 시간 확보 위해 1.5초 delay
+                    balanceCountAwaiting = true
                     balanceStageReached = currentBalanceStage
                     if (currentBalanceStage == 3) tandemTimeSec = elapsed
                     balanceStageTimerJob?.cancel()
-                    startNextBalanceStage()
+                    val passedStage = currentBalanceStage
+                    viewModelScope.launch {
+                        delay(1500)
+                        if (currentBalanceStage == passedStage) {
+                            balanceCountAwaiting = false
+                            startNextBalanceStage()
+                        }
+                    }
                 }
             }
             else -> {}
@@ -238,6 +319,10 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         balanceStageReached = 0
         tandemTimeSec = 0f
         currentBalanceStage = 0
+        balanceCountAwaiting = false
+        isPausedForUserAway = false
+        chairStandPausedElapsed = 0L
+        chairStandPauseStartMs = 0L
         chairStandEngine.reset()
         balanceStageTimerJob?.cancel()
         chairStandTimerJob?.cancel()

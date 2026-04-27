@@ -15,6 +15,7 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 class CalfRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
     override val exerciseName = "발뒤꿈치 들기"
+    override val coachingCueMessage = "발뒤꿈치를 더 들어올리세요."
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val sbu = SBUCalculator.calculate(landmarks)

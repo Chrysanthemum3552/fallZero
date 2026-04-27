@@ -15,6 +15,7 @@ import kotlin.math.abs
 class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
     override val exerciseName = "무릎 굽히기"
+    override val coachingCueMessage = "무릎을 조금 더 굽혀주세요."
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val side = AngleCalculator.pickVisibleSide(landmarks, LandmarkIndex.LEFT_KNEE, LandmarkIndex.RIGHT_KNEE)

@@ -7,6 +7,16 @@
 
 ## 1. 업데이트 현황
 
+### 2026-04-27 (이승종)
+- 운동 세션 자동 진행 흐름 구축 — 안내 화면(영상 placeholder + 멘트) → 카운트다운 → "시작!" → 측정
+- 13개 안내 멘트 작성 (운동 8개 + 균형 4단계 + 의자 일어서기), 검사세션도 동일 패턴 적용
+- 카운트 시점 앞당김 — ATTEMPTING 상태 추가, 사이클 완료가 아닌 motion 도달 시 즉시 카운트 (~1초 단축)
+- 코칭 큐 로직 개편 — 부족한 시도 실패 시에만 1회 발화 (운동별 멘트 단순화)
+- 양측 운동 lockedSide (#2 옆으로 다리 들기) — 잘못된 다리 즉시 피드백 + 두 번째 섹션 자동 flip
+- 사용자 카메라 이탈 시 일시정지 시스템 — 운동/균형/의자 모든 측정 단계 적용
+- 의자 위치 안내 변경(앞에) + 사전점검 임계값 완화 — MediaPipe occluded 추정값 활용
+- 마지막 카운트("열!") 음성 발화 보장 — 운동/균형/의자 모두 1.5초 delay 후 다음 단계 전환
+
 ### 2026-04-16 (이승종)
 - 앱 전체 기본 구조 구축 (MainActivity, Navigation Graph, Fragment 구조, Room DB, ViewModel)
 - MediaPipe BlazePose 연동 및 카메라 파이프라인 구현 (CameraX → PoseLandmarkerHelper → 33개 랜드마크 추출)
@@ -157,7 +167,6 @@ FallZero/
 ├── gradle/libs.versions.toml                          [이승종] 의존성 버전 관리
 ├── build.gradle.kts                                   프로젝트 레벨 빌드 설정
 ├── settings.gradle.kts
-├── CLAUDE.md                                          AI 코딩 어시스턴트 지시 파일
 └── .gitignore
 ```
 

@@ -11,18 +11,52 @@ import kotlin.math.abs
  * 운동 #2: 고관절 외전 (Hip Abduction)
  * 서서 한쪽 다리를 옆으로 들어 올렸다 내리기. 정면 촬영.
  * 메트릭: 무릎-엉덩이 선과 수직선의 각도 (외전 각도)
- * 좌/우 다리 자동 감지: 두 다리 중 외전 각도가 더 큰 쪽을 사용
+ *
+ * 양측 lockedSide 처리 (정면 운동 — 두 다리 모두 카메라에 보임):
+ *  - 첫 카운트(IN_MOTION 진입) 시점에 lockedSide 결정 = 그 시점 큰 angle의 다리
+ *  - 이후 lockedSide 다리만 측정 (반대 다리 들면 angle 무시 + errorMessage 발화)
+ *  - 두 번째 섹션 시작 시 onSideSwitch()로 lockedSide flip
  */
 class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
     override val exerciseName = "고관절 외전"
+    override val coachingCueMessage = "다리를 더 들어올리세요."
+
+    private var lockedSide: Side? = null
+
+    init {
+        // 빠른 반응을 위해 smoother alpha를 0.5로 (기본 0.3 → 카운트 발화 ~200ms 단축)
+        smoother = com.fallzero.app.pose.MetricSmoother(alpha = 0.5f)
+    }
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float {
-        // 정면 촬영: 양쪽 다리의 외전 각도를 모두 계산하고 큰 쪽 사용
-        // (좌/우 어느 쪽을 들어도 자동 감지)
         val leftAngle = calcAbductionAngle(landmarks, Side.LEFT)
         val rightAngle = calcAbductionAngle(landmarks, Side.RIGHT)
-        return maxOf(leftAngle, rightAngle)
+        // lockedSide 결정 전: 둘 중 큰 값 사용 (어느 다리든 들면 동작 시작 인지)
+        // lockedSide 결정 후: 그 다리 angle만 사용 (다른 다리 들어도 카운트 안 됨)
+        return when (lockedSide) {
+            Side.LEFT -> leftAngle
+            Side.RIGHT -> rightAngle
+            null -> maxOf(leftAngle, rightAngle)
+        }
+    }
+
+    /** 첫 카운트 시점에 lockedSide 결정 — BaseRepEngine이 ATTEMPTING → IN_MOTION 전이 시 호출 */
+    override fun onFirstCount(landmarks: List<NormalizedLandmark>) {
+        if (lockedSide == null) {
+            val leftAngle = calcAbductionAngle(landmarks, Side.LEFT)
+            val rightAngle = calcAbductionAngle(landmarks, Side.RIGHT)
+            lockedSide = if (leftAngle >= rightAngle) Side.LEFT else Side.RIGHT
+        }
+    }
+
+    /** 두 번째 섹션 시작 시 호출 — lockedSide 반대로 flip */
+    override fun onSideSwitch() {
+        lockedSide = when (lockedSide) {
+            Side.LEFT -> Side.RIGHT
+            Side.RIGHT -> Side.LEFT
+            null -> null
+        }
     }
 
     /**
@@ -44,13 +78,26 @@ class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     }
 
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
+        // lockedSide 결정 후, 사용자가 반대쪽 다리를 들면 우선 피드백
+        if (lockedSide != null) {
+            val leftAngle = calcAbductionAngle(landmarks, Side.LEFT)
+            val rightAngle = calcAbductionAngle(landmarks, Side.RIGHT)
+            val (lockedAngle, otherAngle) = if (lockedSide == Side.LEFT)
+                leftAngle to rightAngle else rightAngle to leftAngle
+            val partial = getPartialThreshold()
+            // 반대 다리는 partial 이상 들렸는데 lockedSide 다리는 안 들렸음 = 잘못된 다리
+            if (otherAngle >= partial && lockedAngle < partial) {
+                return "반대쪽 다리로 해주세요."
+            }
+        }
+
         val sbu = SBUCalculator.calculate(landmarks)
         if (sbu <= 0f) return null
         val leftHipY = landmarks[LandmarkIndex.LEFT_HIP].y()
         val rightHipY = landmarks[LandmarkIndex.RIGHT_HIP].y()
         val pelvisTiltRatio = abs(leftHipY - rightHipY) / sbu
         val pelvisTiltDeg = Math.toDegrees(kotlin.math.atan2(pelvisTiltRatio.toDouble(), 1.0)).toFloat()
-        return if (pelvisTiltDeg >= 10f) "골반이 기울어지지 않도록 해주세요" else null
+        return if (pelvisTiltDeg >= 10f) "골반이 기울지 않게 해주세요." else null
     }
 
     override val metricIncreasing = true

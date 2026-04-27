@@ -28,6 +28,8 @@ import com.fallzero.app.databinding.FragmentExamBinding
 import com.fallzero.app.pose.PoseLandmarkerHelper
 import com.fallzero.app.util.TTSManager
 import com.fallzero.app.viewmodel.ExamViewModel
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -58,6 +60,16 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private val standingMSamples = mutableListOf<Float>()  // 서있는 동안 M 값 수집 (동적 임계값)
     private enum class Mode { BALANCE, CHAIR_STAND }
     private var mode: Mode = Mode.BALANCE
+
+    // ─── 사용자 카메라 이탈 감지 (2초간 valid landmarks 없으면 일시정지) ───
+    @Volatile private var lastValidFrameMs = 0L
+    @Volatile private var isPausedForUserAway = false
+    @Volatile private var userReturnInProgress = false
+    private var userAwayCheckJob: Job? = null
+    private var pauseAnnounceJob: Job? = null
+    private val USER_AWAY_TIMEOUT_MS = 2000L
+    private val PAUSE_RESUME_BUFFER_MS = 1500L
+    private val PAUSE_TTS_LOOP_MS = 5000L
 
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -152,13 +164,14 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private fun autoStartExam() {
         when (mode) {
             Mode.BALANCE -> {
-                ttsManager?.speak("균형 검사를 시작합니다. 화면 안내에 따라 자세를 유지해주세요.")
+                // 첫 균형 단계 진입은 BalancePrepare phase observer에서 overlay로 처리
                 viewModel.startBalanceFlow()
             }
             Mode.CHAIR_STAND -> {
-                // 의자 준비: TTS → TTS끝 → 가만히 서기 감지 3초 → 설명 → 카운트다운 → 시작
+                // 의자 준비: 안내 overlay → 사용자가 의자 가져오는 동안 멘트 발화
+                //          → overlay 닫기 → 가만히 서기 감지 3초 → 설명 + 카운트다운 → 시작
                 chairPrepareMode = true
-                chairPreparePhase = 0  // 0=TTS재생중
+                chairPreparePhase = 0  // 0=TTS재생중 + overlay 표시
                 bodyStillSinceMs = 0L
                 lastShoulderY = 0f
                 standingMSamples.clear()
@@ -168,11 +181,11 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 b.tvCount.text = "의자를 카메라 앞에 가져와서\n놓아주세요.\n\n의자 앞에 가만히 서면\n자동으로 시작됩니다."
                 b.tvCount.setTextColor(0xFF1565C0.toInt())
                 b.tvCount.textSize = 20f
-                ttsManager?.speak(
-                    "의자 일어서기 검사입니다. 의자를 카메라 앞에 가져와서 놓아주세요. 준비되면 의자 앞에 가만히 서주세요."
-                )
-                // TTS 끝날 때까지 대기 → 가만히 서기 감지 시작
-                waitForTtsFinish {
+                showExamGuidance(
+                    titleRes = R.string.exam_guide_chair_title,
+                    scriptRes = R.string.exam_guide_chair
+                ) {
+                    // 안내 멘트 끝 → overlay 닫고 가만히 서기 감지(Phase 1)로 전환
                     if (_binding != null && !hasNavigated && chairPrepareMode) {
                         chairPreparePhase = 1
                         _binding?.tvTimer?.text = "의자 앞에 가만히 서주세요"
@@ -180,6 +193,44 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 }
             }
         }
+    }
+
+    /**
+     * 검사 단계 시작 전 안내 overlay 표시:
+     *  1. overlay 표시 (제목 + 동영상 placeholder + 안내 멘트)
+     *  2. 안내 멘트 TTS 발화
+     *  3. waitForTtsFinish → overlay 닫기 → onAfterScript() 호출
+     * 균형 4단계는 onAfterScript에서 카운트다운 후 측정 시작 (별도 함수 처리).
+     * 의자 검사는 onAfterScript에서 가만히 서기 감지 phase로 전환.
+     */
+    private fun showExamGuidance(titleRes: Int, scriptRes: Int, onAfterScript: () -> Unit) {
+        val b = _binding ?: return
+        b.tvGuidanceTitle.text = getString(titleRes)
+        b.tvGuidanceText.text = getString(scriptRes)
+        b.tvGuidanceCountdown.visibility = View.GONE
+        b.guidanceOverlay.visibility = View.VISIBLE
+        ttsManager?.speak(getString(scriptRes).replace("\n", " "))
+        waitForTtsFinish {
+            if (_binding == null || hasNavigated) return@waitForTtsFinish
+            _binding?.guidanceOverlay?.visibility = View.GONE
+            onAfterScript()
+        }
+    }
+
+    private fun balanceTitleRes(stage: Int): Int = when (stage) {
+        1 -> R.string.exam_guide_balance_1_title
+        2 -> R.string.exam_guide_balance_2_title
+        3 -> R.string.exam_guide_balance_3_title
+        4 -> R.string.exam_guide_balance_4_title
+        else -> R.string.exam_guide_balance_1_title
+    }
+
+    private fun balanceScriptRes(stage: Int): Int = when (stage) {
+        1 -> R.string.exam_guide_balance_1
+        2 -> R.string.exam_guide_balance_2
+        3 -> R.string.exam_guide_balance_3
+        4 -> R.string.exam_guide_balance_4
+        else -> R.string.exam_guide_balance_1
     }
 
     private fun observeViewModel() {
@@ -219,7 +270,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             navigateNext()
                         }
                         is ExamViewModel.ExamPhase.BalancePrepare -> {
-                            // 자세 안내 TTS → TTS 완료 → 3,2,1 카운트다운 → "시작!" 후 측정 시작
+                            // 균형 4단계 각각: 안내 overlay 표시 → 멘트 TTS → overlay 닫기 →
+                            //                "이제 곧 시작합니다" → 3,2,1 → "시작!" → 1.5초 → 측정 시작.
+                            // 화면 텍스트(tvExamPhase/tvCount)는 overlay 닫힌 직후 짧게 보였다가 Balance phase로 갱신됨.
                             b.tvExamPhase.text = "${phase.stage}단계: ${phase.stageName}"
                             b.tvTimer.text = "준비하세요"
                             b.tvCount.text = phase.stageInstruction
@@ -227,19 +280,22 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             b.tvCount.textSize = 20f
                             lastSpokenSecond = -1
                             lastHintText = null
-                            ttsManager?.speak(
-                                "${phase.stage}단계, ${phase.stageName}. ${phase.stageInstruction.replace("\n", " ")} 자세를 잡아주세요. 곧 시작합니다."
-                            )
-                            // TTS 완료 → 카운트다운 → "시작!" → TTS 대기 → 1.5초 여유 → 측정 시작
-                            waitForTtsThenCountdown {
-                                // "시작!" 후 1.5초 여유 → 측정 시작 (힌트 즉시 허용)
-                                _binding?.root?.postDelayed({
-                                    if (_binding != null && !hasNavigated) {
-                                        lastHintSpokenMs = 0L  // 잘못된 자세면 즉시 힌트 발화
-                                        lastSpokenSecond = -1
-                                        viewModel.startBalanceMeasurementNow()
-                                    }
-                                }, 1500L)
+                            showExamGuidance(
+                                titleRes = balanceTitleRes(phase.stage),
+                                scriptRes = balanceScriptRes(phase.stage)
+                            ) {
+                                // overlay 닫힌 후: "이제 곧 시작합니다" → 카운트다운 → 측정 시작
+                                ttsManager?.speak(getString(R.string.guidance_starting_soon))
+                                waitForTtsThenCountdown {
+                                    _binding?.root?.postDelayed({
+                                        if (_binding != null && !hasNavigated) {
+                                            lastHintSpokenMs = 0L  // 잘못된 자세면 즉시 힌트 발화
+                                            lastSpokenSecond = -1
+                                            viewModel.startBalanceMeasurementNow()
+                                            startUserAwayMonitor()
+                                        }
+                                    }, 1500L)
+                                }
                             }
                         }
                         is ExamViewModel.ExamPhase.Balance -> {
@@ -364,6 +420,11 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     override fun onResults(resultBundle: PoseLandmarkerHelper.ResultBundle) {
         val result = resultBundle.results.firstOrNull() ?: return
         val landmarks = result.landmarks().firstOrNull()
+        // 유효한 landmarks 도착 시 이탈 감지 timestamp 갱신 + (이탈 중이었으면) 복귀 처리
+        if (landmarks != null) {
+            lastValidFrameMs = System.currentTimeMillis()
+            if (isPausedForUserAway) onUserReturned()
+        }
         activity?.runOnUiThread {
             val b = _binding ?: return@runOnUiThread
             if (!isAdded || hasNavigated) return@runOnUiThread
@@ -419,13 +480,14 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 "팔은 가슴에 교차해주세요. 곧 시작합니다."
                             )
                             waitForTtsThenCountdown {
-                                // "시작!" 후 1.5초 여유 → 측정 시작
+                                // "시작!" 후 1.5초 여유 → 측정 시작 + 이탈 감지 monitor 시작
                                 _binding?.root?.postDelayed({
                                     if (_binding != null && !hasNavigated && chairPrepareMode) {
                                         chairPrepareMode = false
                                         lastSpokenSecond = -1
                                         lastHintSpokenMs = 0L  // 힌트 즉시 허용
                                         viewModel.startChairStand()
+                                        startUserAwayMonitor()
                                     }
                                 }, 1500L)
                             }
@@ -522,6 +584,54 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }, 1000L)
     }
 
+    /** 사용자 이탈 감지 timer 시작 — 측정 시작 시점에 호출. */
+    private fun startUserAwayMonitor() {
+        userAwayCheckJob?.cancel()
+        lastValidFrameMs = System.currentTimeMillis()
+        userAwayCheckJob = viewLifecycleOwner.lifecycleScope.launch {
+            while (isAdded && !hasNavigated) {
+                delay(500)
+                if (isPausedForUserAway) continue
+                val now = System.currentTimeMillis()
+                if (lastValidFrameMs > 0L && now - lastValidFrameMs > USER_AWAY_TIMEOUT_MS) {
+                    onUserAway()
+                }
+            }
+        }
+    }
+
+    private fun onUserAway() {
+        if (isPausedForUserAway) return
+        isPausedForUserAway = true
+        viewModel.pauseForUserAway()
+        _binding?.pauseOverlay?.visibility = View.VISIBLE
+        ttsManager?.speak("카메라 앞으로 와주세요.")
+        pauseAnnounceJob?.cancel()
+        pauseAnnounceJob = viewLifecycleOwner.lifecycleScope.launch {
+            while (isPausedForUserAway && isAdded && !hasNavigated) {
+                delay(PAUSE_TTS_LOOP_MS)
+                if (isPausedForUserAway) {
+                    ttsManager?.speak("카메라 앞으로 와주세요.")
+                }
+            }
+        }
+    }
+
+    private fun onUserReturned() {
+        if (!isPausedForUserAway || userReturnInProgress) return
+        userReturnInProgress = true
+        pauseAnnounceJob?.cancel()
+        viewLifecycleOwner.lifecycleScope.launch {
+            delay(PAUSE_RESUME_BUFFER_MS)
+            userReturnInProgress = false
+            if (!isAdded || hasNavigated) return@launch
+            _binding?.pauseOverlay?.visibility = View.GONE
+            isPausedForUserAway = false
+            viewModel.resumeFromUserAway()
+            ttsManager?.speak("다시 시작합니다.")
+        }
+    }
+
     /** 전신이 보이는지 확인 (PreFlightFragment와 동일 로직) */
     private fun isFullBodyVisible(
         landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>?
@@ -543,6 +653,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        userAwayCheckJob?.cancel(); userAwayCheckJob = null
+        pauseAnnounceJob?.cancel(); pauseAnnounceJob = null
         cleanupCamera()
         try { ttsManager?.shutdown() } catch (_: Exception) {}
         ttsManager = null

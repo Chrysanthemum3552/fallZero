@@ -57,6 +57,10 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
     // 초기화 race 방지: launch coroutine에서 setPRB 완료 전까지 frame 처리 차단
     @Volatile private var isReady = false
 
+    // 안내 화면 가드: Fragment의 카운트다운 + "시작!" 음성 종료 전까지 frame 처리 차단.
+    // 사용자는 안내 멘트와 카운트다운 동안 자세를 잡을 시간을 확보 — 잘못된 동작이 측정되지 않음.
+    @Volatile private var measurementStarted = false
+
     // 다차원 품질 점수용 데이터 수집.
     // currentRepPeak: NaN sentinel로 시작 → 첫 capture부터 정확히 추적 (ChairStand decreasing 대응)
     private val repPeakMetrics = mutableListOf<Float>()
@@ -66,6 +70,9 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
     fun initExercise(engine: ExerciseEngine, exerciseId: Int, setLevel: Int, existingSessionId: Long = -1L) {
         // 초기화 race 방지: setPRB 호출 전까지 frame 처리 차단
         isReady = false
+        // 안내 화면 끝(=Fragment의 startMeasurement 호출)까지 frame 차단
+        measurementStarted = false
+        isAwaitingFinalCount = false
         currentEngine = engine
         currentExerciseId = exerciseId
         currentSetLevel = setLevel
@@ -106,10 +113,40 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun processLandmarks(landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>) {
-        // 초기화 미완료 또는 양측 휴식 중에는 엔진 처리 중지
-        if (!isReady || sidePhase == SidePhase.INTERSIDE_REST) return
+        // 초기화 미완료, 안내 화면 진행 중, 또는 양측 휴식 중에는 엔진 처리 중지
+        if (!isReady || !measurementStarted || sidePhase == SidePhase.INTERSIDE_REST) return
         val result = currentEngine?.processLandmarks(landmarks) ?: return
         onFrameResult(result)
+    }
+
+    /**
+     * Fragment의 안내 화면 종료(="시작!" 음성 후 1.5초) 시점에 호출 — 측정 시작.
+     * 안내 동안 누적된 정적 타이머를 리셋하여 잘못된 inactivity timeout 방지.
+     */
+    fun startMeasurement() {
+        lastMovementMs = System.currentTimeMillis()
+        lastMetricValue = 0f
+        lastFrameMs = 0L
+        measurementStarted = true
+    }
+
+    /**
+     * 사용자가 카메라 시야에서 이탈했을 때 Fragment에서 호출.
+     * frame 처리 차단 + inactivity timer 무효화 (이탈 시간 동안 자동 종료 방지).
+     */
+    fun pauseForUserAway() {
+        measurementStarted = false
+    }
+
+    /**
+     * 사용자가 다시 카메라 앞에 돌아왔을 때 Fragment의 1.5초 buffer 후 호출.
+     * 측정 재개 + inactivity timer 리셋 (이탈 직전 lastMovementMs로 인한 false trigger 방지).
+     */
+    fun resumeFromUserAway() {
+        lastMovementMs = System.currentTimeMillis()
+        lastMetricValue = 0f
+        lastFrameMs = 0L
+        measurementStarted = true
     }
 
     /**
@@ -123,8 +160,9 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
 
     fun onFrameResult(result: FrameResult) {
         val engine = currentEngine ?: return
-        // errorCount는 rep 단위 카운팅 (errorMessage는 카운트 발생 frame에서만 not-null이므로 1회 증가)
-        if (result.errorMessage != null) errorCount++
+        // errorCount는 rep 단위 카운팅 — 카운트 발생 frame에서 errorMessage가 있을 때만 +1.
+        // (errorMessage는 매 frame 전달되지만, 이는 transient 피드백용. errorCount는 사이클당 1회.)
+        if (result.isCountIncremented && result.errorMessage != null) errorCount++
 
         val now = System.currentTimeMillis()
 
@@ -164,6 +202,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             hasError = result.hasError,
             errorMessage = result.errorMessage,
             isCoachingCue = result.isCoachingCue,
+            coachingCueMessage = result.coachingCueMessage,
             isCalibrating = result.state == EngineState.CALIBRATING,
             engineState = result.state,
             currentMetric = result.currentMetric,
@@ -198,10 +237,17 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         }
 
         // 목표 횟수 달성 → 양측 처리 또는 완료
-        if (result.count >= perSideTarget && !isCompleted) {
-            handleSideOrComplete(engine)
+        // 1.5초 delay: "열" 카운트 음성이 발화될 시간 확보 (즉시 다음 단계 전환하면 cut off)
+        if (result.count >= perSideTarget && !isCompleted && !isAwaitingFinalCount) {
+            isAwaitingFinalCount = true
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(1500)
+                if (!isCompleted) handleSideOrComplete(engine)
+            }
         }
     }
+
+    @Volatile private var isAwaitingFinalCount = false
 
     private fun handleSideOrComplete(engine: ExerciseEngine) {
         if (!isBilateral) {
@@ -230,22 +276,33 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    /** UI(Fragment)가 5초 카운트다운 끝나면 호출 → 오른쪽 시작 */
+    /** UI(Fragment)에서 양측 전환 안내(TTS+카운트다운) 끝난 직후 호출 → 오른쪽 측정 시작.
+     *  측정 가드(measurementStarted)도 다시 true로 — Fragment가 별도로 startMeasurement() 호출 안 해도 됨. */
     fun startRightSide() {
         val engine = currentEngine ?: return
         engine.reset()
+        // 양측 운동: lockedSide flip 등 engine 측 처리 (HipAbduction에서 의미)
+        engine.onSideSwitch()
         // PRB는 reset() 후에도 유지되므로 다시 setPRB 호출 불필요
         sidePhase = SidePhase.RIGHT
         errorCount = 0
+        isAwaitingFinalCount = false
         lastMovementMs = System.currentTimeMillis()
         lastMetricValue = 0f
         lastFrameMs = 0L
         currentRepPeak = Float.NaN
+        measurementStarted = true
         _uiState.value = ExerciseUiState.Ready(
             exerciseName = engine.exerciseName,
             targetCount = perSideTarget,
             bilateralSide = "오른쪽"
         )
+    }
+
+    /** Fragment가 양측 전환 안내(짧은 TTS + 카운트다운)를 시작할 때 호출.
+     *  안내 도중 frame 처리를 차단하여 잘못된 자세가 카운트되지 않도록 보장. */
+    fun pauseMeasurementForSideSwitch() {
+        measurementStarted = false
     }
 
     private fun saveCalibratedPRB(engine: ExerciseEngine) {
@@ -324,6 +381,8 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
 
     fun reset() {
         isReady = false
+        measurementStarted = false
+        isAwaitingFinalCount = false
         currentEngine?.reset()
         currentEngine = null
         errorCount = 0
@@ -365,6 +424,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             val hasError: Boolean,
             val errorMessage: String?,
             val isCoachingCue: Boolean,
+            val coachingCueMessage: String? = null,
             val isCalibrating: Boolean,
             val engineState: EngineState,
             val currentMetric: Float = 0f,

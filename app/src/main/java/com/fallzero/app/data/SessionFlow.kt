@@ -46,7 +46,10 @@ object SessionFlow {
      */
     @Volatile var pendingAutoForward: Boolean = false
 
-    /** 운동 세션 큐 빌드: 정면(2,8) → 측면 회전 → 측면(1,3,4,5,6,7). 사이마다 휴식. */
+    /** 운동 세션 큐 빌드: 정면(2,7,8) → 측면 회전 → 측면(4,5,6,1,3). 사이마다 휴식.
+     *  #7 의자에서 일어서기는 정면 카메라(어깨 기준 메트릭)로 측정 — 검사세션과 동일.
+     *  순서 근거: 정면 워밍업(2) → 복합 근력(7) → 균형(8) → 회전 → 측면 워밍업(4,5)
+     *           → 전신 근력(6) → 단일관절 강화(1=의자, 3) — OEP 효과 유지. */
     fun startExerciseSession() {
         sessionType = SessionType.EXERCISE
         index = 0
@@ -54,10 +57,10 @@ object SessionFlow {
         list += Step(StepType.PRE_FLIGHT, title = "운동 준비",
             subtitle = "핸드폰을 수직으로 세우고 전신이 보이도록 서주세요.")
 
-        // 정면 운동 그룹
-        val frontGroup = listOf(2, 8)
+        // 정면 운동 그룹 (#7 chair stand는 정면 측정으로 통일)
+        val frontGroup = listOf(2, 7, 8)
         // 측면 운동 그룹 (좌/우 회전 1회 후 모두 측면)
-        val sideGroup = listOf(1, 3, 4, 5, 6, 7)
+        val sideGroup = listOf(4, 5, 6, 1, 3)
 
         frontGroup.forEachIndexed { i, id ->
             list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
@@ -97,8 +100,8 @@ object SessionFlow {
         steps = list
     }
 
-    /** 정면 촬영 운동 ID (회전 불필요) */
-    val FRONT_EXERCISES = setOf(2, 8)
+    /** 정면 촬영 운동 ID (회전 불필요). #7은 검사세션과 동일하게 정면 어깨 기준 측정. */
+    val FRONT_EXERCISES = setOf(2, 7, 8)
 
     /** 디버그: 균형 검사 건너뛰고 의자 일어서기만 */
     fun startExamChairStandOnly() {
