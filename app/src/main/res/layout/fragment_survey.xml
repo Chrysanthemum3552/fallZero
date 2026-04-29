@@ -11,7 +11,7 @@
         android:layout_height="wrap_content"
         android:padding="24dp">
 
-        <!-- ── Step 1: 기본 정보 ── -->
+        <!-- Step 1: 기본 정보 -->
         <LinearLayout
             android:id="@+id/section_step1"
             android:layout_width="0dp"
@@ -25,73 +25,103 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/survey_title"
-                android:textSize="24sp"
+                android:text="기본 정보를 입력해 주세요"
+                android:textSize="28sp"
                 android:textStyle="bold"
-                android:textColor="@color/text_primary"
+                android:textColor="@drawable/rb_text_selector"
                 android:layout_marginTop="32dp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/survey_gender"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:layout_marginTop="32dp" />
+                android:text="정확한 검사를 위해 필요합니다"
+                android:textSize="18sp"
+                android:textColor="@color/text_secondary"
+                android:layout_marginTop="8dp" />
+
+            <!-- 성별 -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="성별이 어떻게 되세요?"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@drawable/rb_text_selector"
+                android:layout_marginTop="40dp" />
 
             <RadioGroup
                 android:id="@+id/rg_gender"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="16dp">
 
                 <RadioButton
                     android:id="@+id/rb_male"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/survey_male"
-                    android:layout_marginEnd="24dp" />
+                    android:layout_width="0dp"
+                    android:layout_height="64dp"
+                    android:layout_weight="1"
+                    android:text="남성"
+                    android:textColor="@drawable/rb_text_selector"
+                    android:textSize="20sp"
+                    android:gravity="center"
+                    android:button="@null"
+                    android:background="@drawable/bg_tag"
+                    android:layout_marginEnd="8dp" />
 
                 <RadioButton
                     android:id="@+id/rb_female"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/survey_female" />
+                    android:layout_width="0dp"
+                    android:layout_height="64dp"
+                    android:layout_weight="1"
+                    android:text="여성"
+                    android:textColor="@drawable/rb_text_selector"
+                    android:textSize="20sp"
+                    android:gravity="center"
+                    android:button="@null"
+                    android:background="@drawable/bg_tag"
+                    android:layout_marginStart="8dp" />
             </RadioGroup>
 
+            <!-- 나이 -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/survey_age"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:layout_marginTop="24dp" />
+                android:text="나이가 어떻게 되세요? (만 나이)"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:textColor="@drawable/rb_text_selector"
+                android:layout_marginTop="40dp" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/til_age"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp">
+                android:layout_marginTop="12dp">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_age"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="64dp"
                     android:inputType="number"
-                    android:hint="나이를 입력하세요 (만 나이)" />
+                    android:hint="예) 70"
+                    android:textSize="22sp"
+                    android:gravity="center" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_next"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="@string/btn_next"
-                android:textSize="18sp"
-                android:layout_marginTop="32dp" />
+                android:layout_height="64dp"
+                android:text="다음으로"
+                android:textSize="22sp"
+                android:layout_marginTop="40dp"
+                android:layout_marginBottom="32dp"
+                app:cornerRadius="12dp" />
+
         </LinearLayout>
 
-        <!-- ── Step 2: STEADI 설문 ── -->
+        <!-- Step 2: STEADI 설문 -->
         <LinearLayout
             android:id="@+id/section_step2"
             android:layout_width="0dp"
@@ -105,97 +135,212 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/steadi_title"
-                android:textSize="22sp"
+                android:text="건강 상태 확인"
+                android:textSize="28sp"
                 android:textStyle="bold"
-                android:textColor="@color/text_primary"
+                android:textColor="@drawable/rb_text_selector"
                 android:layout_marginTop="32dp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="아래 질문에 솔직하게 답해주세요. (CDC STEADI 기준)"
-                android:textSize="14sp"
+                android:text="아래 질문에 솔직하게 답해 주세요"
+                android:textSize="18sp"
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="8dp" />
 
             <!-- Q1 -->
-            <TextView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="1. 지난 1년 동안 넘어진 적이 있으신가요?"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:layout_marginTop="28dp" />
+                android:layout_marginTop="28dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
 
-            <RadioGroup
-                android:id="@+id/rg_q1"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="8dp">
-                <RadioButton android:id="@+id/rb_q1_yes" android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="@string/steadi_yes"
-                    android:layout_marginEnd="24dp" />
-                <RadioButton android:id="@+id/rb_q1_no" android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="@string/steadi_no"
-                    android:checked="true" />
-            </RadioGroup>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="지난 1년 동안\n넘어진 적이 있으신가요?"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="@drawable/rb_text_selector"
+                        android:lineSpacingMultiplier="1.3" />
+
+                    <RadioGroup
+                        android:id="@+id/rg_q1"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="16dp">
+
+                        <RadioButton
+                            android:id="@+id/rb_q1_yes"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:text="예"
+                            android:textColor="@drawable/rb_text_selector"
+                            android:textSize="20sp"
+                            android:gravity="center"
+                            android:button="@null"
+                            android:background="@drawable/bg_tag"
+                            android:layout_marginEnd="8dp" />
+
+                        <RadioButton
+                            android:id="@+id/rb_q1_no"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:text="아니오"
+                            android:textColor="@drawable/rb_text_selector"
+                            android:textSize="20sp"
+                            android:gravity="center"
+                            android:button="@null"
+                            android:background="@drawable/bg_tag"
+                            android:checked="true"
+                            android:layout_marginStart="8dp" />
+                    </RadioGroup>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Q2 -->
-            <TextView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="2. 서 있거나 걸을 때 불안정한 느낌이 드시나요?"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:layout_marginTop="20dp" />
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
 
-            <RadioGroup
-                android:id="@+id/rg_q2"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="8dp">
-                <RadioButton android:id="@+id/rb_q2_yes" android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="@string/steadi_yes"
-                    android:layout_marginEnd="24dp" />
-                <RadioButton android:id="@+id/rb_q2_no" android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="@string/steadi_no"
-                    android:checked="true" />
-            </RadioGroup>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="서 있거나 걸을 때\n불안정한 느낌이 드시나요?"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="@drawable/rb_text_selector"
+                        android:lineSpacingMultiplier="1.3" />
+
+                    <RadioGroup
+                        android:id="@+id/rg_q2"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="16dp">
+
+                        <RadioButton
+                            android:id="@+id/rb_q2_yes"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:text="예"
+                            android:textColor="@drawable/rb_text_selector"
+                            android:textSize="20sp"
+                            android:gravity="center"
+                            android:button="@null"
+                            android:background="@drawable/bg_tag"
+                            android:layout_marginEnd="8dp" />
+
+                        <RadioButton
+                            android:id="@+id/rb_q2_no"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:text="아니오"
+                            android:textColor="@drawable/rb_text_selector"
+                            android:textSize="20sp"
+                            android:gravity="center"
+                            android:button="@null"
+                            android:background="@drawable/bg_tag"
+                            android:checked="true"
+                            android:layout_marginStart="8dp" />
+                    </RadioGroup>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <!-- Q3 -->
-            <TextView
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="3. 넘어질까봐 두려우신가요?"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:layout_marginTop="20dp" />
+                android:layout_marginTop="16dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="2dp"
+                app:cardBackgroundColor="@color/surface">
 
-            <RadioGroup
-                android:id="@+id/rg_q3"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginTop="8dp">
-                <RadioButton android:id="@+id/rb_q3_yes" android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="@string/steadi_yes"
-                    android:layout_marginEnd="24dp" />
-                <RadioButton android:id="@+id/rb_q3_no" android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" android:text="@string/steadi_no"
-                    android:checked="true" />
-            </RadioGroup>
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="넘어질까봐\n두려우신가요?"
+                        android:textSize="20sp"
+                        android:textStyle="bold"
+                        android:textColor="@drawable/rb_text_selector"
+                        android:lineSpacingMultiplier="1.3" />
+
+                    <RadioGroup
+                        android:id="@+id/rg_q3"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="16dp">
+
+                        <RadioButton
+                            android:id="@+id/rb_q3_yes"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:text="예"
+                            android:textColor="@drawable/rb_text_selector"
+                            android:textSize="20sp"
+                            android:gravity="center"
+                            android:button="@null"
+                            android:background="@drawable/bg_tag"
+                            android:layout_marginEnd="8dp" />
+
+                        <RadioButton
+                            android:id="@+id/rb_q3_no"
+                            android:layout_width="0dp"
+                            android:layout_height="56dp"
+                            android:layout_weight="1"
+                            android:text="아니오"
+                            android:textColor="@drawable/rb_text_selector"
+                            android:textSize="20sp"
+                            android:gravity="center"
+                            android:button="@null"
+                            android:background="@drawable/bg_tag"
+                            android:checked="true"
+                            android:layout_marginStart="8dp" />
+                    </RadioGroup>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_complete"
                 android:layout_width="match_parent"
-                android:layout_height="56dp"
-                android:text="@string/btn_complete"
-                android:textSize="18sp"
+                android:layout_height="64dp"
+                android:text="완료 후 검사 시작"
+                android:textSize="22sp"
                 android:layout_marginTop="40dp"
-                android:layout_marginBottom="32dp" />
+                android:layout_marginBottom="32dp"
+                app:cornerRadius="12dp" />
 
         </LinearLayout>
 

@@ -253,7 +253,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             if (phase.count > 0 && phase.count != lastSpokenSecond) {
                                 lastSpokenSecond = phase.count
                                 if (ttsManager?.isSpeaking() != true) {
-                                    ttsManager?.speak("${phase.count}", flush = true)
+                                    ttsManager?.speak("${phase.count}")
                                 }
                             }
                             // 얕은 앉기 피드백 TTS (4초 쿨다운)
@@ -261,7 +261,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 val now = System.currentTimeMillis()
                                 if (now - lastHintSpokenMs > 4000L) {
                                     lastHintSpokenMs = now
-                                    ttsManager?.speak(phase.errorHint, flush = false)
+                                    ttsManager?.speak(phase.errorHint)
                                 }
                             }
                         }
@@ -316,7 +316,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                             6 -> "육"; 7 -> "칠"; 8 -> "팔"; 9 -> "구"; 10 -> "십"
                                             else -> elapsed.toString()
                                         }
-                                        ttsManager?.speak(korNum, flush = true)
+                                        ttsManager?.speak(korNum)
                                     }
                                 }
                             } else {
@@ -333,7 +333,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                     if (now - lastHintSpokenMs > 4000L) {
                                         lastHintSpokenMs = now
                                         lastHintText = hint
-                                        ttsManager?.speak(hint, flush = false)
+                                        ttsManager?.speak(hint)
                                     }
                                 }
                             }
@@ -558,22 +558,22 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.tvCount.setTextColor(0xFFFFFFFF.toInt())
 
         b.tvCount.text = "3"
-        ttsManager?.speak("삼", flush = true)
+        ttsManager?.speak("삼")
         b.root.postDelayed({
             if (_binding == null || hasNavigated) return@postDelayed
             _binding?.tvCount?.text = "2"
-            ttsManager?.speak("이", flush = true)
+            ttsManager?.speak("이")
 
             _binding?.root?.postDelayed({
                 if (_binding == null || hasNavigated) return@postDelayed
                 _binding?.tvCount?.text = "1"
-                ttsManager?.speak("일", flush = true)
+                ttsManager?.speak("일")
 
                 _binding?.root?.postDelayed({
                     if (_binding == null || hasNavigated) return@postDelayed
                     _binding?.tvCount?.text = "시작!"
                     _binding?.tvCount?.setTextColor(0xFF4CAF50.toInt())
-                    ttsManager?.speak("시작!", flush = true)
+                    ttsManager?.speak("시작!")
 
                     // "시작!" TTS 완전히 끝난 후 onReady (800ms 고정 대신 TTS 대기)
                     waitForTtsFinish {

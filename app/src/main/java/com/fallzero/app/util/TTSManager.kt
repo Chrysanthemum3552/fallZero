@@ -8,6 +8,7 @@ import java.util.Locale
 class TTSManager(context: Context) : TextToSpeech.OnInitListener {
 
     private val tts = TextToSpeech(context, this)
+    private var isReady = false
     private var isInitialized = false
     private val pendingQueue = mutableListOf<String>()
 
@@ -18,23 +19,25 @@ class TTSManager(context: Context) : TextToSpeech.OnInitListener {
                 Log.e("TTSManager", "한국어 TTS를 지원하지 않습니다")
             } else {
                 isInitialized = true
+                isReady = true
+                tts.setSpeechRate(0.75f)
                 pendingQueue.forEach { speak(it) }
                 pendingQueue.clear()
             }
         }
     }
 
-    fun speak(text: String, flush: Boolean = true) {
-        if (!isInitialized) {
-            pendingQueue.add(text)
-            return
-        }
-        val queueMode = if (flush) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
-        tts.speak(text, queueMode, null, null)
+    fun speak(text: String) {
+       if(!isReady) return
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, null)
+    }
+    fun speakAdd(text: String){
+        if(!isReady) return
+        tts.speak(text, TextToSpeech.QUEUE_ADD, null, null)
     }
 
     fun speakCount(count: Int) {
-        speak("${count}회", flush = false)
+        speak("${count}회")
     }
 
     /** 현재 음성이 재생 중인지 */

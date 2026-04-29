@@ -292,7 +292,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                     state.errorMessage != null -> {
                                         b.tvErrorMessage.text = state.errorMessage
                                         b.tvErrorMessage.visibility = View.VISIBLE
-                                        ttsManager?.speak(state.errorMessage, flush = false)
+                                        ttsManager?.speak(state.errorMessage)
                                     }
                                     else -> b.tvErrorMessage.visibility = View.GONE
                                 }
@@ -304,7 +304,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 if (state.count > 0 && state.count != lastSpokenCount) {
                                     lastSpokenCount = state.count
                                     if (ttsManager?.isSpeaking() != true) {
-                                        ttsManager?.speak("${state.count}", flush = true)
+                                        ttsManager?.speak("${state.count}")
                                     }
                                 }
                                 // transient 메시지 처리 (자세 오류 또는 코칭 큐 — 둘 다 한 frame에만 발생하는 이벤트).
@@ -447,7 +447,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val b = _binding ?: return
         b.tvErrorMessage.text = msg
         b.tvErrorMessage.visibility = View.VISIBLE
-        ttsManager?.speak(msg, flush = false)
+        ttsManager?.speak(msg)
 
         transientMsgHideRunnable?.let { b.tvErrorMessage.removeCallbacks(it) }
         val runnable = Runnable { _binding?.tvErrorMessage?.visibility = View.GONE }
@@ -495,21 +495,21 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
 
         countdownView.text = "3"
-        ttsManager?.speak("삼", flush = true)
+        ttsManager?.speak("삼")
         b.root.postDelayed({
             if (_binding == null || hasNavigated) return@postDelayed
             (if (insideOverlay) _binding?.tvGuidanceCountdown else _binding?.tvCount)?.text = "2"
-            ttsManager?.speak("이", flush = true)
+            ttsManager?.speak("이")
 
             _binding?.root?.postDelayed({
                 if (_binding == null || hasNavigated) return@postDelayed
                 (if (insideOverlay) _binding?.tvGuidanceCountdown else _binding?.tvCount)?.text = "1"
-                ttsManager?.speak("일", flush = true)
+                ttsManager?.speak("일")
 
                 _binding?.root?.postDelayed({
                     if (_binding == null || hasNavigated) return@postDelayed
                     (if (insideOverlay) _binding?.tvGuidanceCountdown else _binding?.tvCount)?.text = "시작!"
-                    ttsManager?.speak("시작!", flush = true)
+                    ttsManager?.speak("시작!")
 
                     waitForTtsFinish {
                         if (_binding != null && !hasNavigated) onReady()

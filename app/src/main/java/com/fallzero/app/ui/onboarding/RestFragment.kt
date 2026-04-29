@@ -56,7 +56,7 @@ class RestFragment : Fragment() {
             override fun onTick(msLeft: Long) {
                 val s = (msLeft / 1000L).toInt().coerceAtLeast(0)
                 _binding?.tvCountdown?.text = s.toString()
-                if (s == 3) ttsManager?.speak("3", flush = false)
+                if (s == 3) ttsManager?.speak("3")
             }
 
             override fun onFinish() {
