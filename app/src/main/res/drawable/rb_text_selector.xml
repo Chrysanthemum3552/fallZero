@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:state_checked="true" android:color="#FFFFFF" />
-    <item android:color="@color/text_primary" />
+    <!-- 선택됐을 때: 검정 글씨 (노란 배경 위) -->
+    <item android:state_checked="true" android:color="#000000" />
+    <!-- 기본: 노란 글씨 -->
+    <item android:color="#FFFF00" />
 </selector>

@@ -26,16 +26,16 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="기본 정보를 입력해 주세요"
-                android:textSize="28sp"
+                android:textSize="44sp"
                 android:textStyle="bold"
-                android:textColor="@drawable/rb_text_selector"
+                android:textColor="@color/text_primary"
                 android:layout_marginTop="32dp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="정확한 검사를 위해 필요합니다"
-                android:textSize="18sp"
+                android:textSize="36sp"
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="8dp" />
 
@@ -44,9 +44,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="성별이 어떻게 되세요?"
-                android:textSize="22sp"
+                android:textSize="40sp"
                 android:textStyle="bold"
-                android:textColor="@drawable/rb_text_selector"
+                android:textColor="@color/text_primary"
                 android:layout_marginTop="40dp" />
 
             <RadioGroup
@@ -59,11 +59,11 @@
                 <RadioButton
                     android:id="@+id/rb_male"
                     android:layout_width="0dp"
-                    android:layout_height="64dp"
+                    android:layout_height="80dp"
                     android:layout_weight="1"
                     android:text="남성"
                     android:textColor="@drawable/rb_text_selector"
-                    android:textSize="20sp"
+                    android:textSize="40sp"
                     android:gravity="center"
                     android:button="@null"
                     android:background="@drawable/bg_tag"
@@ -72,11 +72,11 @@
                 <RadioButton
                     android:id="@+id/rb_female"
                     android:layout_width="0dp"
-                    android:layout_height="64dp"
+                    android:layout_height="80dp"
                     android:layout_weight="1"
                     android:text="여성"
                     android:textColor="@drawable/rb_text_selector"
-                    android:textSize="20sp"
+                    android:textSize="40sp"
                     android:gravity="center"
                     android:button="@null"
                     android:background="@drawable/bg_tag"
@@ -88,9 +88,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="나이가 어떻게 되세요? (만 나이)"
-                android:textSize="22sp"
+                android:textSize="40sp"
                 android:textStyle="bold"
-                android:textColor="@drawable/rb_text_selector"
+                android:textColor="@color/text_primary"
                 android:layout_marginTop="40dp" />
 
             <com.google.android.material.textfield.TextInputLayout
@@ -102,22 +102,25 @@
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_age"
                     android:layout_width="match_parent"
-                    android:layout_height="64dp"
+                    android:layout_height="80dp"
                     android:inputType="number"
                     android:hint="예) 70"
-                    android:textSize="22sp"
+                    android:textSize="40sp"
+                    android:textColor="@color/text_primary"
                     android:gravity="center" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_next"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
+                android:layout_height="80dp"
                 android:text="다음으로"
-                android:textSize="22sp"
+                android:textSize="40sp"
+                android:textColor="@color/on_primary"
                 android:layout_marginTop="40dp"
                 android:layout_marginBottom="32dp"
-                app:cornerRadius="12dp" />
+                app:backgroundTint="@color/primary"
+                app:cornerRadius="16dp" />
 
         </LinearLayout>
 
@@ -136,25 +139,25 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="건강 상태 확인"
-                android:textSize="28sp"
+                android:textSize="44sp"
                 android:textStyle="bold"
-                android:textColor="@drawable/rb_text_selector"
+                android:textColor="@color/text_primary"
                 android:layout_marginTop="32dp" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="아래 질문에 솔직하게 답해 주세요"
-                android:textSize="18sp"
+                android:textSize="36sp"
                 android:textColor="@color/text_secondary"
                 android:layout_marginTop="8dp" />
 
-            <!-- Q1 -->
+            <!-- Q1 카드 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
-                app:cardCornerRadius="12dp"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="2dp"
                 app:cardBackgroundColor="@color/surface">
 
@@ -162,15 +165,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="24dp">
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="지난 1년 동안\n넘어진 적이 있으신가요?"
-                        android:textSize="20sp"
+                        android:textSize="40sp"
                         android:textStyle="bold"
-                        android:textColor="@drawable/rb_text_selector"
+                        android:textColor="@color/text_primary"
                         android:lineSpacingMultiplier="1.3" />
 
                     <RadioGroup
@@ -178,16 +181,16 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:layout_marginTop="16dp">
+                        android:layout_marginTop="20dp">
 
                         <RadioButton
                             android:id="@+id/rb_q1_yes"
                             android:layout_width="0dp"
-                            android:layout_height="56dp"
+                            android:layout_height="72dp"
                             android:layout_weight="1"
                             android:text="예"
                             android:textColor="@drawable/rb_text_selector"
-                            android:textSize="20sp"
+                            android:textSize="40sp"
                             android:gravity="center"
                             android:button="@null"
                             android:background="@drawable/bg_tag"
@@ -196,11 +199,11 @@
                         <RadioButton
                             android:id="@+id/rb_q1_no"
                             android:layout_width="0dp"
-                            android:layout_height="56dp"
+                            android:layout_height="72dp"
                             android:layout_weight="1"
                             android:text="아니오"
                             android:textColor="@drawable/rb_text_selector"
-                            android:textSize="20sp"
+                            android:textSize="40sp"
                             android:gravity="center"
                             android:button="@null"
                             android:background="@drawable/bg_tag"
@@ -210,12 +213,12 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Q2 -->
+            <!-- Q2 카드 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                app:cardCornerRadius="12dp"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="2dp"
                 app:cardBackgroundColor="@color/surface">
 
@@ -223,15 +226,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="24dp">
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="서 있거나 걸을 때\n불안정한 느낌이 드시나요?"
-                        android:textSize="20sp"
+                        android:textSize="40sp"
                         android:textStyle="bold"
-                        android:textColor="@drawable/rb_text_selector"
+                        android:textColor="@color/text_primary"
                         android:lineSpacingMultiplier="1.3" />
 
                     <RadioGroup
@@ -239,16 +242,16 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:layout_marginTop="16dp">
+                        android:layout_marginTop="20dp">
 
                         <RadioButton
                             android:id="@+id/rb_q2_yes"
                             android:layout_width="0dp"
-                            android:layout_height="56dp"
+                            android:layout_height="72dp"
                             android:layout_weight="1"
                             android:text="예"
                             android:textColor="@drawable/rb_text_selector"
-                            android:textSize="20sp"
+                            android:textSize="40sp"
                             android:gravity="center"
                             android:button="@null"
                             android:background="@drawable/bg_tag"
@@ -257,11 +260,11 @@
                         <RadioButton
                             android:id="@+id/rb_q2_no"
                             android:layout_width="0dp"
-                            android:layout_height="56dp"
+                            android:layout_height="72dp"
                             android:layout_weight="1"
                             android:text="아니오"
                             android:textColor="@drawable/rb_text_selector"
-                            android:textSize="20sp"
+                            android:textSize="40sp"
                             android:gravity="center"
                             android:button="@null"
                             android:background="@drawable/bg_tag"
@@ -271,12 +274,12 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- Q3 -->
+            <!-- Q3 카드 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                app:cardCornerRadius="12dp"
+                app:cardCornerRadius="16dp"
                 app:cardElevation="2dp"
                 app:cardBackgroundColor="@color/surface">
 
@@ -284,15 +287,15 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="20dp">
+                    android:padding="24dp">
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="넘어질까봐\n두려우신가요?"
-                        android:textSize="20sp"
+                        android:textSize="40sp"
                         android:textStyle="bold"
-                        android:textColor="@drawable/rb_text_selector"
+                        android:textColor="@color/text_primary"
                         android:lineSpacingMultiplier="1.3" />
 
                     <RadioGroup
@@ -300,16 +303,16 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:layout_marginTop="16dp">
+                        android:layout_marginTop="20dp">
 
                         <RadioButton
                             android:id="@+id/rb_q3_yes"
                             android:layout_width="0dp"
-                            android:layout_height="56dp"
+                            android:layout_height="72dp"
                             android:layout_weight="1"
                             android:text="예"
                             android:textColor="@drawable/rb_text_selector"
-                            android:textSize="20sp"
+                            android:textSize="40sp"
                             android:gravity="center"
                             android:button="@null"
                             android:background="@drawable/bg_tag"
@@ -318,11 +321,11 @@
                         <RadioButton
                             android:id="@+id/rb_q3_no"
                             android:layout_width="0dp"
-                            android:layout_height="56dp"
+                            android:layout_height="72dp"
                             android:layout_weight="1"
                             android:text="아니오"
                             android:textColor="@drawable/rb_text_selector"
-                            android:textSize="20sp"
+                            android:textSize="40sp"
                             android:gravity="center"
                             android:button="@null"
                             android:background="@drawable/bg_tag"
@@ -335,12 +338,14 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_complete"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
+                android:layout_height="80dp"
                 android:text="완료 후 검사 시작"
-                android:textSize="22sp"
+                android:textSize="40sp"
+                android:textColor="@color/on_primary"
                 android:layout_marginTop="40dp"
                 android:layout_marginBottom="32dp"
-                app:cornerRadius="12dp" />
+                app:backgroundTint="@color/primary"
+                app:cornerRadius="16dp" />
 
         </LinearLayout>
 

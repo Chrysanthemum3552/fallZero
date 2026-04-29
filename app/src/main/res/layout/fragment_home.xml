@@ -4,7 +4,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/background">
+    android:background="@color/background"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -12,30 +13,31 @@
         android:orientation="vertical"
         android:padding="24dp">
 
-        <!-- 인사 + 오늘 날짜 -->
+        <!-- 인사 -->
         <TextView
             android:id="@+id/tv_greeting"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="안녕하세요!"
-            android:textSize="28sp"
+            android:textSize="44sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
             android:layout_marginTop="16dp" />
 
-        <!-- ── 대시보드 카드: 오늘 현황 ── -->
+        <!-- 대시보드 카드 -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             app:cardCornerRadius="16dp"
-            app:cardElevation="2dp">
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/surface">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="20dp">
+                android:padding="24dp">
 
                 <!-- 연속 운동일 -->
                 <LinearLayout
@@ -48,8 +50,8 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="연속 운동"
-                        android:textSize="16sp"
+                        android:text="🔥 연속 운동"
+                        android:textSize="40sp"
                         android:textColor="@color/text_secondary" />
 
                     <TextView
@@ -57,7 +59,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="0일"
-                        android:textSize="24sp"
+                        android:textSize="44sp"
                         android:textStyle="bold"
                         android:textColor="@color/primary" />
                 </LinearLayout>
@@ -65,10 +67,11 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#E0E0E0"
-                    android:layout_marginVertical="12dp" />
+                    android:background="#333333"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="16dp" />
 
-                <!-- 위험 등급 -->
+                <!-- 낙상 위험 등급 -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -79,8 +82,8 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="낙상 위험 등급"
-                        android:textSize="16sp"
+                        android:text="⚠️ 낙상 위험 등급"
+                        android:textSize="40sp"
                         android:textColor="@color/text_secondary" />
 
                     <TextView
@@ -88,19 +91,22 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="검사 필요"
-                        android:textSize="18sp"
+                        android:textSize="36sp"
                         android:textStyle="bold"
                         android:textColor="@color/text_primary"
                         android:background="@drawable/bg_risk_level"
-                        android:paddingHorizontal="12dp"
-                        android:paddingVertical="4dp" />
+                        android:paddingLeft="12dp"
+                        android:paddingRight="12dp"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp" />
                 </LinearLayout>
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#E0E0E0"
-                    android:layout_marginVertical="12dp" />
+                    android:background="#333333"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginBottom="16dp" />
 
                 <!-- 오늘 운동 상태 -->
                 <LinearLayout
@@ -113,8 +119,8 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="오늘 운동"
-                        android:textSize="16sp"
+                        android:text="✅ 오늘 운동"
+                        android:textSize="40sp"
                         android:textColor="@color/text_secondary" />
 
                     <TextView
@@ -122,7 +128,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="아직 안 했어요"
-                        android:textSize="18sp"
+                        android:textSize="36sp"
                         android:textStyle="bold"
                         android:textColor="@color/warning" />
                 </LinearLayout>
@@ -130,61 +136,90 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- ── 메인 버튼들 ── -->
-
+        <!-- 운동 시작 (메인 버튼) -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_start_exercise"
             android:layout_width="match_parent"
-            android:layout_height="64dp"
+            android:layout_height="80dp"
             android:text="@string/home_start_exercise"
-            android:textSize="20sp"
-            android:layout_marginTop="24dp" />
+            android:textSize="40sp"
+            android:textColor="@color/on_primary"
+            android:layout_marginTop="24dp"
+            app:backgroundTint="@color/primary"
+            app:cornerRadius="16dp" />
 
+        <!-- 낙상 위험 검사 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_start_exam"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="72dp"
             android:text="@string/home_start_exam"
-            android:textSize="18sp"
-            android:layout_marginTop="12dp" />
+            android:textSize="40sp"
+            android:textColor="@color/primary"
+            android:layout_marginTop="16dp"
+            app:backgroundTint="@color/surface"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp"
+            app:cornerRadius="16dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
+        <!-- 내 리포트 보기 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_view_report"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="72dp"
             android:text="@string/home_view_report"
-            android:textSize="18sp"
-            android:layout_marginTop="12dp" />
+            android:textSize="40sp"
+            android:textColor="@color/primary"
+            android:layout_marginTop="16dp"
+            app:backgroundTint="@color/surface"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp"
+            app:cornerRadius="16dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
-        <!-- 보호자 공유 버튼 -->
+        <!-- 보호자에게 공유 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_share_guardian"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="72dp"
             android:text="@string/home_share_guardian"
-            android:textSize="18sp"
-            android:layout_marginTop="12dp" />
+            android:textSize="40sp"
+            android:textColor="@color/primary"
+            android:layout_marginTop="16dp"
+            app:backgroundTint="@color/surface"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp"
+            app:cornerRadius="16dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
+        <!-- TV로 보내기 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_cast_tv"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="72dp"
             android:text="@string/home_cast_tv"
-            android:textSize="18sp"
-            android:layout_marginTop="12dp" />
+            android:textSize="40sp"
+            android:textColor="@color/primary"
+            android:layout_marginTop="16dp"
+            app:backgroundTint="@color/surface"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp"
+            app:cornerRadius="16dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
+        <!-- 설정 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_settings"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="match_parent"
-            android:layout_height="48dp"
+            android:layout_height="64dp"
             android:text="@string/home_settings"
-            android:textSize="16sp"
-            android:layout_marginTop="8dp" />
+            android:textSize="36sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="16dp"
+            app:backgroundTint="@android:color/transparent"
+            style="@style/Widget.MaterialComponents.Button.TextButton" />
 
     </LinearLayout>
 </ScrollView>
