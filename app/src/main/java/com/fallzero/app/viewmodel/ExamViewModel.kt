@@ -335,6 +335,34 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         return if (r != null && a != null) ExamPhase.Completed(r, a) else null
     }
 
+    /**
+     * 임시 테스트용 - 더미 결과 주입
+     * 실제 검사 없이 결과 화면 확인할 때 사용
+     * 나중에 실제 검사 연동 후 삭제
+     */
+    fun injectDummyResult() {
+        val dummyResult = ExamResult(
+            userId = 0,
+            chairStandCount = 13,
+            chairStandNorm = 11,
+            isHighRiskChairStand = false,
+            balanceStageReached = 3,
+            tandemTimeSec = 8f,
+            isHighRiskBalance = false,
+            isHighRiskSurvey = false,
+            finalRiskLevel = "low"
+        )
+        val dummyRisk = STEADIScorer.ExamRiskResult(
+            isChairStandHighRisk = false,
+            isBalanceHighRisk = false,
+            isSurveyHighRisk = false,
+            finalRiskLevel = "low",
+            chairStandNorm = 11
+        )
+        lastCompletedResult = dummyResult
+        lastRiskAssessment = dummyRisk
+        _phase.value = ExamPhase.Completed(dummyResult, dummyRisk)
+    }
     sealed class ExamPhase {
         object Idle : ExamPhase()
 

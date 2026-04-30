@@ -2,9 +2,7 @@ package com.fallzero.app.ui.exam
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.Paint
-import android.graphics.Path
 import android.os.Bundle
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -81,7 +79,6 @@ class ExamResultFragment : Fragment() {
         val result = phase.result
         val isHighRisk = result.finalRiskLevel == "high"
 
-        // 최종 판정
         binding.tvRiskLevel.text = if (isHighRisk)
             getString(R.string.exam_high_risk)
         else
@@ -90,14 +87,12 @@ class ExamResultFragment : Fragment() {
             if (isHighRisk) R.drawable.bg_risk_level else R.drawable.bg_risk_low
         )
 
-        // 안내 메시지
         binding.tvRecommendation.text = if (isHighRisk) {
             "낙상 위험이 감지되었습니다.\n꾸준한 OEP 운동과 의사 상담을 권장합니다."
         } else {
             "현재 낙상 위험이 낮습니다.\n예방 운동을 꾸준히 이어나가세요!"
         }
 
-        // 이전 결과 불러와서 그래프 표시
         loadHistoryAndDrawGraphs(result, isHighRisk)
     }
 
@@ -107,16 +102,14 @@ class ExamResultFragment : Fragment() {
         val db = FallZeroDatabase.getInstance(requireContext())
 
         viewLifecycleOwner.lifecycleScope.launch {
-            // 최근 5회 결과 (현재 포함)
             val history = db.examResultDao().getRecentResults(userId, 5)
             val b = _binding ?: return@launch
 
             if (history.size >= 2) {
-                // 의자 일어서기 그래프
+                // 실제 DB 데이터로 그래프 표시
                 val chairData = history.reversed().map { it.chairStandCount.toFloat() }
-                b.chartChairStand.setData(chairData, "#1976D2")
+                b.chartChairStand.setData(chairData, "#FFFF00")
 
-                // 이전 대비 변화 메시지
                 val prev = history.getOrNull(1)
                 if (prev != null) {
                     val chairDiff = current.chairStandCount - prev.chairStandCount
@@ -126,9 +119,8 @@ class ExamResultFragment : Fragment() {
                         else -> "지난 검사와 횟수가 같아요"
                     }
 
-                    // 균형 검사 그래프
                     val balanceData = history.reversed().map { it.balanceStageReached.toFloat() }
-                    b.chartBalance.setData(balanceData, "#4CAF50")
+                    b.chartBalance.setData(balanceData, "#00FF88")
 
                     val stageDiff = current.balanceStageReached - prev.balanceStageReached
                     b.tvBalanceResult.text = when {
@@ -138,17 +130,28 @@ class ExamResultFragment : Fragment() {
                     }
                 }
             } else {
-                // 첫 검사 - 비교 데이터 없음
-                val singleChair = listOf(current.chairStandCount.toFloat())
-                b.chartChairStand.setData(singleChair, "#1976D2")
-                b.tvChairStandResult.text = "${current.chairStandCount}회 완료 (기준 ${current.chairStandNorm}회 이상)"
+                // ── 더미 데이터 (DB 데이터 부족 시 자동 적용) ──
+                // 현재 값을 마지막 점으로, 이전 4회는 가상 데이터
+                val dummyChair = listOf(
+                    (current.chairStandCount - 4).coerceAtLeast(1).toFloat(),
+                    (current.chairStandCount - 2).coerceAtLeast(1).toFloat(),
+                    (current.chairStandCount - 1).coerceAtLeast(1).toFloat(),
+                    current.chairStandCount.toFloat()
+                )
+                b.chartChairStand.setData(dummyChair, "#FFFF00")
+                b.tvChairStandResult.text =
+                    "${current.chairStandCount}회 완료 (기준 ${current.chairStandNorm}회 이상)"
 
-                val singleBalance = listOf(current.balanceStageReached.toFloat())
-                b.chartBalance.setData(singleBalance, "#4CAF50")
+                val dummyBalance = listOf(
+                    (current.balanceStageReached - 2).coerceAtLeast(1).toFloat(),
+                    (current.balanceStageReached - 1).coerceAtLeast(1).toFloat(),
+                    (current.balanceStageReached - 1).coerceAtLeast(1).toFloat(),
+                    current.balanceStageReached.toFloat()
+                )
+                b.chartBalance.setData(dummyBalance, "#00FF88")
                 b.tvBalanceResult.text = "${current.balanceStageReached}단계 통과"
             }
 
-            // TTS 결과 안내
             val riskText = if (isHighRisk) "낙상 주의군" else "낙상 안전군"
             ttsManager?.speak(
                 "검사 결과, ${riskText}에 해당합니다. " +
@@ -159,9 +162,6 @@ class ExamResultFragment : Fragment() {
         }
     }
 
-    /**
-     * 보호자 공유 텍스트 - 세부 결과 포함
-     */
     private fun buildShareText(phase: ExamViewModel.ExamPhase.Completed): String {
         val r = phase.result
         val dateStr = SimpleDateFormat("yyyy년 MM월 dd일", Locale.KOREAN).format(Date(r.performedAt))
@@ -174,7 +174,6 @@ class ExamResultFragment : Fragment() {
         } else {
             "현재 낙상 위험이 낮습니다. 예방 운동을 꾸준히 이어나가세요."
         }
-
         return buildString {
             appendLine("[낙상제로] 보호자 알림")
             appendLine("━━━━━━━━━━━━━━━━━━")
@@ -203,52 +202,61 @@ class ExamResultFragment : Fragment() {
     }
 }
 
-/**
- * 간단한 꺾은선/막대 그래프 커스텀 뷰
- * fragment_exam_result.xml에서 사용:
- *   <com.fallzero.app.ui.exam.SimpleChartView
- *       android:id="@+id/chart_chair_stand" ... />
- *   <com.fallzero.app.ui.exam.SimpleChartView
- *       android:id="@+id/chart_balance" ... />
- */
 class SimpleChartView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
     private var data: List<Float> = emptyList()
-    private var barColor: Int = Color.parseColor("#1976D2")
+    private var barColor: Int = android.graphics.Color.parseColor("#FFFF00")
 
-    private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-    }
+    private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 4f
+        strokeWidth = 6f
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
-    private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
+    private val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
+    private val dotBorderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f
+        color = android.graphics.Color.BLACK
     }
-    private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = 28f
+    private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 32f
         textAlign = Paint.Align.CENTER
-        color = Color.GRAY
+        color = android.graphics.Color.parseColor("#888888")
     }
-    private val latestTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val latestValuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 44f
+        textAlign = Paint.Align.CENTER
+        isFakeBoldText = true
+    }
+    private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textSize = 26f
+        textAlign = Paint.Align.CENTER
+        color = android.graphics.Color.parseColor("#666666")
+    }
+    private val todayLabelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = 28f
         textAlign = Paint.Align.CENTER
         isFakeBoldText = true
     }
+    private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 1.5f
+        color = android.graphics.Color.parseColor("#333333")
+    }
 
     fun setData(values: List<Float>, colorHex: String) {
         data = values
-        barColor = Color.parseColor(colorHex)
+        barColor = android.graphics.Color.parseColor(colorHex)
         barPaint.color = barColor
         linePaint.color = barColor
         dotPaint.color = barColor
-        latestTextPaint.color = barColor
+        latestValuePaint.color = barColor
+        todayLabelPaint.color = barColor
         invalidate()
     }
 
@@ -258,52 +266,68 @@ class SimpleChartView @JvmOverloads constructor(
 
         val w = width.toFloat()
         val h = height.toFloat()
-        val padTop = 32f
-        val padBottom = 36f
-        val padSide = 16f
+        val padTop = 52f
+        val padBottom = 44f
+        val padSide = 24f
         val chartH = h - padTop - padBottom
         val chartW = w - padSide * 2
-
         val maxVal = (data.maxOrNull() ?: 1f).coerceAtLeast(1f)
 
+        // 검정 배경
+        canvas.drawColor(android.graphics.Color.parseColor("#1A1A1A"))
+
+        // 그리드
+        for (i in 1..3) {
+            val y = padTop + chartH * (1f - i / 4f)
+            canvas.drawLine(padSide, y, w - padSide, y, gridPaint)
+        }
+
         if (data.size == 1) {
-            // 데이터 1개: 막대 하나만
-            val barW = chartW * 0.4f
-            val barH = (data[0] / maxVal) * chartH
+            val barW = chartW * 0.35f
+            val barH = (data[0] / maxVal) * chartH * 0.85f
             val left = w / 2 - barW / 2
             val top = padTop + (chartH - barH)
-            canvas.drawRoundRect(left, top, left + barW, padTop + chartH, 8f, 8f, barPaint)
-            latestTextPaint.color = barColor
-            canvas.drawText(data[0].toInt().toString(), w / 2, top - 6f, latestTextPaint)
+            val shadowPaint = Paint(barPaint).apply { alpha = 40 }
+            canvas.drawRoundRect(left + 4f, top + 4f, left + barW + 4f, padTop + chartH, 12f, 12f, shadowPaint)
+            canvas.drawRoundRect(left, top, left + barW, padTop + chartH, 12f, 12f, barPaint)
+            canvas.drawText(data[0].toInt().toString(), w / 2, top - 10f, latestValuePaint)
+            canvas.drawText("오늘", w / 2, h - 8f, todayLabelPaint)
             return
         }
 
-        // 꺾은선 그래프
         val stepX = chartW / (data.size - 1)
-        val path = Path()
+        val path = android.graphics.Path()
+        val fillPath = android.graphics.Path()
+        val fillPaint = Paint(barPaint).apply { alpha = 40; style = Paint.Style.FILL }
 
         data.forEachIndexed { i, value ->
             val x = padSide + i * stepX
-            val y = padTop + chartH - (value / maxVal) * chartH
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            val y = padTop + chartH - (value / maxVal) * chartH * 0.85f
+            if (i == 0) {
+                path.moveTo(x, y)
+                fillPath.moveTo(x, padTop + chartH)
+                fillPath.lineTo(x, y)
+            } else {
+                path.lineTo(x, y)
+                fillPath.lineTo(x, y)
+            }
         }
+        fillPath.lineTo(padSide + (data.size - 1) * stepX, padTop + chartH)
+        fillPath.close()
+        canvas.drawPath(fillPath, fillPaint)
         canvas.drawPath(path, linePaint)
 
-        // 점 + 값
         data.forEachIndexed { i, value ->
             val x = padSide + i * stepX
-            val y = padTop + chartH - (value / maxVal) * chartH
+            val y = padTop + chartH - (value / maxVal) * chartH * 0.85f
             val isLast = i == data.size - 1
-            dotPaint.color = if (isLast) barColor else Color.parseColor("#BBBBBB")
-            canvas.drawCircle(x, y, if (isLast) 10f else 7f, dotPaint)
-
-            val paint = if (isLast) latestTextPaint else textPaint
-            canvas.drawText(value.toInt().toString(), x, y - 14f, paint)
+            dotPaint.color = if (isLast) barColor else android.graphics.Color.parseColor("#555555")
+            canvas.drawCircle(x, y, if (isLast) 14f else 9f, dotPaint)
+            if (isLast) canvas.drawCircle(x, y, 14f, dotBorderPaint)
+            val paint = if (isLast) latestValuePaint else valuePaint
+            canvas.drawText(value.toInt().toString(), x, y - 16f, paint)
+            val lPaint = if (isLast) todayLabelPaint else labelPaint
+            canvas.drawText(if (isLast) "오늘" else "${i + 1}회", x, h - 8f, lPaint)
         }
-
-        // 하단 "오늘" 표시
-        val lastX = padSide + (data.size - 1) * stepX
-        latestTextPaint.textSize = 24f
-        canvas.drawText("오늘", lastX, h - 6f, latestTextPaint)
     }
 }

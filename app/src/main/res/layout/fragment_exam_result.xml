@@ -19,7 +19,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/exam_result_title"
-            android:textSize="24sp"
+            android:textSize="40sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
             android:layout_marginTop="24dp"
@@ -32,7 +32,9 @@
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="4dp"
-            app:cardBackgroundColor="@color/surface">
+            app:cardBackgroundColor="@color/surface"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -48,7 +50,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="오늘의 판정"
-                    android:textSize="14sp"
+                    android:textSize="28sp"
                     android:textColor="@color/text_secondary"
                     android:layout_marginBottom="12dp" />
 
@@ -57,13 +59,13 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="판정 중..."
-                    android:textSize="22sp"
+                    android:textSize="36sp"
                     android:textStyle="bold"
                     android:gravity="center"
                     android:paddingLeft="32dp"
                     android:paddingRight="32dp"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="10dp"
+                    android:paddingTop="12dp"
+                    android:paddingBottom="12dp"
                     android:background="@drawable/bg_risk_level" />
 
             </LinearLayout>
@@ -76,7 +78,9 @@
             android:layout_marginBottom="12dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="2dp"
-            app:cardBackgroundColor="@color/surface">
+            app:cardBackgroundColor="@color/surface"
+            app:strokeColor="#333333"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -90,27 +94,26 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="의자 일어서기 횟수 변화"
-                    android:textSize="15sp"
+                    android:text="🪑 의자 일어서기 횟수 변화"
+                    android:textSize="28sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary"
                     android:layout_marginBottom="8dp" />
 
-                <!-- 그래프 뷰 -->
                 <com.fallzero.app.ui.exam.SimpleChartView
                     android:id="@+id/chart_chair_stand"
                     android:layout_width="match_parent"
-                    android:layout_height="120dp" />
+                    android:layout_height="160dp" />
 
                 <TextView
                     android:id="@+id/tv_chair_stand_result"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp"
+                    android:textSize="24sp"
                     android:textColor="@color/primary"
                     android:textStyle="bold"
                     android:gravity="end"
-                    android:layout_marginTop="4dp" />
+                    android:layout_marginTop="6dp" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -122,7 +125,9 @@
             android:layout_marginBottom="16dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="2dp"
-            app:cardBackgroundColor="@color/surface">
+            app:cardBackgroundColor="@color/surface"
+            app:strokeColor="#333333"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -136,8 +141,8 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="균형 검사 단계 변화"
-                    android:textSize="15sp"
+                    android:text="🧍 균형 검사 단계 변화"
+                    android:textSize="28sp"
                     android:textStyle="bold"
                     android:textColor="@color/text_primary"
                     android:layout_marginBottom="8dp" />
@@ -145,17 +150,17 @@
                 <com.fallzero.app.ui.exam.SimpleChartView
                     android:id="@+id/chart_balance"
                     android:layout_width="match_parent"
-                    android:layout_height="120dp" />
+                    android:layout_height="160dp" />
 
                 <TextView
                     android:id="@+id/tv_balance_result"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp"
+                    android:textSize="24sp"
                     android:textColor="@color/success"
                     android:textStyle="bold"
                     android:gravity="end"
-                    android:layout_marginTop="4dp" />
+                    android:layout_marginTop="6dp" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -167,25 +172,25 @@
             android:layout_marginBottom="24dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#FFF8E1"
-            app:strokeColor="#FFE082"
-            app:strokeWidth="1dp">
+            app:cardBackgroundColor="@color/surface"
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
-                android:paddingLeft="16dp"
-                android:paddingRight="16dp"
-                android:paddingTop="16dp"
-                android:paddingBottom="16dp">
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="20dp">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="💡"
-                    android:textSize="18sp"
+                    android:textSize="28sp"
                     android:layout_marginRight="12dp" />
 
                 <TextView
@@ -193,33 +198,38 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:textSize="14sp"
-                    android:textColor="#E65100"
-                    android:lineSpacingMultiplier="1.4" />
+                    android:textSize="24sp"
+                    android:textColor="@color/text_primary"
+                    android:lineSpacingMultiplier="1.5" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 결과 공유 버튼 (보호자에게 세부 결과 전송) -->
+        <!-- 결과 공유 버튼 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_share"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="72dp"
             android:text="보호자에게 결과 공유"
-            android:textSize="16sp"
+            android:textSize="32sp"
+            android:textColor="#000000"
             android:layout_marginBottom="12dp"
-            app:cornerRadius="12dp" />
+            app:backgroundTint="@color/primary"
+            app:cornerRadius="16dp" />
 
         <!-- 홈으로 버튼 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_go_home"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
-            android:layout_height="56dp"
+            android:layout_height="72dp"
             android:text="홈으로"
-            android:textSize="16sp"
+            android:textSize="32sp"
+            android:textColor="@color/primary"
             android:layout_marginBottom="32dp"
-            app:cornerRadius="12dp" />
+            app:strokeColor="@color/primary"
+            app:strokeWidth="2dp"
+            app:cornerRadius="16dp" />
 
     </LinearLayout>
 </ScrollView>

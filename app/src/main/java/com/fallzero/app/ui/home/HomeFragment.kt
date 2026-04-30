@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.fallzero.app.R
@@ -14,6 +15,7 @@ import com.fallzero.app.databinding.FragmentHomeBinding
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.util.CastHelper
 import com.fallzero.app.util.ShareHelper
+import com.fallzero.app.viewmodel.ExamViewModel
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -21,6 +23,9 @@ class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
+
+    // 임시 더미 결과용
+    private val examViewModel: ExamViewModel by activityViewModels()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
@@ -30,9 +35,6 @@ class HomeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 세션 상태 분기:
-        // - pendingAutoForward 플래그가 켜져 있으면 (온보딩 설문 직후) 1회만 자동 forward
-        // - 그 외 활성 세션이 남아 있으면 사용자가 세션을 뒤로 눌러 빠져나온 것 → reset
         val sf = com.fallzero.app.data.SessionFlow
         if (sf.pendingAutoForward) {
             sf.pendingAutoForward = false
@@ -45,22 +47,24 @@ class HomeFragment : Fragment() {
             sf.reset()
         }
 
-        // 네비게이션 버튼들
         binding.btnStartExercise.setOnClickListener {
-            // 운동 가이드 목록으로 이동 (사용자가 개별 운동 또는 전체 루틴을 선택)
             findNavController().navigate(R.id.action_home_to_exercise_guide)
         }
+
         binding.btnStartExam.setOnClickListener {
-            // 디버그 모드: 균형 건너뛰고 의자 직행
-            val isDebug = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-                .getBoolean("debug_mode", false)
-            if (isDebug) {
-                SessionFlow.startExamChairStandOnly()
-            } else {
-                SessionFlow.startExamSession()
-            }
-            findNavController().navigate(R.id.action_home_to_exam)
+            // 임시: 더미 결과 주입 후 결과 화면 바로 이동
+            // 나중에 실제 검사 연동 시 아래 두 줄 삭제하고 주석 해제
+            examViewModel.injectDummyResult()
+            findNavController().navigate(R.id.action_global_exam_result)
+
+            // 실제 검사 코드 (나중에 활성화)
+            // val isDebug = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+            //     .getBoolean("debug_mode", false)
+            // if (isDebug) SessionFlow.startExamChairStandOnly()
+            // else SessionFlow.startExamSession()
+            // findNavController().navigate(R.id.action_home_to_exam)
         }
+
         binding.btnViewReport.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_report)
         }
@@ -74,7 +78,6 @@ class HomeFragment : Fragment() {
             shareGuardianReport()
         }
 
-        // 대시보드 데이터 로드
         loadDashboard()
     }
 
@@ -83,13 +86,10 @@ class HomeFragment : Fragment() {
         val userId = prefs.getInt("user_id", 0)
         val db = FallZeroDatabase.getInstance(requireContext())
 
-        // view lifecycle 기준 — onDestroyView 후 자동 취소 (binding NPE 방지)
         viewLifecycleOwner.lifecycleScope.launch {
-            // 연속 운동일 계산
             val streak = calculateStreak(db, userId)
             binding.tvStreak.text = "${streak}일"
 
-            // 위험 등급
             val latestExam = db.examResultDao().getLatestResult(userId)
             if (latestExam != null) {
                 val isHighRisk = latestExam.finalRiskLevel == "high"
@@ -101,7 +101,6 @@ class HomeFragment : Fragment() {
                 binding.tvRiskLevel.text = "검사 필요"
             }
 
-            // 오늘 운동 여부
             val todayStart = getTodayStartMillis()
             val todayCount = db.sessionDao().getTodayCompletedCount(userId, todayStart)
             if (todayCount > 0) {
@@ -115,27 +114,16 @@ class HomeFragment : Fragment() {
     }
 
     private suspend fun calculateStreak(db: FallZeroDatabase, userId: Int): Int {
-        // dayEpochs: 운동한 날의 epoch day 목록 (내림차순 정렬)
         val dayEpochs = db.sessionDao().getCompletedDayEpochs(userId)
         if (dayEpochs.isEmpty()) return 0
-
         val todayEpoch = System.currentTimeMillis() / 86400000
         val mostRecentDay = dayEpochs.first()
-
-        // 오늘이나 어제 운동하지 않았으면 streak = 0
         if (mostRecentDay < todayEpoch - 1) return 0
-
-        // 가장 최근 날부터 연속일 세기
         var streak = 1
         for (i in 1 until dayEpochs.size) {
-            if (dayEpochs[i] == dayEpochs[i - 1] - 1) {
-                streak++
-            } else if (dayEpochs[i] == dayEpochs[i - 1]) {
-                // 같은 날 중복 → 무시
-                continue
-            } else {
-                break
-            }
+            if (dayEpochs[i] == dayEpochs[i - 1] - 1) streak++
+            else if (dayEpochs[i] == dayEpochs[i - 1]) continue
+            else break
         }
         return streak
     }
