@@ -24,6 +24,10 @@ class PoseLandmarkerHelper(
     @Volatile private var isClosed = false
     private val landmarkerLock = Any()
 
+    // 프레임당 Matrix 재할당 방지 — 단일 카메라 executor 스레드에서만 사용되므로 thread-safe.
+    // 매 프레임 새 Matrix() = ~한 번의 allocation/GC pressure 절감.
+    private val frameMatrix = Matrix()
+
     interface LandmarkerListener {
         fun onResults(resultBundle: ResultBundle)
         fun onError(error: String, errorCode: Int = OTHER_ERROR)
@@ -120,14 +124,14 @@ class PoseLandmarkerHelper(
 
             if (bitmap == null) return
 
-            val matrix = Matrix().apply {
-                postRotate(rotationDegrees.toFloat())
-                if (isFrontCamera) {
-                    postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
-                }
+            // 프레임 Matrix 재사용 (allocation 절감) — reset → setup → 사용
+            frameMatrix.reset()
+            frameMatrix.postRotate(rotationDegrees.toFloat())
+            if (isFrontCamera) {
+                frameMatrix.postScale(-1f, 1f, bitmap.width / 2f, bitmap.height / 2f)
             }
             rotatedBitmap = Bitmap.createBitmap(
-                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+                bitmap, 0, 0, bitmap.width, bitmap.height, frameMatrix, true
             )
 
             // 회전된 비트맵이 원본과 다르면 원본 해제 (메모리 누수 방지)

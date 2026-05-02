@@ -16,7 +16,7 @@
         app:destination="@id/examFragment"
         app:popUpTo="@id/homeFragment" />
     <action android:id="@+id/action_global_exam_result"
-        app:destination="@id/examResultFragment"
+        app:destination="@id/resultSurveyFragment"
         app:popUpTo="@id/homeFragment" />
     <action android:id="@+id/action_global_rest"
         app:destination="@id/restFragment"
@@ -24,29 +24,72 @@
     <action android:id="@+id/action_global_rotation"
         app:destination="@id/sideRotationFragment"
         app:popUpTo="@id/homeFragment" />
+    <action android:id="@+id/action_global_chair_reposition"
+        app:destination="@id/chairRepositionFragment"
+        app:popUpTo="@id/homeFragment" />
     <action android:id="@+id/action_global_home"
         app:destination="@id/homeFragment"
         app:popUpTo="@id/homeFragment"
         app:popUpToInclusive="true" />
 
-    <!-- ───────── 온보딩 플로우 ───────── -->
+    <!-- ───────── 온보딩 플로우 (5단계: 성별 → 나이 → Q1 → Q2 → Q3) ───────── -->
     <fragment
         android:id="@+id/onboardingFragment"
         android:name="com.fallzero.app.ui.onboarding.OnboardingFragment"
         android:label="온보딩"
         tools:layout="@layout/fragment_onboarding">
         <action
-            android:id="@+id/action_onboarding_to_survey"
-            app:destination="@id/surveyFragment" />
+            android:id="@+id/action_onboarding_to_gender"
+            app:destination="@id/genderFragment" />
     </fragment>
 
     <fragment
-        android:id="@+id/surveyFragment"
-        android:name="com.fallzero.app.ui.onboarding.SurveyFragment"
-        android:label="설문"
-        tools:layout="@layout/fragment_survey">
+        android:id="@+id/genderFragment"
+        android:name="com.fallzero.app.ui.onboarding.GenderFragment"
+        android:label="성별"
+        tools:layout="@layout/fragment_gender">
         <action
-            android:id="@+id/action_survey_to_home"
+            android:id="@+id/action_gender_to_age"
+            app:destination="@id/ageFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/ageFragment"
+        android:name="com.fallzero.app.ui.onboarding.AgeFragment"
+        android:label="나이"
+        tools:layout="@layout/fragment_age">
+        <action
+            android:id="@+id/action_age_to_q1"
+            app:destination="@id/steadiQ1Fragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/steadiQ1Fragment"
+        android:name="com.fallzero.app.ui.onboarding.SteadiQ1Fragment"
+        android:label="질문 1"
+        tools:layout="@layout/fragment_steadi_q1">
+        <action
+            android:id="@+id/action_q1_to_q2"
+            app:destination="@id/steadiQ2Fragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/steadiQ2Fragment"
+        android:name="com.fallzero.app.ui.onboarding.SteadiQ2Fragment"
+        android:label="질문 2"
+        tools:layout="@layout/fragment_steadi_q2">
+        <action
+            android:id="@+id/action_q2_to_q3"
+            app:destination="@id/steadiQ3Fragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/steadiQ3Fragment"
+        android:name="com.fallzero.app.ui.onboarding.SteadiQ3Fragment"
+        android:label="질문 3"
+        tools:layout="@layout/fragment_steadi_q3">
+        <action
+            android:id="@+id/action_q3_to_home"
             app:destination="@id/homeFragment"
             app:popUpTo="@id/onboardingFragment"
             app:popUpToInclusive="true" />
@@ -65,6 +108,13 @@
         android:name="com.fallzero.app.ui.onboarding.SideRotationFragment"
         android:label="옆으로 돌아주세요"
         tools:layout="@layout/fragment_side_rotation" />
+
+    <!-- 측면 의자 자세 잡기 (#1 앉아서 무릎 펴기 직전) -->
+    <fragment
+        android:id="@+id/chairRepositionFragment"
+        android:name="com.fallzero.app.ui.onboarding.ChairRepositionFragment"
+        android:label="의자에 앉아주세요"
+        tools:layout="@layout/fragment_chair_reposition" />
 
     <!-- 휴식 카운트다운 -->
     <fragment
@@ -103,10 +153,53 @@
     <fragment
         android:id="@+id/examResultFragment"
         android:name="com.fallzero.app.ui.exam.ExamResultFragment"
-        android:label="검사 결과"
+        android:label="검사 결과 (legacy)"
         tools:layout="@layout/fragment_exam_result">
         <action
             android:id="@+id/action_result_to_home"
+            app:destination="@id/homeFragment"
+            app:popUpTo="@id/homeFragment"
+            app:popUpToInclusive="true" />
+    </fragment>
+
+    <!-- ───────── 검사 결과 4페이지 (Survey → Balance → Chair → Final) ───────── -->
+    <fragment
+        android:id="@+id/resultSurveyFragment"
+        android:name="com.fallzero.app.ui.exam.result.ResultSurveyFragment"
+        android:label="검사 결과 1/4"
+        tools:layout="@layout/fragment_result_survey">
+        <action
+            android:id="@+id/action_result_survey_to_balance"
+            app:destination="@id/resultBalanceFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/resultBalanceFragment"
+        android:name="com.fallzero.app.ui.exam.result.ResultBalanceFragment"
+        android:label="검사 결과 2/4"
+        tools:layout="@layout/fragment_result_balance">
+        <action
+            android:id="@+id/action_result_balance_to_chair"
+            app:destination="@id/resultChairFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/resultChairFragment"
+        android:name="com.fallzero.app.ui.exam.result.ResultChairFragment"
+        android:label="검사 결과 3/4"
+        tools:layout="@layout/fragment_result_chair">
+        <action
+            android:id="@+id/action_result_chair_to_final"
+            app:destination="@id/resultFinalFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/resultFinalFragment"
+        android:name="com.fallzero.app.ui.exam.result.ResultFinalFragment"
+        android:label="검사 결과 4/4"
+        tools:layout="@layout/fragment_result_final">
+        <action
+            android:id="@+id/action_result_final_to_home"
             app:destination="@id/homeFragment"
             app:popUpTo="@id/homeFragment"
             app:popUpToInclusive="true" />

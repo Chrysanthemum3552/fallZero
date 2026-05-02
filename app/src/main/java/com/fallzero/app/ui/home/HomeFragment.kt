@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
@@ -47,6 +48,11 @@ class HomeFragment : Fragment() {
             sf.reset()
         }
 
+        // 탭 토글 — 기본 "오늘 운동" 탭 활성
+        showTodayTab()
+        binding.btnTabToday.setOnClickListener { showTodayTab() }
+        binding.btnTabMenu.setOnClickListener { showMenuTab() }
+
         binding.btnStartExercise.setOnClickListener {
             findNavController().navigate(R.id.action_home_to_exercise_guide)
         }
@@ -81,6 +87,37 @@ class HomeFragment : Fragment() {
         loadDashboard()
     }
 
+    /** "오늘 운동" 탭 활성화 — 토글 버튼 색 변경 + 콘텐츠 visibility */
+    private fun showTodayTab() {
+        binding.tabTodayContent.visibility = View.VISIBLE
+        binding.tabMenuContent.visibility = View.GONE
+        applyActiveTabStyle(binding.btnTabToday, isActive = true)
+        applyActiveTabStyle(binding.btnTabMenu, isActive = false)
+    }
+
+    /** "메뉴" 탭 활성화 */
+    private fun showMenuTab() {
+        binding.tabTodayContent.visibility = View.GONE
+        binding.tabMenuContent.visibility = View.VISIBLE
+        applyActiveTabStyle(binding.btnTabToday, isActive = false)
+        applyActiveTabStyle(binding.btnTabMenu, isActive = true)
+    }
+
+    private fun applyActiveTabStyle(btn: com.google.android.material.button.MaterialButton, isActive: Boolean) {
+        val ctx = requireContext()
+        if (isActive) {
+            btn.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ctx.resources.getColor(R.color.primary, null))
+            btn.setTextColor(ctx.resources.getColor(R.color.on_primary, null))
+            btn.strokeWidth = 0
+        } else {
+            btn.backgroundTintList = android.content.res.ColorStateList.valueOf(
+                ctx.resources.getColor(R.color.surface, null))
+            btn.setTextColor(ctx.resources.getColor(R.color.text_secondary, null))
+            btn.strokeWidth = (2 * ctx.resources.displayMetrics.density).toInt()
+        }
+    }
+
     private fun loadDashboard() {
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getInt("user_id", 0)
@@ -102,14 +139,50 @@ class HomeFragment : Fragment() {
             }
 
             val todayStart = getTodayStartMillis()
-            val todayCount = db.sessionDao().getTodayCompletedCount(userId, todayStart)
-            if (todayCount > 0) {
-                binding.tvTodayStatus.text = "완료!"
-                binding.tvTodayStatus.setTextColor(resources.getColor(R.color.success, null))
-            } else {
-                binding.tvTodayStatus.text = "아직 안 했어요"
-                binding.tvTodayStatus.setTextColor(resources.getColor(R.color.warning, null))
+            // 오늘 완료한 운동 ID 조회 — 8개 모두 완료하면 "완료!"
+            // (이전: TrainingSession.isCompleted 플래그 의존 → 풀세션 완주 안 된 경우 부정확)
+            val completedIds = db.sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
+            val doneCount = completedIds.size
+            when {
+                doneCount >= 8 -> {
+                    binding.tvTodayStatus.text = "완료!"
+                    binding.tvTodayStatus.setTextColor(resources.getColor(R.color.success, null))
+                }
+                doneCount > 0 -> {
+                    binding.tvTodayStatus.text = "${doneCount}/8"
+                    binding.tvTodayStatus.setTextColor(resources.getColor(R.color.warning, null))
+                }
+                else -> {
+                    binding.tvTodayStatus.text = "0/8"
+                    binding.tvTodayStatus.setTextColor(resources.getColor(R.color.warning, null))
+                }
             }
+
+            // 8개 운동 체크리스트 — 오늘 한 운동 ID는 ✓, 안 한 건 ○
+            renderChecklist(completedIds)
+        }
+    }
+
+    private fun renderChecklist(completedIds: Set<Int>) {
+        val container = binding.checklistContainer
+        container.removeAllViews()
+        val inflater = LayoutInflater.from(requireContext())
+        val successColor = resources.getColor(R.color.success, null)
+        val warningColor = resources.getColor(R.color.warning, null)
+        val primaryText = resources.getColor(R.color.text_primary, null)
+        val secondaryText = resources.getColor(R.color.text_secondary, null)
+        for (id in 1..8) {
+            val row = inflater.inflate(R.layout.item_exercise_check, container, false)
+            val icon = row.findViewById<TextView>(R.id.tv_check_icon)
+            val name = row.findViewById<TextView>(R.id.tv_check_name)
+            val status = row.findViewById<TextView>(R.id.tv_check_status)
+            val isDone = id in completedIds
+            icon.text = if (isDone) "✓" else "○"
+            icon.setTextColor(if (isDone) successColor else warningColor)
+            name.text = SessionFlow.exerciseName(id)
+            name.setTextColor(if (isDone) secondaryText else primaryText)
+            status.text = if (isDone) "완료" else ""
+            container.addView(row)
         }
     }
 

@@ -10,6 +10,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
+/**
+ * 온보딩 ViewModel — 5개 Fragment(성별/나이/Q1/Q2/Q3)가 답변을 임시 변수에 누적.
+ * 마지막 Q3 답변 후 [saveAll]을 호출하면 DB 트랜잭션 1번으로 모든 답변을 저장하고
+ * [completionEvent]로 완료 알림.
+ *
+ * 뒤로가기로 화면을 다시 방문해도 임시 변수가 유지되어 사용자가 재답변 가능.
+ */
 class OnboardingViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = UserRepository(
@@ -17,44 +24,33 @@ class OnboardingViewModel(application: Application) : AndroidViewModel(applicati
     )
     private val prefs = application.getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
 
-    private val _state = MutableStateFlow<OnboardingState>(OnboardingState.Step1Gender)
-    val state: StateFlow<OnboardingState> = _state
+    // ─── 5개 Fragment에서 setter로 누적되는 임시 답변 ───
+    var tempGender: String = ""        // "male" or "female"
+    var tempAge: Int = 0               // 60~110
+    var tempQ1: Boolean = false        // 지난 1년 넘어진 적 있음?
+    var tempQ2: Boolean = false        // 서거나 걸을 때 불안정?
+    var tempQ3: Boolean = false        // 넘어질까봐 두려움?
 
-    private var gender: String = ""
-    private var age: Int = 0
-    private var savedUserId: Int = 0
+    /** Q3 답변 저장 + DB 저장 완료 후 user_id 발행 (Fragment에서 collect → navigate) */
+    private val _completionEvent = MutableStateFlow<Int?>(null)
+    val completionEvent: StateFlow<Int?> = _completionEvent
 
     /** 이미 온보딩이 완료된 경우 true → MainActivity에서 HomeFragment로 바로 이동 */
     fun isOnboardingAlreadyComplete(): Boolean {
         return prefs.getBoolean("onboarding_complete", false)
     }
 
-    /** Step 1: 성별·나이 저장 후 STEADI 설문 단계로 전환 */
-    fun saveGenderAndAge(gender: String, age: Int) {
-        this.gender = gender
-        this.age = age
+    /** 마지막 Q3 답변 후 호출 — DB 트랜잭션 1번으로 모든 답변을 저장 */
+    fun saveAll() {
         viewModelScope.launch {
-            savedUserId = repository.saveUser(gender, age).toInt()
-            _state.value = OnboardingState.Step2Steadi
-        }
-    }
-
-    /** Step 2: STEADI 3문항 저장 후 온보딩 완료 */
-    fun saveSteadiAndComplete(q1: Boolean, q2: Boolean, q3: Boolean) {
-        viewModelScope.launch {
-            repository.saveSteadiResults(savedUserId, q1, q2, q3)
-            repository.updateOnboardingComplete(savedUserId)
+            val userId = repository.saveUser(tempGender, tempAge).toInt()
+            repository.saveSteadiResults(userId, tempQ1, tempQ2, tempQ3)
+            repository.updateOnboardingComplete(userId)
             prefs.edit()
                 .putBoolean("onboarding_complete", true)
-                .putInt("user_id", savedUserId)
+                .putInt("user_id", userId)
                 .apply()
-            _state.value = OnboardingState.Complete(savedUserId)
+            _completionEvent.value = userId
         }
-    }
-
-    sealed class OnboardingState {
-        object Step1Gender : OnboardingState()
-        object Step2Steadi : OnboardingState()
-        data class Complete(val userId: Int) : OnboardingState()
     }
 }

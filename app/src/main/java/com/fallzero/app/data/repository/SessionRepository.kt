@@ -22,6 +22,11 @@ class SessionRepository(private val sessionDao: SessionDao) {
         ))
     }
 
+    /** id로 세션 완료 표시 (풀 세션 종료 시) */
+    suspend fun markSessionCompleted(sessionId: Int) {
+        sessionDao.markSessionCompleted(sessionId, System.currentTimeMillis())
+    }
+
     suspend fun saveRecord(record: ExerciseRecord): Long =
         sessionDao.insertRecord(record)
 

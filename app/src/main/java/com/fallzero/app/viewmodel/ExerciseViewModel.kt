@@ -107,7 +107,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             _uiState.value = ExerciseUiState.Ready(
                 engine.exerciseName,
                 engine.targetCount,
-                bilateralSide = if (isBilateral) "왼쪽" else null
+                bilateralSide = if (isBilateral) "한쪽" else null
             )
         }
     }
@@ -174,8 +174,9 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         }
         lastFrameMs = now
 
-        // 움직임 감지 (정적 종료 판단)
-        if (kotlin.math.abs(result.currentMetric - lastMetricValue) > 0.5f) {
+        // 움직임 감지 (정적 종료 판단) — engine 별 임계값 사용 (ToeRaise/CalfRaise 등 작은 메트릭은 0.005 등)
+        val movementThr = engine.movementThreshold
+        if (kotlin.math.abs(result.currentMetric - lastMetricValue) > movementThr) {
             lastMovementMs = now
             lastMetricValue = result.currentMetric
         }
@@ -208,16 +209,22 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             currentMetric = result.currentMetric,
             bilateralSide = when {
                 !isBilateral -> null
-                sidePhase == SidePhase.LEFT -> "왼쪽"
-                sidePhase == SidePhase.RIGHT -> "오른쪽"
+                sidePhase == SidePhase.LEFT -> "한쪽"
+                sidePhase == SidePhase.RIGHT -> "다른쪽"
                 else -> null
-            }
+            },
+            calibrationRepCompleted = result.calibrationRepCompleted,
+            calibrationReps = result.calibrationReps
         )
 
         if (!calibrationPrbSaved && result.state != EngineState.CALIBRATING && engine.measuredCalibrationPRB > 0f) {
             calibrationPrbSaved = true
             currentPrb = engine.measuredCalibrationPRB
             saveCalibratedPRB(engine)
+            // 본 운동 진입 시점에 inactivity timer 리셋 — 사용자가 calibration 직후 잠시 정지해도
+            // 곧바로 4초 timeout으로 종료되지 않도록 grace period 보장.
+            lastMovementMs = now
+            lastMetricValue = result.currentMetric
         }
 
         // 4초 이상 정적 → 자동 종료. 균형 운동(#8)은 정지 자세를 유지하므로 제외.
@@ -238,8 +245,10 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
 
         // 목표 횟수 달성 → 양측 처리 또는 완료
         // 1.5초 delay: "열" 카운트 음성이 발화될 시간 확보 (즉시 다음 단계 전환하면 cut off)
+        // 즉시 measurementStarted=false: 1.5초 동안 wrong-leg 같은 잘못된 detection 발생 방지
         if (result.count >= perSideTarget && !isCompleted && !isAwaitingFinalCount) {
             isAwaitingFinalCount = true
+            measurementStarted = false  // 즉시 detection 차단 (사용자 명시: 10회 직후 wrong-leg 경고 방지)
             viewModelScope.launch {
                 kotlinx.coroutines.delay(1500)
                 if (!isCompleted) handleSideOrComplete(engine)
@@ -261,8 +270,8 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                 sidePhase = SidePhase.INTERSIDE_REST
                 _uiState.value = ExerciseUiState.SideSwitch(
                     exerciseName = engine.exerciseName,
-                    fromSide = "왼쪽",
-                    toSide = "오른쪽",
+                    fromSide = "한쪽",
+                    toSide = "다른쪽",
                     seconds = SessionFlow.SIDE_REST_SECONDS
                 )
                 lastMovementMs = System.currentTimeMillis()
@@ -295,7 +304,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         _uiState.value = ExerciseUiState.Ready(
             exerciseName = engine.exerciseName,
             targetCount = perSideTarget,
-            bilateralSide = "오른쪽"
+            bilateralSide = "다른쪽"
         )
     }
 
@@ -373,8 +382,8 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                 isCoachingCue = false,
                 isCalibrating = false,
                 engineState = EngineState.IDLE,
-                bilateralSide = if (isBilateral && sidePhase == SidePhase.LEFT) "왼쪽"
-                                else if (isBilateral && sidePhase == SidePhase.RIGHT) "오른쪽" else null
+                bilateralSide = if (isBilateral && sidePhase == SidePhase.LEFT) "한쪽"
+                                else if (isBilateral && sidePhase == SidePhase.RIGHT) "다른쪽" else null
             )
         }
     }
@@ -397,6 +406,17 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         leftCompletedCount = 0
         rightCompletedCount = 0
         _uiState.value = ExerciseUiState.Idle
+    }
+
+    /** Q8a/Q8b — 풀 세션(전체 8개 운동) 완료 시 호출. 마지막 운동의 TrainingSession을
+     *  isCompleted=1로 표시 → HomeFragment 대시보드 "오늘 운동: 완료!" 갱신 */
+    fun markFullSessionComplete() {
+        val sid = currentSessionId
+        if (sid <= 0L) return
+        viewModelScope.launch {
+            try { sessionRepository.markSessionCompleted(sid.toInt()) }
+            catch (_: Exception) {}
+        }
     }
 
     sealed class ExerciseUiState {
@@ -428,7 +448,9 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             val isCalibrating: Boolean,
             val engineState: EngineState,
             val currentMetric: Float = 0f,
-            val bilateralSide: String? = null
+            val bilateralSide: String? = null,
+            val calibrationRepCompleted: Boolean = false,
+            val calibrationReps: Int = 0
         ) : ExerciseUiState()
     }
 }

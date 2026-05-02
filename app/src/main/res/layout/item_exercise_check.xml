@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="10dp"
+    android:paddingHorizontal="4dp">
+
+    <TextView
+        android:id="@+id/tv_check_icon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="○"
+        android:textSize="32sp"
+        android:textStyle="bold"
+        android:textColor="@color/warning"
+        android:gravity="center"
+        android:layout_marginEnd="14dp"
+        android:minWidth="36dp" />
+
+    <TextView
+        android:id="@+id/tv_check_name"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="운동"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary" />
+
+    <TextView
+        android:id="@+id/tv_check_status"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textSize="18sp"
+        android:textColor="@color/success"
+        android:textStyle="bold"
+        android:layout_marginStart="8dp" />
+
+</LinearLayout>

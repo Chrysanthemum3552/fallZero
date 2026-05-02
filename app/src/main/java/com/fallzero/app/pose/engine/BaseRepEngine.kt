@@ -1,5 +1,6 @@
 package com.fallzero.app.pose.engine
 
+import android.util.Log
 import com.fallzero.app.data.algorithm.PRBManager
 import com.fallzero.app.pose.AngleCalculator.LandmarkIndex
 import com.fallzero.app.pose.AngleCalculator.Side
@@ -51,6 +52,8 @@ abstract class BaseRepEngine(
     // 첫 capture를 위한 sentinel (NaN). selectPeak이 NaN이면 candidate를 그대로 채택.
     // metricIncreasing=false 엔진(ChairStand)에서 minOf(0, X)=0 stuck 버그 방지.
     private var calibrationPeak = Float.NaN
+    // ATTEMPTING 동안 도달한 최고 metric (실패 시 coachingCue 발화 여부 결정용)
+    private var attemptingPeakMetric = Float.NaN
 
     // 스무딩 (서브클래스에서 alpha 조정 가능)
     protected var smoother = MetricSmoother(alpha = 0.3f)
@@ -84,10 +87,24 @@ abstract class BaseRepEngine(
     open val metricIncreasing: Boolean = true
 
     /**
+     * 카운트 시점 옵션 — 사용자 명시 (Q3).
+     *
+     *   ON_MOTION_START: ATTEMPTING/IDLE → IN_MOTION 시점 (들기만 해도 +1) — #2 HipAbduction
+     *   ON_DESCENT_START: IN_MOTION → RETURNING 시점 (어느 정도 내려가면 +1) — #1, #3, #4, #5, #6
+     *   ON_FULL_RETURN: RETURNING → IDLE 확정 시점 (완전히 돌아오면 +1) — #7 ChairStand (임상 정의)
+     */
+    open val countTiming: CountTiming = CountTiming.ON_DESCENT_START
+
+    /**
      * 첫 카운트(IN_MOTION 진입 + currentCount==1) 시점에 호출되는 hook.
      * 양측 운동(HipAbduction)에서 lockedSide 결정에 사용.
      */
     open fun onFirstCount(landmarks: List<NormalizedLandmark>) {}
+
+    /** 디버그 로그 태그. null이면 로그 비활성. 서브클래스에서 override (예: "CalfDebug").
+     *  설정값이 있으면 매 30 frame(~1초)마다 logcat에 [tag] 로그 출력. */
+    protected open val debugTag: String? = null
+    private var debugFrameCounter = 0
 
     /** ATTEMPTING 진입 기준 충족? (partial threshold 이상으로 metric이 진행) */
     private fun meetsPartialThreshold(metric: Float, threshold: Float): Boolean {
@@ -126,10 +143,13 @@ abstract class BaseRepEngine(
         var countIncremented = false
         var reportedError: String? = null
         var coachingCueTriggered = false  // 이 frame에서 시도 실패 발생?
+        var calibrationRepCompletedThisFrame = false
 
         val motionThreshold = getMotionThreshold()
         val returnThreshold = getReturnThreshold()
         val partialThreshold = getPartialThreshold()
+
+        val stateBefore = state
 
         when (state) {
             EngineState.IDLE -> {
@@ -139,7 +159,8 @@ abstract class BaseRepEngine(
                 } else if (meetsMotionThreshold(metric, motionThreshold)) {
                     // 매우 빠른 동작 — partial 단계 지나서 바로 motion threshold 도달
                     transitionToInMotion(hasError, metric)
-                    if (!isInCalibration) {
+                    if (!isInCalibration && countTiming == CountTiming.ON_MOTION_START) {
+                        // ON_MOTION_START: 진입 시점에 즉시 카운트 (HipAbduction)
                         currentCount++
                         countIncremented = true
                         if (currentCount == 1) onFirstCount(landmarks)
@@ -147,11 +168,14 @@ abstract class BaseRepEngine(
                             reportedError = errorMsg
                         }
                         lastCountTimeMs = nowMs
+                        debugTag?.let { Log.d(it, "★ COUNT++ at IDLE→IN_MOTION (direct) count=$currentCount metric=%.3f motThr=%.3f".format(metric, motionThreshold)) }
                     }
+                    // ON_DESCENT_START / ON_FULL_RETURN: 나중 단계에서 카운트
                 } else if (meetsPartialThreshold(metric, partialThreshold)) {
                     // 시도 시작 — partial 도달
                     state = EngineState.ATTEMPTING
                     hasErrorThisRep = hasError
+                    attemptingPeakMetric = metric  // ATTEMPTING peak 추적 시작
                     if (isInCalibration) {
                         calibrationPeak = selectPeak(calibrationPeak, metric)
                     }
@@ -159,14 +183,18 @@ abstract class BaseRepEngine(
             }
             EngineState.ATTEMPTING -> {
                 if (hasError) hasErrorThisRep = true
+                // ATTEMPTING 동안 peak metric 추적 (실패 시 coachingCue 의미 있는지 판단)
+                attemptingPeakMetric = selectPeak(attemptingPeakMetric, metric)
                 if (isInCalibration) {
                     calibrationPeak = selectPeak(calibrationPeak, metric)
                 }
 
                 if (meetsMotionThreshold(metric, motionThreshold)) {
-                    // motion threshold 도달 — 카운트 진행
+                    // motion threshold 도달
                     state = EngineState.IN_MOTION
-                    if (!isInCalibration) {
+                    attemptingPeakMetric = Float.NaN  // 성공한 시도 → 리셋
+                    if (!isInCalibration && countTiming == CountTiming.ON_MOTION_START) {
+                        // ON_MOTION_START: 진입 시점에 즉시 카운트 (HipAbduction)
                         currentCount++
                         countIncremented = true
                         if (currentCount == 1) onFirstCount(landmarks)
@@ -174,19 +202,28 @@ abstract class BaseRepEngine(
                             reportedError = errorMsg ?: detectError(landmarks)
                         }
                         lastCountTimeMs = nowMs
+                        debugTag?.let { Log.d(it, "★ COUNT++ at ATTEMPTING→IN_MOTION count=$currentCount metric=%.3f motThr=%.3f".format(metric, motionThreshold)) }
                     }
+                    // ON_DESCENT_START / ON_FULL_RETURN: 다음 단계에서 카운트
                 } else if (fellBelowPartialThreshold(metric, partialThreshold)) {
                     // 시도 실패 — motion 못 도달하고 partial 미만으로 떨어짐
-                    if (!isInCalibration) {
-                        if (hasErrorThisRep) {
-                            // 자세 오류 있었음 (예: 잘못된 다리) → errorMessage 우선 발화
-                            reportedError = errorMsg ?: detectError(landmarks)
-                        } else {
-                            // 단순히 부족하게 들었다 내림 → 코칭 큐
+                    // coachingCue는 사용자가 의미 있게 시도했을 때만 (peak가 motionThr의 50% 이상)
+                    // → 살짝 움직이고 멈춘 경우엔 발화 안 함 (사용자 혼란 방지)
+                    if (hasErrorThisRep) {
+                        reportedError = errorMsg ?: detectError(landmarks)
+                    } else {
+                        val peakRatio = if (!attemptingPeakMetric.isNaN() && motionThreshold != 0f) {
+                            if (metricIncreasing) attemptingPeakMetric / motionThreshold
+                            else motionThreshold / attemptingPeakMetric  // metricIncreasing=false: smaller = closer to motion
+                        } else 0f
+                        if (peakRatio >= 0.5f) {
+                            // 의미 있는 시도(50%+ 도달)였는데 부족 → 코칭 큐
                             coachingCueTriggered = true
                         }
+                        // 그 외 작은 움직임은 무시
                     }
                     hasErrorThisRep = false
+                    attemptingPeakMetric = Float.NaN  // 다음 시도 위해 리셋
                     state = EngineState.IDLE
                 }
             }
@@ -199,20 +236,44 @@ abstract class BaseRepEngine(
                 // 내려오기 시작 감지
                 if (meetsReturnThreshold(metric, returnThreshold)) {
                     state = EngineState.RETURNING
+                    // ON_DESCENT_START: 내려오기 시작 시점에 카운트 (#1, #3, #4, #5, #6)
+                    if (!isInCalibration && countTiming == CountTiming.ON_DESCENT_START) {
+                        currentCount++
+                        countIncremented = true
+                        if (currentCount == 1) onFirstCount(landmarks)
+                        if (hasErrorThisRep) {
+                            reportedError = errorMsg ?: detectError(landmarks)
+                        }
+                        lastCountTimeMs = nowMs
+                        debugTag?.let { Log.d(it, "★ COUNT++ at IN_MOTION→RETURNING (descent start) count=$currentCount metric=%.3f retThr=%.3f".format(metric, returnThreshold)) }
+                    }
                 }
             }
             EngineState.RETURNING -> {
                 // 복귀가 확실한지 2번째 확인
                 if (meetsReturnThreshold(metric, returnThreshold)) {
-                    // 복귀 확정 → 사이클 종료 (카운트는 IN_MOTION 진입 시 이미 됨)
+                    // 복귀 확정
                     if (isInCalibration) {
                         calibrationReps++
+                        calibrationRepCompletedThisFrame = true
                         if (calibrationReps >= 2) {
                             measuredCalibrationPRB = calibrationPeak
                             prb = calibrationPeak
                             isInCalibration = false
                         }
+                    } else if (countTiming == CountTiming.ON_FULL_RETURN) {
+                        // ChairStand: 완전 복귀 시점에 카운트 (임상 정의 = 일어선 횟수)
+                        currentCount++
+                        countIncremented = true
+                        if (currentCount == 1) onFirstCount(landmarks)
+                        if (hasErrorThisRep) {
+                            reportedError = errorMsg ?: detectError(landmarks)
+                        }
+                        lastCountTimeMs = nowMs
+                        debugTag?.let { Log.d(it, "★ COUNT++ at RETURNING→IDLE confirmed count=$currentCount metric=%.3f retThr=%.3f".format(metric, returnThreshold)) }
                     }
+                    // ON_MOTION_START: IN_MOTION 진입 시 이미 카운트
+                    // ON_DESCENT_START: IN_MOTION→RETURNING 시점에 이미 카운트
                     hasErrorThisRep = false
                     state = EngineState.IDLE
                 } else {
@@ -225,7 +286,35 @@ abstract class BaseRepEngine(
             }
         }
 
+        // 상태 전이 발생 시 즉시 로그 (count 증가 진단용 — 어떤 전이가 +1을 만드는지 추적)
+        if (debugTag != null && state != stateBefore) {
+            Log.d(debugTag, "→ TRANSITION $stateBefore → $state metric=%.3f motThr=%.3f partThr=%.3f retThr=%.3f cooldownLeft=%d count=$currentCount".format(
+                metric, motionThreshold, partialThreshold, returnThreshold,
+                (MIN_COOLDOWN_MS - (nowMs - lastCountTimeMs)).coerceAtLeast(0L)))
+        }
+
         val displayState = if (isInCalibration) EngineState.CALIBRATING else state
+
+        // ─── 디버그 로그 (서브클래스가 debugTag 설정 시 매 30 frame마다 1줄) ───
+        debugTag?.let { tag ->
+            debugFrameCounter++
+            if (debugFrameCounter % 30 == 0) {
+                val visLK = landmarks[LandmarkIndex.LEFT_KNEE].visibility().orElse(0f)
+                val visRK = landmarks[LandmarkIndex.RIGHT_KNEE].visibility().orElse(0f)
+                val visLA = landmarks[LandmarkIndex.LEFT_ANKLE].visibility().orElse(0f)
+                val visRA = landmarks[LandmarkIndex.RIGHT_ANKLE].visibility().orElse(0f)
+                val visLH = landmarks[LandmarkIndex.LEFT_HEEL].visibility().orElse(0f)
+                val visRH = landmarks[LandmarkIndex.RIGHT_HEEL].visibility().orElse(0f)
+                Log.d(tag,
+                    "f=$debugFrameCounter state=$state count=$currentCount/$targetCount calib=$isInCalibration " +
+                    "raw=%.3f sm=%.3f mThr=%.3f pThr=%.3f rThr=%.3f prb=%.3f timing=$countTiming ".format(
+                        rawMetric, metric, motionThreshold, partialThreshold, returnThreshold, prb) +
+                    "visKnee(L/R)=%.2f/%.2f visAnkle(L/R)=%.2f/%.2f visHeel(L/R)=%.2f/%.2f ".format(
+                        visLK, visRK, visLA, visRA, visLH, visRH) +
+                    "errMsg=$errorMsg cueFired=$coachingCueTriggered countInc=$countIncremented"
+                )
+            }
+        }
 
         return FrameResult(
             count = currentCount,
@@ -237,7 +326,9 @@ abstract class BaseRepEngine(
             isCoachingCue = coachingCueTriggered,
             coachingCueMessage = if (coachingCueTriggered) coachingCueMessage else null,
             currentMetric = metric,
-            state = displayState
+            state = displayState,
+            calibrationRepCompleted = calibrationRepCompletedThisFrame,
+            calibrationReps = calibrationReps
         )
     }
 
@@ -271,6 +362,7 @@ abstract class BaseRepEngine(
         hasErrorThisRep = false
         calibrationReps = 0
         calibrationPeak = Float.NaN
+        attemptingPeakMetric = Float.NaN
         lastCountTimeMs = 0L
         smoother.reset()
     }

@@ -37,6 +37,14 @@ class BalanceEngine(
     private var state = EngineState.IDLE
     private var stableStartTimeMs = 0L
 
+    /** stage=4(한 발 서기) 양측 운동 — 어느 발을 들었는지 잠금. 운동 #8에서만 의미.
+     *  null = 자동 감지 모드 (첫 frame에서 들린 발 결정), Side.LEFT/RIGHT = 잠긴 다리.
+     *  잠긴 후 반대 발 들면 errorMessage 발화 + isStable=false. */
+    private var lockedLiftSide: Side? = null
+    // 잘못된 발이 들린 시작 시각 (ms). 1초 이상 지속 시에만 경고 — 값 튐 방어 (사용자 명시).
+    private var wrongFootSinceMs: Long = 0L
+    private val WRONG_FOOT_HOLD_MS = 1000L
+
     private val targetTimeSec get() = overrideTargetTimeSec ?: BalanceProgressionManager.getTargetTime(stage)
 
     private val smoother = MetricSmoother(alpha = 0.25f)
@@ -138,6 +146,33 @@ class BalanceEngine(
                 if (footYNorm < 0.06f) {
                     poseValid = false
                     poseHint = "한쪽 발을 들어주세요"
+                    wrongFootSinceMs = 0L  // 발 안 들면 잘못된 발 추적 리셋
+                } else {
+                    // 들린 발 = ankleY가 작은 쪽 (이미지 좌표 기준 위쪽)
+                    val liftedSide = if (leftAnkleY < rightAnkleY) Side.LEFT else Side.RIGHT
+                    when (lockedLiftSide) {
+                        null -> {
+                            // 자동 감지: 첫 들린 발로 잠금 (운동 #8 좌→우 흐름의 시작)
+                            lockedLiftSide = liftedSide
+                            wrongFootSinceMs = 0L
+                            Log.d("BalanceDebug", "▶ stage4 lockedLiftSide=$liftedSide (auto-detected)")
+                        }
+                        else -> {
+                            if (liftedSide != lockedLiftSide) {
+                                // 잘못된 발 — 1초 이상 지속 시에만 경고 (사용자 명시)
+                                if (wrongFootSinceMs == 0L) {
+                                    wrongFootSinceMs = System.currentTimeMillis()
+                                }
+                                if (System.currentTimeMillis() - wrongFootSinceMs >= WRONG_FOOT_HOLD_MS) {
+                                    poseValid = false
+                                    poseHint = "반대쪽 발로 들어주세요"
+                                }
+                                // 1초 미만 = 값 튐으로 간주, 경고 X
+                            } else {
+                                wrongFootSinceMs = 0L  // 올바른 발 들고 있으면 리셋
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -230,6 +265,19 @@ class BalanceEngine(
         bestHoldTimeSec = 0f
         smoother.reset()
         debugFrameCount = 0
+        // lockedLiftSide는 reset에서 보존 — onSideSwitch로만 flip (운동 #8의 좌→우 전환)
+    }
+
+    /** 양측 운동 #8(한 발 서기)에서 좌→우 전환 시 호출 — lockedLiftSide flip.
+     *  Side가 null이면(자동 감지 전 호출) 그대로 둠 — 첫 발 감지 시 새 lockedLiftSide 결정. */
+    override fun onSideSwitch() {
+        lockedLiftSide = when (lockedLiftSide) {
+            Side.LEFT -> Side.RIGHT
+            Side.RIGHT -> Side.LEFT
+            null -> null
+        }
+        wrongFootSinceMs = 0L
+        Log.d("BalanceDebug", "▶ onSideSwitch → lockedLiftSide=$lockedLiftSide")
     }
 
     override fun debugForceCount() { currentCount++ }

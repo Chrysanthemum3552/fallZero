@@ -61,15 +61,24 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private enum class Mode { BALANCE, CHAIR_STAND }
     private var mode: Mode = Mode.BALANCE
 
-    // ─── 사용자 카메라 이탈 감지 (2초간 valid landmarks 없으면 일시정지) ───
+    // 카메라 전후면 전환 — 초기값은 SharedPreferences에서 읽음 (영구 설정)
+    @Volatile private var isFrontCamera: Boolean = false
+    private var cameraPreview: Preview? = null
+    private var cameraAnalyzer: ImageAnalysis? = null
+
+    // ─── 사용자 카메라 이탈 / 부분 가림 감지 (2초 임계값) ───
     @Volatile private var lastValidFrameMs = 0L
+    @Volatile private var lastFullBodyMs = 0L
     @Volatile private var isPausedForUserAway = false
+    @Volatile private var isPausedForOcclusion = false
     @Volatile private var userReturnInProgress = false
     private var userAwayCheckJob: Job? = null
     private var pauseAnnounceJob: Job? = null
     private val USER_AWAY_TIMEOUT_MS = 2000L
     private val PAUSE_RESUME_BUFFER_MS = 1500L
     private val PAUSE_TTS_LOOP_MS = 5000L
+    private val EXAM_USER_AWAY_MSG = "카메라 앞으로 와주세요"
+    private val EXAM_OCCLUSION_MSG = "신체의 일부가 보이지 않습니다. 조금 더 뒤로 가주세요"
 
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -89,7 +98,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         super.onViewCreated(view, savedInstanceState)
         hasNavigated = false
         cameraExecutor = Executors.newSingleThreadExecutor()
-        ttsManager = TTSManager(requireContext())
+        ttsManager = TTSManager.getInstance(requireContext())
+        // 사용자가 이전에 전환한 카메라 facing 복원
+        isFrontCamera = com.fallzero.app.util.CameraFacingPref.isFrontCamera(requireContext())
 
         // SessionFlow에서 현재 단계 확인
         val step = SessionFlow.current()
@@ -116,6 +127,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         } else {
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
+
+        binding.btnCameraFlip.setOnClickListener { toggleCameraFacing() }
 
         observeViewModel()
     }
@@ -145,13 +158,14 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                     .build().also { ia ->
                         ia.setAnalyzer(cameraExecutor!!) { proxy ->
-                            poseLandmarkerHelper?.detectLiveStream(proxy, isFrontCamera = false)
+                            // 매 frame isFrontCamera 필드 읽기 (전환 즉시 반영)
+                            poseLandmarkerHelper?.detectLiveStream(proxy, isFrontCamera = isFrontCamera)
                                 ?: proxy.close()
                         }
                     }
-                provider.unbindAll()
-                provider.bindToLifecycle(viewLifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA, preview, analyzer)
+                cameraPreview = preview
+                cameraAnalyzer = analyzer
+                bindCameraToSelector(provider)
                 // 카메라 준비 완료 → 검사 자동 시작
                 autoStartExam()
             } catch (e: Exception) {
@@ -180,7 +194,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 b.tvTimer.text = ""
                 b.tvCount.text = "의자를 카메라 앞에 가져와서\n놓아주세요.\n\n의자 앞에 가만히 서면\n자동으로 시작됩니다."
                 b.tvCount.setTextColor(0xFF1565C0.toInt())
-                b.tvCount.textSize = 20f
+                // textSize는 XML에 28sp 고정 — 동적 변경 제거 (전신 가림 방지)
                 showExamGuidance(
                     titleRes = R.string.exam_guide_chair_title,
                     scriptRes = R.string.exam_guide_chair
@@ -209,9 +223,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.tvGuidanceText.text = getString(scriptRes)
         b.tvGuidanceCountdown.visibility = View.GONE
         b.guidanceOverlay.visibility = View.VISIBLE
-        ttsManager?.speak(getString(scriptRes).replace("\n", " "))
-        waitForTtsFinish {
-            if (_binding == null || hasNavigated) return@waitForTtsFinish
+        // TTS 콜백 — polling 없이 정확히 발화 종료 시점에 다음 단계
+        ttsManager?.speak(getString(scriptRes).replace("\n", " ")) {
+            if (_binding == null || hasNavigated) return@speak
             _binding?.guidanceOverlay?.visibility = View.GONE
             onAfterScript()
         }
@@ -248,7 +262,6 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             b.tvTimer.text = "${phase.remainingSec}초"
                             b.tvCount.text = "${phase.count}회"
                             b.tvCount.setTextColor(0xFFFFFFFF.toInt())
-                            b.tvCount.textSize = 48f
                             // 횟수 음성 카운트
                             if (phase.count > 0 && phase.count != lastSpokenSecond) {
                                 lastSpokenSecond = phase.count
@@ -266,8 +279,10 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             }
                         }
                         is ExamViewModel.ExamPhase.ChairStandComplete -> {
-                            ttsManager?.speak("의자 일어서기 검사가 끝났어요.")
-                            navigateNext()
+                            // TTS 끝까지 들리고 나서 navigate
+                            ttsManager?.speak("의자 일어서기 검사가 끝났어요.") {
+                                if (_binding != null && !hasNavigated) navigateNext()
+                            }
                         }
                         is ExamViewModel.ExamPhase.BalancePrepare -> {
                             // 균형 4단계 각각: 안내 overlay 표시 → 멘트 TTS → overlay 닫기 →
@@ -277,36 +292,42 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             b.tvTimer.text = "준비하세요"
                             b.tvCount.text = phase.stageInstruction
                             b.tvCount.setTextColor(0xFF1565C0.toInt())
-                            b.tvCount.textSize = 20f
+                            // textSize는 XML에 28sp 고정 — 동적 변경 제거 (전신 가림 방지)
                             lastSpokenSecond = -1
                             lastHintText = null
                             showExamGuidance(
                                 titleRes = balanceTitleRes(phase.stage),
                                 scriptRes = balanceScriptRes(phase.stage)
                             ) {
-                                // overlay 닫힌 후: "이제 곧 시작합니다" → 카운트다운 → 측정 시작
-                                ttsManager?.speak(getString(R.string.guidance_starting_soon))
-                                waitForTtsThenCountdown {
+                                // overlay 닫힌 후: "이제 곧 시작합니다" callback → 1초 buffer → 카운트다운 → 측정
+                                ttsManager?.speak(getString(R.string.guidance_starting_soon)) {
+                                    if (_binding == null || hasNavigated) return@speak
                                     _binding?.root?.postDelayed({
-                                        if (_binding != null && !hasNavigated) {
-                                            lastHintSpokenMs = 0L  // 잘못된 자세면 즉시 힌트 발화
-                                            lastSpokenSecond = -1
-                                            viewModel.startBalanceMeasurementNow()
-                                            startUserAwayMonitor()
+                                        if (_binding != null && !hasNavigated) startCountdown321 {
+                                            _binding?.root?.postDelayed({
+                                                if (_binding != null && !hasNavigated) {
+                                                    lastHintSpokenMs = 0L
+                                                    lastSpokenSecond = -1
+                                                    viewModel.startBalanceMeasurementNow()
+                                                    startUserAwayMonitor()
+                                                }
+                                            }, 1500L)
                                         }
-                                    }, 1500L)
+                                    }, 1000L)
                                 }
                             }
                         }
                         is ExamViewModel.ExamPhase.Balance -> {
                             b.tvExamPhase.text = "${phase.stage}단계: ${viewModel.getBalanceStageName(phase.stage)}"
                             val elapsed = phase.elapsedSec.toInt()
-                            b.tvTimer.text = "$elapsed / ${phase.targetSec.toInt()}초"
+                            // 0초 flicker 방지: stage 전환 직후 첫 frame은 elapsed=0이라 화면 갱신 안 함
+                            if (elapsed > 0) {
+                                b.tvTimer.text = "$elapsed / ${phase.targetSec.toInt()}초"
+                            }
 
                             if (phase.isStable) {
                                 b.tvCount.text = "잘하고 있어요!"
                                 b.tvCount.setTextColor(0xFF4CAF50.toInt())
-                                b.tvCount.textSize = 36f
                                 // 초 단위 음성 카운트 — TTS가 안내음성 재생 중이면 건너뜀
                                 if (elapsed > 0 && elapsed != lastSpokenSecond) {
                                     lastSpokenSecond = elapsed
@@ -324,7 +345,6 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 val hint = phase.errorHint
                                 b.tvCount.text = hint ?: "자세를 유지하세요"
                                 b.tvCount.setTextColor(0xFFFF9800.toInt())
-                                b.tvCount.textSize = 28f
                                 lastSpokenSecond = -1
                                 // 자세 교정 힌트만 TTS (자세 관련: "발을 모아주세요" 등)
                                 // "균형을 잡아주세요"는 숫자 카운트와 겹치므로 음성 안 냄
@@ -338,16 +358,27 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 }
                             }
                         }
+                        is ExamViewModel.ExamPhase.BalanceStagePassed -> {
+                            // 단계 통과 — "십!" + "좋아요!" 시퀀스 후 다음 stage 진행 (음성 cut off 방지)
+                            // 0초 flicker 방지를 위해 화면 텍스트 즉시 비움
+                            b.tvTimer.text = ""
+                            b.tvCount.text = "✓"
+                            b.tvCount.setTextColor(0xFF4CAF50.toInt())
+                            lastSpokenSecond = -1
+                            ttsManager?.speakSequence("십!", "좋아요!") {
+                                if (_binding != null && !hasNavigated) {
+                                    viewModel.advanceFromStagePassed()
+                                }
+                            }
+                        }
                         is ExamViewModel.ExamPhase.BalanceComplete -> {
                             b.tvExamPhase.text = ""
                             b.tvTimer.text = ""
-                            b.tvCount.text = "✔\n\n균형 검사가 끝났습니다!"
+                            b.tvCount.text = "✔ 끝!"
                             b.tvCount.setTextColor(0xFF4CAF50.toInt())
-                            b.tvCount.textSize = 28f
                             b.poseOverlay.clear()
-                            ttsManager?.speak("균형 검사가 끝났습니다! 수고하셨어요.")
-                            val startMs = System.currentTimeMillis()
-                            waitForTtsFinishSafe(startMs, 5000L) {
+                            // TTS 콜백 — 발화 완료 후 정확히 navigate (cut off 없음)
+                            ttsManager?.speak("균형 검사가 끝났습니다! 수고하셨어요.") {
                                 if (_binding != null && !hasNavigated) navigateNext()
                             }
                         }
@@ -375,17 +406,15 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             b.tvTimer.text = ""
             b.tvExamPhase.text = ""
             b.tvTimer.text = ""
-            b.tvCount.text = "✔\n\n모든 검사가 끝났습니다."
+            b.tvCount.text = "✔ 끝!"
             b.tvCount.setTextColor(0xFF4CAF50.toInt())
-            b.tvCount.textSize = 28f
             b.poseOverlay.clear()
-            ttsManager?.speak("모든 검사가 끝났습니다.")
-            // 3초 후 결과 화면으로 (단순 고정 대기 — 가장 안정적)
-            b.root.postDelayed({
+            // TTS 콜백 — 발화 완료 후 정확히 결과 화면으로
+            ttsManager?.speak("모든 검사가 끝났습니다.") {
                 if (_binding != null) {
                     findNavController().navigate(R.id.action_global_exam_result)
                 }
-            }, 3000L)
+            }
             return
         }
         navigateTo(next)
@@ -400,12 +429,34 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             SessionFlow.StepType.REST,
             SessionFlow.StepType.SIDE_REST -> nav.navigate(R.id.action_global_rest)
             SessionFlow.StepType.SIDE_ROTATION -> nav.navigate(R.id.action_global_rotation)
+            SessionFlow.StepType.CHAIR_REPOSITION -> nav.navigate(R.id.action_global_chair_reposition)
             SessionFlow.StepType.DONE -> {
                 viewModel.finalizeAndSave()
                 nav.navigate(R.id.action_global_exam_result)
             }
             SessionFlow.StepType.PRE_FLIGHT -> nav.navigate(R.id.action_global_preflight)
         }
+    }
+
+    /** 현재 isFrontCamera 값으로 카메라 selector를 바꿔서 rebind */
+    private fun bindCameraToSelector(provider: ProcessCameraProvider) {
+        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA
+                       else CameraSelector.DEFAULT_BACK_CAMERA
+        try {
+            provider.unbindAll()
+            val preview = cameraPreview ?: return
+            val analyzer = cameraAnalyzer ?: return
+            provider.bindToLifecycle(viewLifecycleOwner, selector, preview, analyzer)
+        } catch (e: Exception) {
+            Log.e(TAG, "bindCameraToSelector failed", e)
+        }
+    }
+
+    /** 우상단 flip 버튼 클릭 시 호출 — 변경된 설정을 영구 저장 */
+    private fun toggleCameraFacing() {
+        isFrontCamera = !isFrontCamera
+        com.fallzero.app.util.CameraFacingPref.setFrontCamera(requireContext(), isFrontCamera)
+        cameraProvider?.let { bindCameraToSelector(it) }
     }
 
     private fun cleanupCamera() {
@@ -420,10 +471,14 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     override fun onResults(resultBundle: PoseLandmarkerHelper.ResultBundle) {
         val result = resultBundle.results.firstOrNull() ?: return
         val landmarks = result.landmarks().firstOrNull()
-        // 유효한 landmarks 도착 시 이탈 감지 timestamp 갱신 + (이탈 중이었으면) 복귀 처리
+        // 유효한 landmarks 도착 시 이탈/가림 timestamp 갱신 + 복귀 처리
         if (landmarks != null) {
-            lastValidFrameMs = System.currentTimeMillis()
+            val now = System.currentTimeMillis()
+            lastValidFrameMs = now
+            val fullBody = isFullBodyVisible(landmarks)
+            if (fullBody) lastFullBodyMs = now
             if (isPausedForUserAway) onUserReturned()
+            else if (isPausedForOcclusion && fullBody) onOcclusionCleared()
         }
         activity?.runOnUiThread {
             val b = _binding ?: return@runOnUiThread
@@ -471,25 +526,29 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             // ViewModel에 메서드 추가하여 전달
                             viewModel.calibrateChairStand(avgM)
 
-                            b.tvCount.text = "좋아요!\n\n30초 내에 최대한 많이\n의자에 앉았다가 일어나시면 됩니다.\n팔은 가슴에 교차해주세요."
+                            // 긴 안내는 음성으로 — 화면 tvCount는 작아서 짧게만
+                            b.tvCount.text = "준비 완료"
                             b.tvCount.setTextColor(0xFF4CAF50.toInt())
-                            b.tvCount.textSize = 18f
                             b.tvTimer.text = ""
+                            // TTS 콜백 → 1초 buffer → 카운트다운 → 1.5초 → 측정 시작
                             ttsManager?.speak(
                                 "좋아요! 30초 내에 최대한 많이, 의자에 앉았다가 일어나시면 됩니다. " +
                                 "팔은 가슴에 교차해주세요. 곧 시작합니다."
-                            )
-                            waitForTtsThenCountdown {
-                                // "시작!" 후 1.5초 여유 → 측정 시작 + 이탈 감지 monitor 시작
+                            ) {
+                                if (_binding == null || hasNavigated) return@speak
                                 _binding?.root?.postDelayed({
-                                    if (_binding != null && !hasNavigated && chairPrepareMode) {
-                                        chairPrepareMode = false
-                                        lastSpokenSecond = -1
-                                        lastHintSpokenMs = 0L  // 힌트 즉시 허용
-                                        viewModel.startChairStand()
-                                        startUserAwayMonitor()
+                                    if (_binding != null && !hasNavigated) startCountdown321 {
+                                        _binding?.root?.postDelayed({
+                                            if (_binding != null && !hasNavigated && chairPrepareMode) {
+                                                chairPrepareMode = false
+                                                lastSpokenSecond = -1
+                                                lastHintSpokenMs = 0L
+                                                viewModel.startChairStand()
+                                                startUserAwayMonitor()
+                                            }
+                                        }, 1500L)
                                     }
-                                }, 1500L)
+                                }, 1000L)
                             }
                         } else {
                             val remain = ((3000L - held) / 1000) + 1
@@ -511,72 +570,33 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
-    /** TTS 대기 + 최대 시간 안전장치 (무한 루프 방지) */
-    private fun waitForTtsFinishSafe(startMs: Long, maxWaitMs: Long, onDone: () -> Unit) {
-        _binding?.root?.postDelayed({
-            if (_binding == null || hasNavigated) return@postDelayed
-            val elapsed = System.currentTimeMillis() - startMs
-            if (ttsManager?.isSpeaking() == true && elapsed < maxWaitMs) {
-                waitForTtsFinishSafe(startMs, maxWaitMs, onDone)
-            } else {
-                onDone()
-            }
-        }, 500L)
-    }
+    // ─── 폐기: ttsManager.speak(text, onDone) callback 패턴으로 모두 마이그레이션됨 ───
 
-    /** TTS 끝날 때까지 대기 → callback */
-    private fun waitForTtsFinish(onDone: () -> Unit) {
-        _binding?.root?.postDelayed({
-            if (_binding == null || hasNavigated) return@postDelayed
-            if (ttsManager?.isSpeaking() == true) {
-                waitForTtsFinish(onDone)
-            } else {
-                onDone()
-            }
-        }, 500L)
-    }
-
-    /** TTS 끝날 때까지 대기 → 1초 여유 → 3,2,1 카운트다운 → onReady */
-    private fun waitForTtsThenCountdown(onReady: () -> Unit) {
-        _binding?.root?.postDelayed({
-            if (_binding == null || hasNavigated) return@postDelayed
-            if (ttsManager?.isSpeaking() == true) {
-                waitForTtsThenCountdown(onReady) // 아직 말하는 중 → 500ms 후 재확인
-            } else {
-                // TTS 끝남 → 1초 여유 후 카운트다운
-                _binding?.root?.postDelayed({
-                    if (_binding != null && !hasNavigated) startCountdown321(onReady)
-                }, 1000L)
-            }
-        }, 500L)
-    }
-
-    /** 3, 2, 1 카운트다운 후 "시작!" TTS 완료 대기 → onReady 실행 */
+    /** 3, 2, 1 → "시작!" 카운트다운. 화면 가운데 floating overlay(tv_big_countdown)에 큰 글씨로. */
     private fun startCountdown321(onReady: () -> Unit) {
         val b = _binding ?: return
-        b.tvCount.textSize = 80f
-        b.tvCount.setTextColor(0xFFFFFFFF.toInt())
-
-        b.tvCount.text = "3"
+        b.tvBigCountdown.visibility = View.VISIBLE
+        b.tvBigCountdown.setTextColor(0xFFFFFF00.toInt())
+        b.tvBigCountdown.text = "3"
         ttsManager?.speak("삼")
         b.root.postDelayed({
             if (_binding == null || hasNavigated) return@postDelayed
-            _binding?.tvCount?.text = "2"
+            _binding?.tvBigCountdown?.text = "2"
             ttsManager?.speak("이")
 
             _binding?.root?.postDelayed({
                 if (_binding == null || hasNavigated) return@postDelayed
-                _binding?.tvCount?.text = "1"
+                _binding?.tvBigCountdown?.text = "1"
                 ttsManager?.speak("일")
 
                 _binding?.root?.postDelayed({
                     if (_binding == null || hasNavigated) return@postDelayed
-                    _binding?.tvCount?.text = "시작!"
-                    _binding?.tvCount?.setTextColor(0xFF4CAF50.toInt())
-                    ttsManager?.speak("시작!")
-
-                    // "시작!" TTS 완전히 끝난 후 onReady (800ms 고정 대신 TTS 대기)
-                    waitForTtsFinish {
+                    _binding?.tvBigCountdown?.text = "시작!"
+                    _binding?.tvBigCountdown?.setTextColor(0xFF4CAF50.toInt())
+                    // 마지막 발화 callback에서 onReady — polling 없이 정확
+                    ttsManager?.speak("시작!") {
+                        // big countdown 닫고 onReady
+                        _binding?.tvBigCountdown?.visibility = View.GONE
                         if (_binding != null && !hasNavigated) onReady()
                     }
                 }, 1000L)
@@ -584,41 +604,81 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }, 1000L)
     }
 
-    /** 사용자 이탈 감지 timer 시작 — 측정 시작 시점에 호출. */
+    /** 사용자 이탈/부분 가림 감지 timer 시작 — 측정 시작 시점에 호출. */
     private fun startUserAwayMonitor() {
         userAwayCheckJob?.cancel()
-        lastValidFrameMs = System.currentTimeMillis()
+        val nowInit = System.currentTimeMillis()
+        lastValidFrameMs = nowInit
+        lastFullBodyMs = nowInit
         userAwayCheckJob = viewLifecycleOwner.lifecycleScope.launch {
             while (isAdded && !hasNavigated) {
                 delay(500)
-                if (isPausedForUserAway) continue
+                if (isPausedForUserAway || isPausedForOcclusion) continue
                 val now = System.currentTimeMillis()
                 if (lastValidFrameMs > 0L && now - lastValidFrameMs > USER_AWAY_TIMEOUT_MS) {
                     onUserAway()
+                } else if (lastFullBodyMs > 0L && now - lastFullBodyMs > USER_AWAY_TIMEOUT_MS) {
+                    onPartialOcclusion()
                 }
             }
         }
     }
 
     private fun onUserAway() {
-        if (isPausedForUserAway) return
+        if (isPausedForUserAway || isPausedForOcclusion) return
+        val gap = System.currentTimeMillis() - lastValidFrameMs
+        val currentPhase = viewModel.phase.value::class.simpleName ?: "?"
+        Log.d(TAG, "★ onUserAway TRIGGERED — gap=${gap}ms, phase=$currentPhase")
         isPausedForUserAway = true
         viewModel.pauseForUserAway()
-        _binding?.pauseOverlay?.visibility = View.VISIBLE
-        ttsManager?.speak("카메라 앞으로 와주세요.")
+        showExamPauseOverlay(EXAM_USER_AWAY_MSG)
+    }
+
+    private fun onPartialOcclusion() {
+        if (isPausedForUserAway || isPausedForOcclusion) return
+        val gap = System.currentTimeMillis() - lastFullBodyMs
+        Log.d(TAG, "★ onPartialOcclusion TRIGGERED — gap=${gap}ms")
+        isPausedForOcclusion = true
+        viewModel.pauseForUserAway()
+        showExamPauseOverlay(EXAM_OCCLUSION_MSG)
+    }
+
+    /** pause overlay 표시 + TTS 진입 발화 + 5초마다 반복. 메시지 종류는 호출자가 결정. */
+    private fun showExamPauseOverlay(msg: String) {
+        val b = _binding ?: return
+        b.pauseOverlay.visibility = View.VISIBLE
+        b.tvPauseMessage.text = msg
+        ttsManager?.speak(msg)
         pauseAnnounceJob?.cancel()
         pauseAnnounceJob = viewLifecycleOwner.lifecycleScope.launch {
-            while (isPausedForUserAway && isAdded && !hasNavigated) {
+            while ((isPausedForUserAway || isPausedForOcclusion) && isAdded && !hasNavigated) {
                 delay(PAUSE_TTS_LOOP_MS)
-                if (isPausedForUserAway) {
-                    ttsManager?.speak("카메라 앞으로 와주세요.")
+                if (isPausedForUserAway || isPausedForOcclusion) {
+                    ttsManager?.speak(msg)
                 }
             }
         }
     }
 
+    private fun onOcclusionCleared() {
+        if (!isPausedForOcclusion || userReturnInProgress) return
+        Log.d(TAG, "★ onOcclusionCleared — buffer ${PAUSE_RESUME_BUFFER_MS}ms 시작")
+        userReturnInProgress = true
+        pauseAnnounceJob?.cancel()
+        viewLifecycleOwner.lifecycleScope.launch {
+            delay(PAUSE_RESUME_BUFFER_MS)
+            userReturnInProgress = false
+            if (!isAdded || hasNavigated) return@launch
+            _binding?.pauseOverlay?.visibility = View.GONE
+            isPausedForOcclusion = false
+            viewModel.resumeFromUserAway()
+            ttsManager?.speak("전신이 잘 보입니다. 다시 시작합니다.")
+        }
+    }
+
     private fun onUserReturned() {
         if (!isPausedForUserAway || userReturnInProgress) return
+        Log.d(TAG, "★ onUserReturned — buffer ${PAUSE_RESUME_BUFFER_MS}ms 시작")
         userReturnInProgress = true
         pauseAnnounceJob?.cancel()
         viewLifecycleOwner.lifecycleScope.launch {
@@ -627,23 +687,27 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             if (!isAdded || hasNavigated) return@launch
             _binding?.pauseOverlay?.visibility = View.GONE
             isPausedForUserAway = false
+            Log.d(TAG, "★ resume complete — viewModel.resumeFromUserAway() 호출")
             viewModel.resumeFromUserAway()
             ttsManager?.speak("다시 시작합니다.")
         }
     }
 
-    /** 전신이 보이는지 확인 (PreFlightFragment와 동일 로직) */
+    /** 전신이 보이는지 확인 (PreFlightFragment와 동일 로직 — 의자 시나리오 호환).
+     *  상반신 5/5 visibility ≥ 0.3 + ankleY span 0.30~0.97 검증. 하반신 visibility는 검사 안 함
+     *  (의자 등받이가 무릎/발목을 가려도 MediaPipe 추정 좌표로 span만 검증). */
     private fun isFullBodyVisible(
         landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>?
     ): Boolean {
         if (landmarks == null || landmarks.size < 33) return false
-        val keyIdx = intArrayOf(0, 11, 12, 23, 24, 25, 26, 27, 28)
-        val visible = keyIdx.count { landmarks[it].visibility().orElse(0f) > 0.5f }
-        if (visible < 7) return false
+        val upperKeyIdx = intArrayOf(0, 11, 12, 23, 24)
+        val upperVisible = upperKeyIdx.count { landmarks[it].visibility().orElse(0f) > 0.3f }
+        if (upperVisible < 5) return false
         val noseY = landmarks[0].y()
         val ankleY = maxOf(landmarks[27].y(), landmarks[28].y())
         val span = ankleY - noseY
-        if (span < 0.40f || span > 0.97f) return false
+        if (span < 0.30f || span > 0.97f) return false
+        if (noseY < 0.02f) return false
         return true
     }
 

@@ -48,6 +48,10 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
     private var sideStableSinceMs = 0L
     private var announced = false
 
+    @Volatile private var isFrontCamera: Boolean = false
+    private var cameraPreview: Preview? = null
+    private var cameraAnalyzer: ImageAnalysis? = null
+
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> if (granted) startCamera() else showStatus("카메라 권한이 필요합니다") }
@@ -65,8 +69,16 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
         hasAdvanced = false
         sideStableSinceMs = 0L
         announced = false
+
+        // 설정의 "안내 스킵" ON이면 옆돌기 검사 건너뛰고 즉시 다음 단계로 (테스트용)
+        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("skip_guidance", false)) {
+            view.postDelayed({ if (_binding != null && !hasAdvanced) advanceNext() }, 100L)
+            return
+        }
+
         cameraExecutor = Executors.newSingleThreadExecutor()
-        ttsManager = TTSManager(requireContext())
+        ttsManager = TTSManager.getInstance(requireContext())
 
         val step = SessionFlow.current()
         binding.tvTitle.text = step.title.ifEmpty { "옆으로 돌아주세요" }
@@ -79,6 +91,10 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
             "이제 측면 운동입니다. 옆으로 90도 돌아주세요."
         }
         ttsManager?.speak(ttsText)
+
+        // 사용자 이전 설정 복원
+        isFrontCamera = com.fallzero.app.util.CameraFacingPref.isFrontCamera(requireContext())
+        binding.btnCameraFlip.setOnClickListener { toggleCameraFacing() }
 
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED) {
@@ -113,13 +129,13 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                     .build().also { ia ->
                         ia.setAnalyzer(cameraExecutor!!) { proxy ->
-                            poseHelper?.detectLiveStream(proxy, isFrontCamera = false)
+                            poseHelper?.detectLiveStream(proxy, isFrontCamera = isFrontCamera)
                                 ?: proxy.close()
                         }
                     }
-                provider.unbindAll()
-                provider.bindToLifecycle(viewLifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA, preview, analyzer)
+                cameraPreview = preview
+                cameraAnalyzer = analyzer
+                bindCameraToSelector(provider)
             } catch (e: Exception) {
                 Log.e(TAG, "camera bind", e)
                 showStatus("카메라 오류")
@@ -166,7 +182,9 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
                     // 안내 + 다음 단계 스케줄은 1회만
                     if (!announced) {
                         announced = true
-                        ttsManager?.speak("좋아요! 잘 돌았어요.")
+                        // TTS 짧게 ("좋아요") + 700ms postDelayed에 cut off 안 되도록.
+                        // 화면 텍스트는 더 자세히 표시 가능 (음성과 별개).
+                        ttsManager?.speak("좋아요.")
                         showStatus("좋아요! 잘 돌았어요")
                         b.root.postDelayed({
                             if (_binding != null && !hasAdvanced) advanceNext()
@@ -174,7 +192,7 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
                     }
                 } else {
                     val remain = ((STABLE_DURATION_MS - held) / 1000) + 1
-                    showStatus("좋아요! ${remain}초만 그대로 있어주세요")
+                    showStatus("${remain}초만 그대로 있어주세요")
                 }
             } else {
                 sideStableSinceMs = 0L
@@ -206,12 +224,32 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
             SessionFlow.StepType.REST,
             SessionFlow.StepType.SIDE_REST -> nav.navigate(R.id.action_global_rest)
             SessionFlow.StepType.SIDE_ROTATION -> nav.navigate(R.id.action_global_rotation)
+            SessionFlow.StepType.CHAIR_REPOSITION -> nav.navigate(R.id.action_global_chair_reposition)
             SessionFlow.StepType.DONE -> nav.navigate(R.id.action_global_home)
             SessionFlow.StepType.PRE_FLIGHT -> nav.navigate(R.id.action_global_preflight)
         }
     }
 
     private fun showStatus(msg: String) { _binding?.tvStatus?.text = msg }
+
+    private fun bindCameraToSelector(provider: ProcessCameraProvider) {
+        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA
+                       else CameraSelector.DEFAULT_BACK_CAMERA
+        try {
+            provider.unbindAll()
+            val preview = cameraPreview ?: return
+            val analyzer = cameraAnalyzer ?: return
+            provider.bindToLifecycle(viewLifecycleOwner, selector, preview, analyzer)
+        } catch (e: Exception) {
+            Log.e(TAG, "bindCameraToSelector failed", e)
+        }
+    }
+
+    private fun toggleCameraFacing() {
+        isFrontCamera = !isFrontCamera
+        com.fallzero.app.util.CameraFacingPref.setFrontCamera(requireContext(), isFrontCamera)
+        cameraProvider?.let { bindCameraToSelector(it) }
+    }
 
     private fun cleanupCamera() {
         try {

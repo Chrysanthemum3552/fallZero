@@ -11,6 +11,14 @@
         <!-- 버튼 텍스트 색상 -->
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
+        <!-- 한국어 줄바꿈: 어절 중간에 끊기지 않도록. 모든 TextView 기본 적용 -->
+        <item name="android:textViewStyle">@style/AppTextView</item>
+    </style>
+
+    <!-- 한국어 줄바꿈 처리: simple + hyphenation 끔. "낙상 위/험군" 같은 어색한 분할 방지 -->
+    <style name="AppTextView" parent="android:Widget.TextView">
+        <item name="android:breakStrategy">simple</item>
+        <item name="android:hyphenationFrequency">none</item>
     </style>
 
     <style name="Theme.FallZero.NoActionBar" parent="Theme.FallZero">

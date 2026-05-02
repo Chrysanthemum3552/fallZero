@@ -2,6 +2,7 @@ package com.fallzero.app.viewmodel
 
 import android.app.Application
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fallzero.app.data.algorithm.STEADIScorer
@@ -49,6 +50,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     private var chairCount = 0
     private var balanceStageReached = 0
     private var tandemTimeSec = 0f
+    private var oneLegTimeSec = 0f          // 한 발 서기(stage 4) 유지 시간 — 보호자 공유 추이용
     private var lastCompletedResult: ExamResult? = null
     private var lastRiskAssessment: STEADIScorer.ExamRiskResult? = null
 
@@ -71,6 +73,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     private var chairStandPauseStartMs = 0L
 
     companion object {
+        private const val TAG = "ExamViewModel"
         const val CHAIR_STAND_DURATION_MS = 30_000L
         const val BALANCE_STAGE_MAX_ATTEMPT_MS = 30_000L
         const val BALANCE_PREPARE_DURATION_MS = 16_000L  // TTS 대기 + 여유 + 3,2,1 카운트다운(~4초) — 충분히 넉넉하게
@@ -89,6 +92,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         chairCount = 0
         balanceStageReached = 0
         tandemTimeSec = 0f
+        oneLegTimeSec = 0f
         currentBalanceStage = 0
         balanceCountAwaiting = false
         isPausedForUserAway = false
@@ -97,6 +101,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun startNextBalanceStage() {
         currentBalanceStage++
+        Log.d(TAG, "▶ startNextBalanceStage → currentBalanceStage=$currentBalanceStage")
         if (currentBalanceStage > 4) {
             _phase.value = ExamPhase.BalanceComplete(balanceStageReached, tandemTimeSec)
             return
@@ -113,6 +118,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun actuallyStartBalanceStage(stageNo: Int) {
         val targetSec = BALANCE_TARGET_SECS[stageNo] ?: 10f
+        Log.d(TAG, "▶ actuallyStartBalanceStage(stage=$stageNo, target=${targetSec}s) — 새 BalanceEngine 생성")
         // 검사 모드: CDC STEADI 목표(10초)를 직접 전달 (훈련용 BalanceProgressionManager 사용 안 함)
         balanceEngine = BalanceEngine(targetCount = 1, stage = stageNo, overrideTargetTimeSec = targetSec)
         balanceEngine.setPRB(0f)
@@ -122,12 +128,13 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             targetSec = targetSec,
             isStable = true
         )
-        // 30초 attempt timer — 통과하지 못하면 자동 다음
+        // 30초 attempt timer — 통과하지 못하면 자동 다음 (단 bestHoldTimeSec은 보존하여 추이 데이터로 활용)
         balanceStageTimerJob?.cancel()
         balanceStageTimerJob = viewModelScope.launch {
             delay(BALANCE_STAGE_MAX_ATTEMPT_MS)
             if (currentBalanceStage == stageNo && _phase.value is ExamPhase.Balance) {
                 if (stageNo == 3) tandemTimeSec = 0f
+                if (stageNo == 4) oneLegTimeSec = balanceEngine.bestHoldTimeSec  // 통과 못 해도 최대 시간 기록
                 startNextBalanceStage()
             }
         }
@@ -177,17 +184,21 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun pauseForUserAway() {
         if (isPausedForUserAway) return
+        val phaseName = _phase.value::class.simpleName ?: "?"
+        Log.d(TAG, "⏸ pauseForUserAway — phase=$phaseName, currentBalanceStage=$currentBalanceStage")
         isPausedForUserAway = true
 
         when (_phase.value) {
             is ExamPhase.Balance -> {
                 // 균형 stage 측정 중단 + BalanceEngine 리셋 (elapsedSec=0으로) — 복귀 시 재시작
+                Log.d(TAG, "⏸ pauseForUserAway: Balance stage $currentBalanceStage — balanceEngine.reset() 호출")
                 balanceStageTimerJob?.cancel()
                 balanceEngine.reset()
             }
             is ExamPhase.ChairStand -> {
                 // 일시정지 시작 시각 기록 (resume에서 누적된 paused 시간 계산)
                 chairStandPauseStartMs = System.currentTimeMillis()
+                Log.d(TAG, "⏸ pauseForUserAway: ChairStand 시간 누적 멈춤")
             }
             else -> {}
         }
@@ -200,17 +211,22 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun resumeFromUserAway() {
         if (!isPausedForUserAway) return
+        val phaseName = _phase.value::class.simpleName ?: "?"
+        Log.d(TAG, "▶ resumeFromUserAway — phase=$phaseName, currentBalanceStage=$currentBalanceStage")
 
         when (_phase.value) {
             is ExamPhase.Balance -> {
                 isPausedForUserAway = false
                 // 현재 stage를 처음부터 재시작 (BalancePrepare 안내 화면은 거치지 않음 — 사용자 이미 자세 잡고 있음)
+                Log.d(TAG, "▶ resume: Balance stage $currentBalanceStage 처음부터 재시작")
                 actuallyStartBalanceStage(currentBalanceStage)
             }
             is ExamPhase.ChairStand -> {
                 if (chairStandPauseStartMs > 0L) {
-                    chairStandPausedElapsed += System.currentTimeMillis() - chairStandPauseStartMs
+                    val pausedDuration = System.currentTimeMillis() - chairStandPauseStartMs
+                    chairStandPausedElapsed += pausedDuration
                     chairStandPauseStartMs = 0L
+                    Log.d(TAG, "▶ resume: ChairStand 누적 paused = ${chairStandPausedElapsed}ms (이번 ${pausedDuration}ms)")
                 }
                 isPausedForUserAway = false
             }
@@ -242,15 +258,19 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                     errorHint = result.errorMessage  // "발을 더 모아주세요" 등
                 )
                 if (result.isCountIncremented && !balanceCountAwaiting) {
-                    // 단계 통과 — "열" 카운트 음성 발화 시간 확보 위해 1.5초 delay
+                    // 단계 통과 — Fragment에서 "십!" + "좋아요!" 시퀀스 후 advanceFromStagePassed 호출
+                    Log.d(TAG, "✓ Balance stage $currentBalanceStage PASSED — elapsed=${elapsed}s")
                     balanceCountAwaiting = true
                     balanceStageReached = currentBalanceStage
                     if (currentBalanceStage == 3) tandemTimeSec = elapsed
+                    if (currentBalanceStage == 4) oneLegTimeSec = elapsed   // 한 발 서기 통과 시간
                     balanceStageTimerJob?.cancel()
+                    _phase.value = ExamPhase.BalanceStagePassed(currentBalanceStage)
+                    // 안전장치: Fragment가 5초 내 advanceFromStagePassed 호출 안 하면 자동 진행
                     val passedStage = currentBalanceStage
                     viewModelScope.launch {
-                        delay(1500)
-                        if (currentBalanceStage == passedStage) {
+                        delay(5000)
+                        if (currentBalanceStage == passedStage && balanceCountAwaiting) {
                             balanceCountAwaiting = false
                             startNextBalanceStage()
                         }
@@ -270,6 +290,16 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun startBalanceMeasurementNow() {
         balanceStageTimerJob?.cancel()
         actuallyStartBalanceStage(currentBalanceStage)
+    }
+
+    /**
+     * Fragment의 "십!" + "좋아요!" 시퀀스 발화 완료 후 호출 → 다음 stage로 진행.
+     * BalanceStagePassed phase에서 Fragment가 TTS 끝까지 들려준 뒤 정확히 호출.
+     */
+    fun advanceFromStagePassed() {
+        if (!balanceCountAwaiting) return
+        balanceCountAwaiting = false
+        startNextBalanceStage()
     }
 
     /** 외부에서 단계 이름 조회 (ExamFragment 등) */
@@ -299,12 +329,18 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                 balanceStageReached = balanceStageReached,
                 tandemTimeSec = tandemTimeSec,
                 isHighRiskBalance = risk.isBalanceHighRisk,
+                oneLegTimeSec = oneLegTimeSec,
                 isHighRiskSurvey = risk.isSurveyHighRisk,
                 finalRiskLevel = risk.finalRiskLevel
             )
             examRepository.saveResult(result)
             lastCompletedResult = result
             lastRiskAssessment = risk
+            // setLevel 매핑: 위험군 → Level 1 (Level A: 양손 보조, 10초), 안전군 → Level 3 (손 없이, 10초)
+            // ExerciseFragment 등 운동 화면이 prefs.current_set_level을 읽어 BalanceProgressionManager.getTargetTime 호출
+            val nextSetLevel = if (risk.finalRiskLevel == "high") 1 else 3
+            prefs.edit().putInt("current_set_level", nextSetLevel).apply()
+            Log.d(TAG, "✓ finalizeAndSave: risk=${risk.finalRiskLevel}, setLevel=$nextSetLevel, oneLegTimeSec=$oneLegTimeSec")
             _phase.value = ExamPhase.Completed(result, risk)
         }
     }
@@ -318,6 +354,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         chairCount = 0
         balanceStageReached = 0
         tandemTimeSec = 0f
+        oneLegTimeSec = 0f
         currentBalanceStage = 0
         balanceCountAwaiting = false
         isPausedForUserAway = false
@@ -383,6 +420,9 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             val stageName: String,
             val stageInstruction: String
         ) : ExamPhase()
+
+        /** 균형 단계 통과 직후 — Fragment가 "십!" + "좋아요!" TTS 시퀀스 발화 + advanceFromStagePassed 호출 */
+        data class BalanceStagePassed(val stage: Int) : ExamPhase()
 
         data class Balance(
             val stage: Int,

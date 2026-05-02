@@ -56,6 +56,10 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var phoneOkAnnounced = false
     private var bodyOkAnnounced = false
 
+    @Volatile private var isFrontCamera: Boolean = false
+    private var cameraPreview: Preview? = null
+    private var cameraAnalyzer: ImageAnalysis? = null
+
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted -> if (granted) startCamera() else showStatus("카메라 권한이 필요합니다") }
@@ -72,8 +76,16 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         super.onViewCreated(view, savedInstanceState)
         hasAdvanced = false
         phase = Phase.PHONE_LEVEL
+
+        // 설정의 "안내 스킵" ON이면 사전 점검 건너뛰고 즉시 다음 단계로 (테스트용)
+        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", android.content.Context.MODE_PRIVATE)
+        if (prefs.getBoolean("skip_guidance", false)) {
+            view.postDelayed({ if (_binding != null && !hasAdvanced) advanceToNextStep() }, 100L)
+            return
+        }
+
         cameraExecutor = Executors.newSingleThreadExecutor()
-        ttsManager = TTSManager(requireContext())
+        ttsManager = TTSManager.getInstance(requireContext())
         tilt = TiltSensorHelper(requireContext())
         // 캘리브레이션 카운터 리셋 (fragment 재진입 대비)
         phoneStableSinceMs = 0L
@@ -96,6 +108,10 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         ttsManager?.speak(if (SessionFlow.requiresChair())
             "이번 루틴은 의자가 필요합니다. 카메라 앞에 의자를 두고 핸드폰을 수직으로 세워주세요."
         else "핸드폰을 수직으로 세워주세요.")
+
+        // 사용자 이전 설정 복원
+        isFrontCamera = com.fallzero.app.util.CameraFacingPref.isFrontCamera(requireContext())
+        binding.btnCameraFlip.setOnClickListener { toggleCameraFacing() }
 
         startPhoneLevelPhase()
     }
@@ -185,13 +201,13 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                     .build().also { ia ->
                         ia.setAnalyzer(cameraExecutor!!) { proxy ->
-                            poseHelper?.detectLiveStream(proxy, isFrontCamera = false)
+                            poseHelper?.detectLiveStream(proxy, isFrontCamera = isFrontCamera)
                                 ?: proxy.close()
                         }
                     }
-                provider.unbindAll()
-                provider.bindToLifecycle(viewLifecycleOwner,
-                    CameraSelector.DEFAULT_BACK_CAMERA, preview, analyzer)
+                cameraPreview = preview
+                cameraAnalyzer = analyzer
+                bindCameraToSelector(provider)
             } catch (e: Exception) {
                 Log.e(TAG, "camera bind failed", e)
                 showStatus("카메라 오류: ${e.message}")
@@ -217,10 +233,9 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     // 안내 + 다음 단계 스케줄은 1회만
                     if (!bodyOkAnnounced) {
                         bodyOkAnnounced = true
-                        ttsManager?.speak("좋아요! 전신이 잘 보입니다. 곧 검사를 시작합니다.")
                         showStatus("좋아요! 잘 감지되었어요")
-                        // TTS 완료 대기 후 다음 단계
-                        waitForTtsFinishPre {
+                        // TTS 콜백으로 정확한 완료 시점에 다음 단계 진행
+                        ttsManager?.speak("좋아요! 전신이 잘 보입니다. 곧 검사를 시작합니다.") {
                             if (_binding != null && !hasAdvanced) advanceToNextStep()
                         }
                     }
@@ -280,15 +295,18 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             SessionFlow.StepType.REST,
             SessionFlow.StepType.SIDE_REST -> nav.navigate(R.id.action_global_rest)
             SessionFlow.StepType.SIDE_ROTATION -> nav.navigate(R.id.action_global_rotation)
+            SessionFlow.StepType.CHAIR_REPOSITION -> nav.navigate(R.id.action_global_chair_reposition)
             SessionFlow.StepType.DONE -> nav.navigate(R.id.action_global_home)
             SessionFlow.StepType.PRE_FLIGHT -> nav.navigate(R.id.action_global_preflight)
         }
     }
 
-    /** TTS 끝날 때까지 대기 → callback */
+    /** @deprecated TTSManager.speak(text, onDone) callback 사용 권장 */
+    @Suppress("unused")
     private fun waitForTtsFinishPre(onDone: () -> Unit) {
         _binding?.root?.postDelayed({
             if (_binding == null || hasAdvanced) return@postDelayed
+            @Suppress("DEPRECATION")
             if (ttsManager?.isSpeaking() == true) {
                 waitForTtsFinishPre(onDone)
             } else {
@@ -299,6 +317,25 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun showStatus(msg: String) {
         _binding?.tvStatus?.text = msg
+    }
+
+    private fun bindCameraToSelector(provider: ProcessCameraProvider) {
+        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA
+                       else CameraSelector.DEFAULT_BACK_CAMERA
+        try {
+            provider.unbindAll()
+            val preview = cameraPreview ?: return
+            val analyzer = cameraAnalyzer ?: return
+            provider.bindToLifecycle(viewLifecycleOwner, selector, preview, analyzer)
+        } catch (e: Exception) {
+            Log.e(TAG, "bindCameraToSelector failed", e)
+        }
+    }
+
+    private fun toggleCameraFacing() {
+        isFrontCamera = !isFrontCamera
+        com.fallzero.app.util.CameraFacingPref.setFrontCamera(requireContext(), isFrontCamera)
+        cameraProvider?.let { bindCameraToSelector(it) }
     }
 
     private fun cleanupCamera() {

@@ -24,6 +24,8 @@ class ChairStandEngine(
 ) : BaseRepEngine(targetCount) {
 
     override val exerciseName = "앉았다 일어서기"
+    override val coachingCueMessage = "완전히 일어나주세요."
+    override val debugTag = "ChairDebug"
 
     init {
         if (examMode) {
@@ -33,11 +35,13 @@ class ChairStandEngine(
         smoother = com.fallzero.app.pose.MetricSmoother(alpha = 0.5f)
     }
 
-    private var debugFrameCount = 0
-
-    // ── 동적 임계값 (검사 모드에서 standingBaseline 기반으로 설정) ──
+    // ── 동적 임계값 (검사 모드: ExamFragment.calibrateStanding으로 설정 / 훈련 모드: 연습 IDLE M 캡처로 설정) ──
     private var dynamicMotionThreshold = 39f   // 기본값 (calibrateStanding 호출 전)
     private var dynamicReturnThreshold = 42f
+    // 훈련 모드 연습 중 서있을 때의 max M을 추적 — 연습 종료 시 dynamic thresholds로 변환
+    private var trainingStandingBaseline = 0f
+    // 연습 종료 후 1회만 dynamic threshold 확정 처리하기 위한 flag
+    private var trainingThresholdsFinalized = false
 
     /**
      * 서 있는 상태의 M 값을 기반으로 동적 임계값 설정.
@@ -62,15 +66,30 @@ class ChairStandEngine(
                 landmarks[LandmarkIndex.RIGHT_SHOULDER].y()) / 2
         val ankleY = maxOf(landmarks[LandmarkIndex.LEFT_ANKLE].y(),
                 landmarks[LandmarkIndex.RIGHT_ANKLE].y())
-        // 정규화 없이 단순 차이 × 100 (가장 안정적)
-        val metric = (ankleY - shoulderMidY) * 100f
-
-        debugFrameCount++
-        if (debugFrameCount % 15 == 0) {
-            Log.d("ChairDebug", "M=%.1f shY=%.3f ankY=%.3f state=$state motThr=%.1f retThr=%.1f count=$currentCount".format(
-                metric, shoulderMidY, ankleY, getMotionThreshold(), getReturnThreshold()))
+        // 정규화 없이 단순 차이 × 100 (가장 안정적). BaseRepEngine debugTag로 일괄 로깅.
+        val m = (ankleY - shoulderMidY) * 100f
+        // 훈련 모드 연습(calibration) 중 IDLE 상태의 max M = standing baseline 트래킹.
+        // 연습 중엔 default 임계값(39/42) 사용, 연습 종료 후 isBaselineReliable() 체크로 dynamic 적용.
+        // 비현실적인 outlier(>100) 무시 (mediapipe noise 또는 user 화면 이탈).
+        if (!examMode && isInCalibration && state == EngineState.IDLE && m in 30f..80f && m > trainingStandingBaseline) {
+            trainingStandingBaseline = m
+            Log.d("ChairDebug", "TRAIN baseline tracking: standingM=%.1f (will be used after calib if ≥ prb+15)".format(m))
         }
-        return metric
+        // 연습 종료 직후(처음 isInCalibration=false 진입) 1회만 dynamic thresholds 확정
+        if (!examMode && !isInCalibration && !trainingThresholdsFinalized) {
+            trainingThresholdsFinalized = true
+            if (trainingStandingBaseline > 0f && (trainingStandingBaseline - prb) >= 15f) {
+                dynamicMotionThreshold = trainingStandingBaseline - 9f
+                dynamicReturnThreshold = trainingStandingBaseline - 5f
+                Log.d("ChairDebug", "TRAIN calib complete: baseline=%.1f prb=%.1f → motThr=%.1f retThr=%.1f".format(
+                    trainingStandingBaseline, prb, dynamicMotionThreshold, dynamicReturnThreshold))
+            } else {
+                Log.d("ChairDebug", "TRAIN calib complete: baseline unreliable (got %.1f, prb=%.1f) → fallback prb+9/+13".format(
+                    trainingStandingBaseline, prb))
+                // dynamicMotion/Return 기본값(39/42) 그대로 — isBaselineReliable=false → getMotion/Return이 fallback 분기 선택
+            }
+        }
+        return m
     }
 
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
@@ -80,11 +99,49 @@ class ChairStandEngine(
 
     override val metricIncreasing = false
 
+    /**
+     * 카운트 시점을 일어서는 시점(RETURNING → IDLE 확정)으로 강제.
+     * metricIncreasing=false 이라 motion threshold 도달 = 앉는 시점인데, 의자 일어서기는
+     * "일어선 횟수"로 세는 게 임상 정의(30-Second Chair Stand Test) + 사용자 의도.
+     */
+    /** ChairStand: 완전 일어선 시점에 카운트 — 임상 정의 (30-Second Chair Stand Test) */
+    override val countTiming = CountTiming.ON_FULL_RETURN
+
+    /**
+     * ChairStand 임계값 — metricIncreasing=false 의미 변환:
+     *   meetsMotion = M ≤ motionThreshold (앉음 감지)
+     *   meetsReturn = M ≥ returnThreshold (일어섬 감지)
+     * 올바른 hysteresis: motionThreshold < returnThreshold (둘 사이가 노이즈 zone).
+     *
+     * 훈련 모드 임계값 우선순위:
+     *  1. 신뢰할 수 있는 baseline (prb + 15 이상 차이): dynamic 사용
+     *  2. fallback: prb 기반 추정 — typical sit-stand gap 18 가정
+     */
+    private fun isBaselineReliable(): Boolean =
+        trainingStandingBaseline > 0f && (trainingStandingBaseline - prb) >= 15f
+
     override fun getMotionThreshold(): Float = when {
         examMode -> dynamicMotionThreshold
         isInCalibration -> dynamicMotionThreshold
-        else -> 0.80f * prb + 20f
+        isBaselineReliable() -> dynamicMotionThreshold
+        else -> prb + 9f                  // fallback: prb(sit) + 9 → motThr ≈ 41-44
     }
 
-    override fun getReturnThreshold(): Float = dynamicReturnThreshold
+    override fun getReturnThreshold(): Float = when {
+        examMode -> dynamicReturnThreshold
+        isInCalibration -> dynamicReturnThreshold
+        isBaselineReliable() -> dynamicReturnThreshold
+        else -> prb + 13f                  // fallback: prb(sit) + 13 → retThr ≈ 45-48
+    }
+
+    override fun reset() {
+        super.reset()
+        // 다른 운동 후 재진입 대비: baseline 트래킹/finalize flag 초기화
+        trainingStandingBaseline = 0f
+        trainingThresholdsFinalized = false
+        if (!examMode) {
+            dynamicMotionThreshold = 39f
+            dynamicReturnThreshold = 42f
+        }
+    }
 }

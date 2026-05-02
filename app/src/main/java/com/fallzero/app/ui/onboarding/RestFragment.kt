@@ -38,7 +38,7 @@ class RestFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         hasAdvanced = false
-        ttsManager = TTSManager(requireContext())
+        ttsManager = TTSManager.getInstance(requireContext())
 
         val step = SessionFlow.current()
         val seconds = step.restSeconds.coerceAtLeast(1)
@@ -56,7 +56,7 @@ class RestFragment : Fragment() {
             override fun onTick(msLeft: Long) {
                 val s = (msLeft / 1000L).toInt().coerceAtLeast(0)
                 _binding?.tvCountdown?.text = s.toString()
-                if (s == 3) ttsManager?.speak("3")
+                // 카운트 음성 제거 — 사용자 명시: 숫자 음성 없이 화면 표시만, 0초 도달 시 자동 진행.
             }
 
             override fun onFinish() {
@@ -89,6 +89,7 @@ class RestFragment : Fragment() {
             SessionFlow.StepType.REST,
             SessionFlow.StepType.SIDE_REST -> nav.navigate(R.id.action_global_rest)
             SessionFlow.StepType.SIDE_ROTATION -> nav.navigate(R.id.action_global_rotation)
+            SessionFlow.StepType.CHAIR_REPOSITION -> nav.navigate(R.id.action_global_chair_reposition)
             SessionFlow.StepType.DONE -> nav.navigate(R.id.action_global_home)
             SessionFlow.StepType.PRE_FLIGHT -> nav.navigate(R.id.action_global_preflight)
         }

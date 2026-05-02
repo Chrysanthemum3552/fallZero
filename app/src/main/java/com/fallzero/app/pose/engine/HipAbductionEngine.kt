@@ -20,9 +20,14 @@ import kotlin.math.abs
 class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
     override val exerciseName = "고관절 외전"
-    override val coachingCueMessage = "다리를 더 들어올리세요."
+    override val coachingCueMessage = "다리를 더 높이 들어주세요."
+
+    /** 한 발 옆으로 들기 — 들 때 +1 (사용자 명시) */
+    override val countTiming = CountTiming.ON_MOTION_START
 
     private var lockedSide: Side? = null
+    // wrong-leg 1 cycle 추적: 잘못된 쪽이 motionThr 도달 후 returnThr 아래로 복귀 시 1회 완료
+    private var wrongLegPeak = 0f
 
     init {
         // 빠른 반응을 위해 smoother alpha를 0.5로 (기본 0.3 → 카운트 발화 ~200ms 단축)
@@ -57,6 +62,7 @@ class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
             Side.RIGHT -> Side.LEFT
             null -> null
         }
+        wrongLegPeak = 0f  // wrong-leg 추적 리셋
     }
 
     /**
@@ -78,15 +84,20 @@ class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     }
 
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
-        // lockedSide 결정 후, 사용자가 반대쪽 다리를 들면 우선 피드백
+        // wrong-leg 1 cycle 추적: 반대쪽이 motionThr 넘었다가 returnThr 아래로 복귀 시 발화
         if (lockedSide != null) {
             val leftAngle = calcAbductionAngle(landmarks, Side.LEFT)
             val rightAngle = calcAbductionAngle(landmarks, Side.RIGHT)
             val (lockedAngle, otherAngle) = if (lockedSide == Side.LEFT)
                 leftAngle to rightAngle else rightAngle to leftAngle
-            val partial = getPartialThreshold()
-            // 반대 다리는 partial 이상 들렸는데 lockedSide 다리는 안 들렸음 = 잘못된 다리
-            if (otherAngle >= partial && lockedAngle < partial) {
+            val motionThr = getMotionThreshold()
+            val retThr = getReturnThreshold()
+            if (otherAngle >= motionThr) {
+                wrongLegPeak = kotlin.math.max(wrongLegPeak, otherAngle)
+            }
+            // 반대쪽이 1 cycle 완료 + lockedSide는 거의 안 움직였음 → 경고
+            if (wrongLegPeak >= motionThr && otherAngle < retThr && lockedAngle < retThr) {
+                wrongLegPeak = 0f
                 return "반대쪽 다리로 해주세요."
             }
         }

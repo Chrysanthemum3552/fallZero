@@ -22,7 +22,7 @@ import com.fallzero.app.data.db.entity.User
         ExerciseRecord::class,
         PRBValue::class
     ],
-    version = 1,
+    version = 2,  // v2: ExamResult.oneLegTimeSec 추가
     exportSchema = false
 )
 abstract class FallZeroDatabase : RoomDatabase() {

@@ -44,6 +44,12 @@ interface ExerciseEngine {
      * 측면 운동(#1, #3)은 사용자가 카메라 자세 바꿈으로 처리되므로 default no-op.
      */
     fun onSideSwitch() {}
+
+    /**
+     * inactivity 감지용 임계값 — ExerciseViewModel이 NO_MOTION_TIMEOUT(4초) 안에 metric 변화량이 이 값 미만이면 자동 종료.
+     * 각도 기반 운동(0-180°)은 default 0.5°면 충분. 비율/거리 기반 운동(예: ToeRaise 0-0.03)은 훨씬 작은 값 필요.
+     */
+    val movementThreshold: Float get() = 0.5f
 }
 
 data class FrameResult(
@@ -54,7 +60,9 @@ data class FrameResult(
     val isCoachingCue: Boolean = false,        // 시도 실패 시(부족하게 들었다 내림) 한 frame에만 true (이벤트)
     val coachingCueMessage: String? = null,    // isCoachingCue=true일 때 함께 전달되는 운동별 안내 멘트
     val currentMetric: Float = 0f,             // 현재 측정값 (디버깅·PRB갱신용)
-    val state: EngineState
+    val state: EngineState,
+    val calibrationRepCompleted: Boolean = false,  // 연습 모드에서 1회 사이클 완료 (1회/2회 카운트 음성용)
+    val calibrationReps: Int = 0                   // 현재까지 완료한 연습 횟수 (0/1/2)
 )
 
 /**
@@ -66,3 +74,11 @@ data class FrameResult(
  *  CALIBRATING — 캘리브레이션 모드 표시용 (내부 상태와는 별개)
  */
 enum class EngineState { IDLE, ATTEMPTING, IN_MOTION, RETURNING, CALIBRATING }
+
+/**
+ * 카운트가 발생하는 시점.
+ *  ON_MOTION_START   — IDLE/ATTEMPTING → IN_MOTION 시점 (들 때 +1, HipAbduction 등)
+ *  ON_DESCENT_START  — IN_MOTION → RETURNING 시점 (내려가기 시작할 때 +1, default)
+ *  ON_FULL_RETURN    — RETURNING → IDLE 확정 시점 (완전 복귀, ChairStand 임상 정의)
+ */
+enum class CountTiming { ON_MOTION_START, ON_DESCENT_START, ON_FULL_RETURN }

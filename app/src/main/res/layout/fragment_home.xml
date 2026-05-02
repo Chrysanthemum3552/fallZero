@@ -1,225 +1,320 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:orientation="vertical"
     android:background="@color/background"
-    android:fillViewport="true">
+    android:padding="20dp">
 
+    <!-- 인사 (작게) -->
+    <TextView
+        android:id="@+id/tv_greeting"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="안녕하세요!"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="12dp" />
+
+    <!-- ─────────────── 탭 토글 버튼 (오늘 운동 / 메뉴) ─────────────── -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="24dp">
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
 
-        <!-- 인사 -->
-        <TextView
-            android:id="@+id/tv_greeting"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="안녕하세요!"
-            android:textSize="44sp"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_tab_today"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_weight="1"
+            android:text="📋 오늘 운동"
+            android:textSize="22sp"
             android:textStyle="bold"
-            android:textColor="@color/text_primary"
-            android:layout_marginTop="16dp" />
+            android:textColor="@color/on_primary"
+            android:layout_marginEnd="6dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:backgroundTint="@color/primary"
+            app:cornerRadius="14dp" />
 
-        <!-- 대시보드 카드 -->
-        <com.google.android.material.card.MaterialCardView
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_tab_menu"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_weight="1"
+            android:text="📂 메뉴"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_secondary"
+            android:layout_marginStart="6dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            app:backgroundTint="@color/surface"
+            app:strokeColor="@color/text_secondary"
+            app:strokeWidth="2dp"
+            app:cornerRadius="14dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+    </LinearLayout>
+
+    <!-- 탭 콘텐츠 영역 — FrameLayout: 두 개의 LinearLayout 중 하나만 visible -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <!-- ─────────────── 오늘 운동 탭 ─────────────── -->
+        <ScrollView
+            android:id="@+id/tab_today_content"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="@color/surface">
+            android:layout_height="match_parent"
+            android:fillViewport="true">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="24dp">
+                android:orientation="vertical">
 
-                <!-- 연속 운동일 -->
-                <LinearLayout
+                <!-- 운동 시작 (메인 버튼) — 화면 최상단에 배치 (사용자 요구사항) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_start_exercise"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:text="@string/home_start_exercise"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/on_primary"
+                    app:backgroundTint="@color/primary"
+                    app:cornerRadius="14dp" />
+
+                <!-- 대시보드 카드: 연속일/위험등급/오늘 상태 — 라벨/값 세로 스택으로 텍스트 잘림 방지 -->
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:layout_marginTop="14dp"
+                    app:cardCornerRadius="14dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="@color/surface">
 
-                    <TextView
-                        android:layout_width="0dp"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="🔥 연속 운동"
-                        android:textSize="40sp"
-                        android:textColor="@color/text_secondary" />
+                        android:orientation="horizontal"
+                        android:padding="14dp">
 
-                    <TextView
-                        android:id="@+id/tv_streak"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="0일"
-                        android:textSize="44sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/primary" />
-                </LinearLayout>
+                        <!-- 연속 운동일 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
 
-                <View
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🔥 연속"
+                                android:textSize="16sp"
+                                android:textColor="@color/text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tv_streak"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="0일"
+                                android:textSize="22sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/primary"
+                                android:layout_marginTop="4dp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="#333333" />
+
+                        <!-- 위험 등급 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="⚠️ 위험 등급"
+                                android:textSize="16sp"
+                                android:textColor="@color/text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tv_risk_level"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="검사 필요"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/text_primary"
+                                android:background="@drawable/bg_risk_level"
+                                android:paddingLeft="10dp"
+                                android:paddingRight="10dp"
+                                android:paddingTop="4dp"
+                                android:paddingBottom="4dp"
+                                android:layout_marginTop="4dp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="#333333" />
+
+                        <!-- 오늘 운동 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="✅ 오늘"
+                                android:textSize="16sp"
+                                android:textColor="@color/text_secondary" />
+
+                            <TextView
+                                android:id="@+id/tv_today_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="아직 안 했어요"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/warning"
+                                android:gravity="center"
+                                android:layout_marginTop="4dp" />
+                        </LinearLayout>
+
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- 오늘의 운동 체크리스트 -->
+                <TextView
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#333333"
+                    android:layout_height="wrap_content"
+                    android:text="오늘의 운동 8가지"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
                     android:layout_marginTop="16dp"
-                    android:layout_marginBottom="16dp" />
+                    android:layout_marginBottom="6dp" />
 
-                <!-- 낙상 위험 등급 -->
-                <LinearLayout
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="14dp"
+                    app:cardElevation="2dp"
+                    app:cardBackgroundColor="@color/surface">
 
-                    <TextView
-                        android:layout_width="0dp"
+                    <LinearLayout
+                        android:id="@+id/checklist_container"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="⚠️ 낙상 위험 등급"
-                        android:textSize="40sp"
-                        android:textColor="@color/text_secondary" />
+                        android:orientation="vertical"
+                        android:paddingHorizontal="14dp"
+                        android:paddingVertical="6dp" />
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+        </ScrollView>
 
-                    <TextView
-                        android:id="@+id/tv_risk_level"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="검사 필요"
-                        android:textSize="36sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/text_primary"
-                        android:background="@drawable/bg_risk_level"
-                        android:paddingLeft="12dp"
-                        android:paddingRight="12dp"
-                        android:paddingTop="6dp"
-                        android:paddingBottom="6dp" />
-                </LinearLayout>
+        <!-- ─────────────── 메뉴 탭 ─────────────── -->
+        <ScrollView
+            android:id="@+id/tab_menu_content"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:fillViewport="true"
+            android:visibility="gone">
 
-                <View
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_start_exam"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:background="#333333"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginBottom="16dp" />
+                    android:layout_height="72dp"
+                    android:text="@string/home_start_exam"
+                    android:textSize="22sp"
+                    android:textColor="@color/primary"
+                    app:backgroundTint="@color/surface"
+                    app:strokeColor="@color/primary"
+                    app:strokeWidth="2dp"
+                    app:cornerRadius="14dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
-                <!-- 오늘 운동 상태 -->
-                <LinearLayout
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_view_report"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
+                    android:layout_height="72dp"
+                    android:text="@string/home_view_report"
+                    android:textSize="22sp"
+                    android:textColor="@color/primary"
+                    android:layout_marginTop="14dp"
+                    app:backgroundTint="@color/surface"
+                    app:strokeColor="@color/primary"
+                    app:strokeWidth="2dp"
+                    app:cornerRadius="14dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="✅ 오늘 운동"
-                        android:textSize="40sp"
-                        android:textColor="@color/text_secondary" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_share_guardian"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:text="@string/home_share_guardian"
+                    android:textSize="22sp"
+                    android:textColor="@color/primary"
+                    android:layout_marginTop="14dp"
+                    app:backgroundTint="@color/surface"
+                    app:strokeColor="@color/primary"
+                    app:strokeWidth="2dp"
+                    app:cornerRadius="14dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
-                    <TextView
-                        android:id="@+id/tv_today_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="아직 안 했어요"
-                        android:textSize="36sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/warning" />
-                </LinearLayout>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_cast_tv"
+                    android:layout_width="match_parent"
+                    android:layout_height="72dp"
+                    android:text="@string/home_cast_tv"
+                    android:textSize="22sp"
+                    android:textColor="@color/primary"
+                    android:layout_marginTop="14dp"
+                    app:backgroundTint="@color/surface"
+                    app:strokeColor="@color/primary"
+                    app:strokeWidth="2dp"
+                    app:cornerRadius="14dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_settings"
+                    android:layout_width="match_parent"
+                    android:layout_height="64dp"
+                    android:text="@string/home_settings"
+                    android:textSize="22sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginTop="12dp"
+                    android:layout_marginBottom="14dp"
+                    app:backgroundTint="@android:color/transparent"
+                    style="@style/Widget.MaterialComponents.Button.TextButton" />
 
             </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
+        </ScrollView>
 
-        <!-- 운동 시작 (메인 버튼) -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_start_exercise"
-            android:layout_width="match_parent"
-            android:layout_height="80dp"
-            android:text="@string/home_start_exercise"
-            android:textSize="40sp"
-            android:textColor="@color/on_primary"
-            android:layout_marginTop="24dp"
-            app:backgroundTint="@color/primary"
-            app:cornerRadius="16dp" />
+    </FrameLayout>
 
-        <!-- 낙상 위험 검사 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_start_exam"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:text="@string/home_start_exam"
-            android:textSize="40sp"
-            android:textColor="@color/primary"
-            android:layout_marginTop="16dp"
-            app:backgroundTint="@color/surface"
-            app:strokeColor="@color/primary"
-            app:strokeWidth="2dp"
-            app:cornerRadius="16dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-        <!-- 내 리포트 보기 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_view_report"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:text="@string/home_view_report"
-            android:textSize="40sp"
-            android:textColor="@color/primary"
-            android:layout_marginTop="16dp"
-            app:backgroundTint="@color/surface"
-            app:strokeColor="@color/primary"
-            app:strokeWidth="2dp"
-            app:cornerRadius="16dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-        <!-- 보호자에게 공유 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_share_guardian"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:text="@string/home_share_guardian"
-            android:textSize="40sp"
-            android:textColor="@color/primary"
-            android:layout_marginTop="16dp"
-            app:backgroundTint="@color/surface"
-            app:strokeColor="@color/primary"
-            app:strokeWidth="2dp"
-            app:cornerRadius="16dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-        <!-- TV로 보내기 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_cast_tv"
-            android:layout_width="match_parent"
-            android:layout_height="72dp"
-            android:text="@string/home_cast_tv"
-            android:textSize="40sp"
-            android:textColor="@color/primary"
-            android:layout_marginTop="16dp"
-            app:backgroundTint="@color/surface"
-            app:strokeColor="@color/primary"
-            app:strokeWidth="2dp"
-            app:cornerRadius="16dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-        <!-- 설정 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_settings"
-            android:layout_width="match_parent"
-            android:layout_height="64dp"
-            android:text="@string/home_settings"
-            android:textSize="36sp"
-            android:textColor="@color/text_secondary"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="16dp"
-            app:backgroundTint="@android:color/transparent"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
-
-    </LinearLayout>
-</ScrollView>
+</LinearLayout>

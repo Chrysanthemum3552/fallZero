@@ -50,7 +50,7 @@
     <string name="exercise_count_format">%d / %d</string>
     <string name="exercise_complete">운동 완료!</string>
     <string name="exercise_guide_title">운동 가이드</string>
-    <string name="exercise_calibrating">첫 2회는 캘리브레이션 중입니다</string>
+    <string name="exercise_calibrating">연습 모드 — 두 번 따라 해보세요</string>
     <string name="exercise_coaching_cue">조금 더 해볼까요?</string>
 
     <!-- Report -->
@@ -85,13 +85,13 @@
 
     <!-- 운동 안내 멘트 8개 (노년층 친화 톤, 권유형) -->
     <string name="ex_guide_1_title">앉아서 무릎 펴기</string>
-    <string name="ex_guide_1">앉아서 무릎 펴기 운동입니다.\n의자에 등을 펴고 똑바로 앉으세요.\n한쪽 다리를 천천히 앞으로 쭉 뻗어 올렸다가, 다시 천천히 내려주세요.\n무릎을 완전히 펴는 것이 중요합니다.\n왼쪽 다리부터 시작하겠습니다.</string>
+    <string name="ex_guide_1">앉아서 무릎 펴기 운동입니다.\n의자에 똑바로 앉으세요.\n한쪽 다리를 천천히 앞으로 쭉 뻗어 올렸다가, 다시 천천히 내려주세요.\n무릎을 완전히 펴는 것이 중요합니다.</string>
 
     <string name="ex_guide_2_title">옆으로 다리 들기</string>
-    <string name="ex_guide_2">옆으로 다리 들기 운동입니다.\n의자나 벽을 한 손으로 가볍게 잡고 똑바로 서주세요.\n한쪽 다리를 옆으로 천천히 들어 올렸다가 내립니다.\n무릎은 펴고, 골반은 기울지 않게 합니다.\n왼쪽 다리부터 시작하겠습니다.</string>
+    <string name="ex_guide_2">옆으로 다리 들기 운동입니다.\n의자나 벽을 한 손으로 가볍게 잡고 똑바로 서주세요.\n한쪽 다리를 옆으로 천천히 들어 올렸다가 내립니다.\n무릎은 펴고, 골반은 기울지 않게 합니다.</string>
 
     <string name="ex_guide_3_title">뒤로 무릎 굽히기</string>
-    <string name="ex_guide_3">뒤로 무릎 굽히기 운동입니다.\n의자나 벽을 잡고 똑바로 서주세요.\n한쪽 무릎을 천천히 뒤로 굽혀, 발뒤꿈치를 엉덩이 쪽으로 들어 올렸다가 내립니다.\n허벅지는 그대로 두고 무릎만 움직이세요.\n왼쪽 다리부터 시작하겠습니다.</string>
+    <string name="ex_guide_3">뒤로 무릎 굽히기 운동입니다.\n의자나 벽을 잡고 똑바로 서주세요.\n한쪽 무릎을 천천히 뒤로 굽혀, 발뒤꿈치를 엉덩이 쪽으로 들어 올렸다가 내립니다.\n허벅지는 그대로 두고 무릎만 움직이세요.</string>
 
     <string name="ex_guide_4_title">발뒤꿈치 들기</string>
     <string name="ex_guide_4">발뒤꿈치 들기 운동입니다.\n의자나 벽을 잡고 똑바로 서주세요.\n양쪽 발뒤꿈치를 동시에 천천히 들어 올렸다가 내립니다.\n발끝으로 서듯이 올렸다가 다시 천천히 내려놓으세요.</string>
