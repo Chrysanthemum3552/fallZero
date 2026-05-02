@@ -12,22 +12,25 @@ package com.fallzero.app.pose
  */
 class MetricSmoother(private val alpha: Float = 0.3f) {
 
-    private var smoothedValue: Float? = null
+    // Float? 대신 primitive Float + boolean flag로 boxing 회피.
+    // 매 frame smooth() 호출 시 java.lang.Float 박싱 ~30회/sec 절감.
+    private var smoothedValue: Float = 0f
+    private var initialized: Boolean = false
 
     /** 새 raw 값을 입력하고 스무딩된 값을 반환 */
     fun smooth(rawValue: Float): Float {
-        val prev = smoothedValue
-        val result = if (prev == null) {
+        smoothedValue = if (!initialized) {
+            initialized = true
             rawValue
         } else {
-            prev + alpha * (rawValue - prev)
+            smoothedValue + alpha * (rawValue - smoothedValue)
         }
-        smoothedValue = result
-        return result
+        return smoothedValue
     }
 
     /** 상태 초기화 (운동 시작 시 호출) */
     fun reset() {
-        smoothedValue = null
+        initialized = false
+        smoothedValue = 0f
     }
 }

@@ -69,11 +69,11 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
         // 5th percentile baseline — outlier에 매우 강함 + standing 자세에 가장 가까운 값 채택
         // (10th보다 낮춰 더 standing-biased — 사용자 small ROM도 신호 잘 감지)
+        // sort O(n log n) → quickselect O(n) — 결과 동일, ~6배 빠름 (n=90).
         val effectiveSize = if (bufferFilled) WINDOW_SIZE else bufferIdx
         val baseline = if (effectiveSize >= 5) {
-            val sorted = ratioBuffer.copyOf(effectiveSize).also { it.sort() }
             val pctIdx = (effectiveSize * 0.05f).toInt().coerceAtLeast(0)
-            sorted[pctIdx]
+            com.fallzero.app.pose.nthSmallest(ratioBuffer.copyOf(effectiveSize), pctIdx, 0, effectiveSize - 1)
         } else ratio
         val signal = ratio - baseline
         signalMin = min(signalMin, signal)

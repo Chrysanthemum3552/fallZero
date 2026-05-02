@@ -149,8 +149,8 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
         activity?.runOnUiThread {
             val b = _binding ?: return@runOnUiThread
             if (!isAdded || hasAdvanced) return@runOnUiThread
+            // setResults 내부에서 invalidate() 호출 — 중복 호출 제거
             b.poseOverlay.setResults(result, resultBundle.inputImageHeight, resultBundle.inputImageWidth)
-            b.poseOverlay.invalidate()
 
             if (landmarks == null || landmarks.size < 33) {
                 sideStableSinceMs = 0L

@@ -30,16 +30,11 @@ class PoseOverlayView @JvmOverloads constructor(
         style = Paint.Style.STROKE
     }
 
-    // MediaPipe Pose 연결 정의 (주요 관절 연결)
-    private val connections = listOf(
-        Pair(11, 12), // 어깨
-        Pair(11, 13), Pair(13, 15), // 왼팔
-        Pair(12, 14), Pair(14, 16), // 오른팔
-        Pair(11, 23), Pair(12, 24), // 몸통
-        Pair(23, 24), // 골반
-        Pair(23, 25), Pair(25, 27), // 왼다리
-        Pair(24, 26), Pair(26, 28)  // 오른다리
-    )
+    // MediaPipe Pose 연결 정의 — 병렬 IntArray로 저장 (Pair<Int,Int>는 destructuring 시 Integer 박싱).
+    // 매 frame 12회 destructure × 30fps = 360회 boxing 회피.
+    //                       어깨,왼팔1,왼팔2,오팔1,오팔2,몸통L,몸통R,골반,왼다1,왼다2,오다1,오다2
+    private val connStarts = intArrayOf(11,    11,   13,   12,   14,   11,    12,    23,   23,   25,   24,   26)
+    private val connEnds   = intArrayOf(12,    13,   15,   14,   16,   23,    24,    24,   25,   27,   26,   28)
 
     fun setResults(
         poseLandmarkerResult: PoseLandmarkerResult,
@@ -60,35 +55,29 @@ class PoseOverlayView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val result = results ?: return
-        if (result.landmarks().isEmpty()) return
+        val allLandmarks = result.landmarks()
+        if (allLandmarks.isEmpty()) return
 
-        val landmarks = result.landmarks()[0]
+        val landmarks = allLandmarks[0]
+        val landmarksSize = landmarks.size
         val w = width.toFloat()
         val h = height.toFloat()
 
-        // NormalizedLandmark의 x(), y()는 0~1 정규화 좌표 → 뷰 크기에 직접 곱함
-        for ((start, end) in connections) {
-            if (start < landmarks.size && end < landmarks.size) {
-                val startLm = landmarks[start]
-                val endLm = landmarks[end]
-                canvas.drawLine(
-                    startLm.x() * w,
-                    startLm.y() * h,
-                    endLm.x() * w,
-                    endLm.y() * h,
-                    connectionPaint
-                )
+        // 연결선 — IntArray index 기반 (boxing 회피)
+        for (i in connStarts.indices) {
+            val start = connStarts[i]
+            val end = connEnds[i]
+            if (start < landmarksSize && end < landmarksSize) {
+                val s = landmarks[start]
+                val e = landmarks[end]
+                canvas.drawLine(s.x() * w, s.y() * h, e.x() * w, e.y() * h, connectionPaint)
             }
         }
 
-        // 랜드마크 점 그리기
-        for (landmark in landmarks) {
-            canvas.drawCircle(
-                landmark.x() * w,
-                landmark.y() * h,
-                8f,
-                landmarkPaint
-            )
+        // 랜드마크 점 그리기 — index loop (Iterator 할당 회피)
+        for (i in 0 until landmarksSize) {
+            val lm = landmarks[i]
+            canvas.drawCircle(lm.x() * w, lm.y() * h, 8f, landmarkPaint)
         }
     }
 }

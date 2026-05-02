@@ -41,6 +41,9 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     // wrong-leg 1 cycle 추적: 잘못된 쪽이 LOCK_THRESHOLD 넘었다가 RETURN_THRESHOLD 아래로 복귀 시 1회 완료
     private var wrongLegPeak = 0f
     private val WRONG_LEG_RETURN = 10f
+    // 매 frame 좌/우 flexion 캐시 — extractMetric에서 계산 후 detectError가 재사용 (calculateAngle 중복 호출 절감)
+    private var lastLeftFlexion = 0f
+    private var lastRightFlexion = 0f
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         // 양쪽 다리 모두 계산 — 사용자가 카메라 반대편(visibility 낮은) 다리를 굽혀도 감지
@@ -50,6 +53,9 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         val rightAngle = AngleCalculator.calculateAngle(rHip, rKnee, rAnkle)
         val leftFlexion = (180f - leftAngle).coerceAtLeast(0f)
         val rightFlexion = (180f - rightAngle).coerceAtLeast(0f)
+        // detectError가 재사용
+        lastLeftFlexion = leftFlexion
+        lastRightFlexion = rightFlexion
 
         val lKneeVis = lKnee.visibility().orElse(0f)
         val rKneeVis = rKnee.visibility().orElse(0f)
@@ -100,14 +106,13 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         return flexion
     }
 
-    /** 잠긴 쪽 못 굽히고 반대쪽이 1회 완료(굽힘→복귀) 시에만 "다른쪽 다리" 발화. 골반 검사도 유지. */
+    /** 잠긴 쪽 못 굽히고 반대쪽이 1회 완료(굽힘→복귀) 시에만 "다른쪽 다리" 발화. 골반 검사도 유지.
+     *  최적화: extractMetric에서 계산한 lastLeft/RightFlexion 재사용 — calculateAngle 2회 절감/frame */
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
         val locked = lockedSide
         if (locked != null) {
-            val (lHip, lKnee, lAnkle) = getHipKneeAnkle(landmarks, Side.LEFT)
-            val (rHip, rKnee, rAnkle) = getHipKneeAnkle(landmarks, Side.RIGHT)
-            val leftFlex = (180f - AngleCalculator.calculateAngle(lHip, lKnee, lAnkle)).coerceAtLeast(0f)
-            val rightFlex = (180f - AngleCalculator.calculateAngle(rHip, rKnee, rAnkle)).coerceAtLeast(0f)
+            val leftFlex = lastLeftFlexion
+            val rightFlex = lastRightFlexion
             val (lockedFlex, otherFlex) = if (locked == Side.LEFT) leftFlex to rightFlex else rightFlex to leftFlex
             // wrong-leg 1 cycle 추적: 굽힘 → 펴짐 = 1회 완료 → 발화 1회
             if (otherFlex >= LOCK_THRESHOLD) {

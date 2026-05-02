@@ -485,8 +485,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             if (!isAdded || hasNavigated) return@runOnUiThread
 
             if (landmarks != null) {
+                // setResults 내부에서 invalidate() 호출 — 중복 호출 제거
                 b.poseOverlay.setResults(result, resultBundle.inputImageHeight, resultBundle.inputImageWidth)
-                b.poseOverlay.invalidate()
             }
 
             // 의자 준비: Phase 0=TTS재생중, 1=가만히서기감지, 2=완료

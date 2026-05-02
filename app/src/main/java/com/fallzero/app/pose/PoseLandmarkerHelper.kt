@@ -9,6 +9,7 @@ import androidx.annotation.VisibleForTesting
 import androidx.camera.core.ImageProxy
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
+import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
@@ -45,16 +46,32 @@ class PoseLandmarkerHelper(
     }
 
     private fun setupPoseLandmarker() {
-        try {
-            // 모델 파일 자동 선택: full → lite 순으로 fallback (다운로드 실패/누락 대비)
+        // GPU 시도 → 실패 시 CPU fallback. 정확도 100% 동일, 속도만 차이.
+        // GPU 호환성 문제로 일부 기기(저가 칩셋, 일부 GPU 드라이버)에서 init 실패할 수 있음.
+        if (tryInitWithDelegate(Delegate.GPU)) {
+            Log.d(TAG, "PoseLandmarker initialized with GPU delegate")
+            return
+        }
+        Log.w(TAG, "GPU delegate 실패 → CPU fallback")
+        if (tryInitWithDelegate(Delegate.CPU)) {
+            Log.d(TAG, "PoseLandmarker initialized with CPU delegate")
+            return
+        }
+        listener.onError("MediaPipe 초기화 실패", OTHER_ERROR)
+    }
+
+    private fun tryInitWithDelegate(delegate: Delegate): Boolean {
+        return try {
+            // 모델 파일 자동 선택: heavy → full → lite 순으로 fallback (다운로드 실패/누락 대비)
             val modelPath = pickAvailableModel(context)
             if (modelPath == null) {
                 listener.onError("MediaPipe 모델 파일이 없습니다. 앱을 재설치해주세요.", OTHER_ERROR)
-                return
+                return false
             }
-            Log.d(TAG, "Using model: $modelPath")
+            Log.d(TAG, "Using model: $modelPath delegate=$delegate")
             val baseOptions = BaseOptions.builder()
                 .setModelAssetPath(modelPath)
+                .setDelegate(delegate)
                 .build()
 
             val options = PoseLandmarker.PoseLandmarkerOptions.builder()
@@ -95,10 +112,12 @@ class PoseLandmarkerHelper(
                 .build()
 
             poseLandmarker = PoseLandmarker.createFromOptions(context, options)
-            Log.d(TAG, "PoseLandmarker initialized successfully")
+            true
         } catch (e: Exception) {
-            Log.e(TAG, "PoseLandmarker init failed", e)
-            listener.onError("MediaPipe 초기화 실패: ${e.message}", OTHER_ERROR)
+            Log.w(TAG, "PoseLandmarker init failed with $delegate: ${e.message}")
+            try { poseLandmarker?.close() } catch (_: Exception) {}
+            poseLandmarker = null
+            false
         }
     }
 

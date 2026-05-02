@@ -222,8 +222,8 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             val b = _binding ?: return@runOnUiThread
             if (!isAdded || hasAdvanced || phase != Phase.BODY_DETECT) return@runOnUiThread
 
+            // setResults 내부에서 invalidate() 호출 — 중복 호출 제거
             b.poseOverlay.setResults(result, resultBundle.inputImageHeight, resultBundle.inputImageWidth)
-            b.poseOverlay.invalidate()
 
             val ok = isFullBodyVisible(landmarks)
             if (ok) {

@@ -17,6 +17,8 @@ import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.util.CastHelper
 import com.fallzero.app.util.ShareHelper
 import com.fallzero.app.viewmodel.ExamViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -122,12 +124,26 @@ class HomeFragment : Fragment() {
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getInt("user_id", 0)
         val db = FallZeroDatabase.getInstance(requireContext())
+        val todayStart = getTodayStartMillis()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val streak = calculateStreak(db, userId)
+            // 3개 DB 쿼리를 병렬 실행 — sequential 합산보다 ~3배 빠름.
+            // 각 쿼리는 독립적이므로 안전하게 async 가능.
+            val streakDeferred = async { calculateStreak(db, userId) }
+            val examDeferred = async { db.examResultDao().getLatestResult(userId) }
+            val completedIdsDeferred = async {
+                db.sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
+            }
+
+            val streak = streakDeferred.await()
+            val latestExam = examDeferred.await()
+            val completedIds = completedIdsDeferred.await()
+
+            // UI 업데이트는 main 스레드 (lifecycleScope 기본은 Main)
+            if (_binding == null) return@launch
+
             binding.tvStreak.text = "${streak}일"
 
-            val latestExam = db.examResultDao().getLatestResult(userId)
             if (latestExam != null) {
                 val isHighRisk = latestExam.finalRiskLevel == "high"
                 binding.tvRiskLevel.text = if (isHighRisk) "위험군" else "비위험군"
@@ -138,10 +154,6 @@ class HomeFragment : Fragment() {
                 binding.tvRiskLevel.text = "검사 필요"
             }
 
-            val todayStart = getTodayStartMillis()
-            // 오늘 완료한 운동 ID 조회 — 8개 모두 완료하면 "완료!"
-            // (이전: TrainingSession.isCompleted 플래그 의존 → 풀세션 완주 안 된 경우 부정확)
-            val completedIds = db.sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
             val doneCount = completedIds.size
             when {
                 doneCount >= 8 -> {

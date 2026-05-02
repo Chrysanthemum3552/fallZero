@@ -20,6 +20,9 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override val debugTag = "KneeBendDebug"
 
     private var kneeBendDebugCounter = 0
+    // 매 frame 좌/우 flexion 캐시 — extractMetric → detectError 재사용 (calculateAngle 2회/frame 절감)
+    private var lastLeftFlexion = 0f
+    private var lastRightFlexion = 0f
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         // 양쪽 다리 모두 계산 후 더 큰 flexion 채택 (Q4 fix).
@@ -28,6 +31,8 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         val (rHip, rKnee, rAnkle) = getHipKneeAnkle(landmarks, Side.RIGHT)
         val leftFlexion = (180f - AngleCalculator.calculateAngle(lHip, lKnee, lAnkle)).coerceAtLeast(0f)
         val rightFlexion = (180f - AngleCalculator.calculateAngle(rHip, rKnee, rAnkle)).coerceAtLeast(0f)
+        lastLeftFlexion = leftFlexion
+        lastRightFlexion = rightFlexion
 
         // 둘 다 visibility 너무 낮으면 null
         val lKneeVis = lKnee.visibility().orElse(0f)
@@ -48,13 +53,10 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     }
 
     /** OVER_BEND_DEG 이상 굽히면 "너무 굽히지 마세요" 경고. 살짝 굽히기 의도에서 deep squat 방지.
-     *  사용자 명시: 50°는 너무 빡빡 → 70°로 완화 (적절한 굽힘 범위 30~60° 보장). */
+     *  사용자 명시: 50°는 너무 빡빡 → 80°로 완화 (적절한 굽힘 범위 보장).
+     *  최적화: extractMetric 캐시값 재사용 — calculateAngle 2회/frame 절감 */
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
-        val (lHip, lKnee, lAnkle) = getHipKneeAnkle(landmarks, Side.LEFT)
-        val (rHip, rKnee, rAnkle) = getHipKneeAnkle(landmarks, Side.RIGHT)
-        val leftFlexion = (180f - AngleCalculator.calculateAngle(lHip, lKnee, lAnkle)).coerceAtLeast(0f)
-        val rightFlexion = (180f - AngleCalculator.calculateAngle(rHip, rKnee, rAnkle)).coerceAtLeast(0f)
-        val maxFlex = maxOf(leftFlexion, rightFlexion)
+        val maxFlex = maxOf(lastLeftFlexion, lastRightFlexion)
         return if (maxFlex >= OVER_BEND_DEG) "무릎을 너무 굽히지 마세요" else null
     }
 
