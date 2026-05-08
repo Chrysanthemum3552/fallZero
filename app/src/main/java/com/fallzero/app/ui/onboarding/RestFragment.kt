@@ -39,7 +39,10 @@ class RestFragment : Fragment() {
 
         binding.tvTitle.text = step.title.ifEmpty { "고생하셨어요!" }
         binding.tvSubtitle.text = step.subtitle.ifEmpty { "잠시 쉬었다 갈까요?" }
-        binding.tvNext.text = "다음 운동을 준비해주세요"
+
+        // 다음 단계 미리 표시
+        val nextIndex = peekNextLabel()
+        binding.tvNext.text = nextIndex
 
         ttsManager?.speak("고생하셨어요. ${seconds}초만 쉬었다 갈게요.")
 
@@ -53,6 +56,13 @@ class RestFragment : Fragment() {
                 advanceNext()
             }
         }.start()
+    }
+
+    private fun peekNextLabel(): String {
+        // SessionFlow는 큐 기반 — 다음 step을 미리 알려면 advance하기 전에 뭔지 봐야 함
+        // 단순화: 우리는 호출 직전 advance하지 않고, 다음 카운트다운 종료 시 advance한다.
+        // 따라서 여기서는 그냥 안내 텍스트만 표시.
+        return "다음 운동을 준비해주세요"
     }
 
     private fun advanceNext() {

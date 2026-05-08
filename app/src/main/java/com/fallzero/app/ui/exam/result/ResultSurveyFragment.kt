@@ -7,11 +7,14 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.fallzero.app.R
+import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.databinding.FragmentResultSurveyBinding
 import com.fallzero.app.util.TTSManager
 import com.fallzero.app.viewmodel.ExamViewModel
+import kotlinx.coroutines.launch
 
 class ResultSurveyFragment : Fragment() {
 
@@ -35,15 +38,25 @@ class ResultSurveyFragment : Fragment() {
         }
         val r = phase.result
 
-        // SharedPreferences에서 실제 설문 답변 불러오기
+        // DB에서 실제 설문 답변 불러오기 (OnboardingViewModel.saveAll()이 DB에 저장)
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-        val q1 = prefs.getBoolean("steadi_q1", false)
-        val q2 = prefs.getBoolean("steadi_q2", false)
-        val q3 = prefs.getBoolean("steadi_q3", false)
+        val userId = prefs.getInt("user_id", 0)
+        val db = FallZeroDatabase.getInstance(requireContext())
 
-        binding.tvQ1.text = "• 지난 1년 넘어진 적: ${if (q1) "있음" else "없음"}"
-        binding.tvQ2.text = "• 서거나 걸을 때 불안정: ${if (q2) "있음" else "없음"}"
-        binding.tvQ3.text = "• 넘어질까봐 두려움: ${if (q3) "있음" else "없음"}"
+        viewLifecycleOwner.lifecycleScope.launch {
+            val user = db.userDao().getUserById(userId)
+            val b = _binding ?: return@launch
+
+            if (user != null) {
+                b.tvQ1.text = "• 지난 1년 넘어진 적: ${if (user.steadiQ1) "있음" else "없음"}"
+                b.tvQ2.text = "• 서거나 걸을 때 불안정: ${if (user.steadiQ2) "있음" else "없음"}"
+                b.tvQ3.text = "• 넘어질까봐 두려움: ${if (user.steadiQ3) "있음" else "없음"}"
+            } else {
+                b.tvQ1.text = "• 지난 1년 넘어진 적: 기록 없음"
+                b.tvQ2.text = "• 서거나 걸을 때 불안정: 기록 없음"
+                b.tvQ3.text = "• 넘어질까봐 두려움: 기록 없음"
+            }
+        }
 
         val (msg, narration) = if (r.isHighRiskSurvey)
             "설문 차원에서 위험 신호가 있어요" to
