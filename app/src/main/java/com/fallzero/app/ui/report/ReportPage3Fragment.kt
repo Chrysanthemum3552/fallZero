@@ -18,9 +18,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 보고서 Page 3 — 운동별 PRB(개인 최대 가동범위) 달성 현황
- */
 class ReportPage3Fragment : Fragment() {
 
     private var _binding: FragmentReportPage3Binding? = null
@@ -53,14 +50,14 @@ class ReportPage3Fragment : Fragment() {
 
                     if (data.prbEntries.isEmpty()) {
                         b.tvPrbList.text = getString(R.string.report_no_data) +
-                            "\n\n운동을 시작하면 PRB 데이터가 측정됩니다."
+                                "\n\n운동을 시작하면 PRB 데이터가 측정됩니다."
                         return@collect
                     }
-
                     val dateFormat = SimpleDateFormat("MM/dd", Locale.KOREAN)
                     val sb = StringBuilder()
                     data.prbEntries.forEach { entry ->
-                        val unit = if (entry.exerciseId in 1..6) "°" else if (entry.exerciseId == 7) "%" else "초"
+                        val unit = if (entry.exerciseId in 1..6) "°"
+                        else if (entry.exerciseId == 7) "%" else "초"
                         sb.append("${entry.exerciseName}: %.1f$unit".format(entry.prbValue))
                         sb.append(" (${dateFormat.format(Date(entry.measuredAt))} 측정)\n\n")
                     }

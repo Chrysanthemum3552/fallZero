@@ -1,5 +1,6 @@
 package com.fallzero.app.ui.exam.result
 
+import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -12,10 +13,6 @@ import com.fallzero.app.databinding.FragmentResultSurveyBinding
 import com.fallzero.app.util.TTSManager
 import com.fallzero.app.viewmodel.ExamViewModel
 
-/**
- * 검사 결과 1/4: 설문 결과.
- * 답변 표시 + 설문 차원 위험 신호 여부 + TTS 안내. "다음" 버튼은 TTS 끝나야 활성.
- */
 class ResultSurveyFragment : Fragment() {
 
     private var _binding: FragmentResultSurveyBinding? = null
@@ -37,28 +34,34 @@ class ResultSurveyFragment : Fragment() {
             return
         }
         val r = phase.result
-        binding.tvQ1.text = if (r.isHighRiskSurvey && r.let { /* survey 위험 = 셋 중 하나 */ true })
-            "• 지난 1년 넘어진 적: 답변 기록됨"
-        else "• 지난 1년 넘어진 적: 답변 기록됨"
-        binding.tvQ2.text = "• 서거나 걸을 때 불안정: 답변 기록됨"
-        binding.tvQ3.text = "• 넘어질까봐 두려움: 답변 기록됨"
+
+        // SharedPreferences에서 실제 설문 답변 불러오기
+        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+        val q1 = prefs.getBoolean("steadi_q1", false)
+        val q2 = prefs.getBoolean("steadi_q2", false)
+        val q3 = prefs.getBoolean("steadi_q3", false)
+
+        binding.tvQ1.text = "• 지난 1년 넘어진 적: ${if (q1) "있음" else "없음"}"
+        binding.tvQ2.text = "• 서거나 걸을 때 불안정: ${if (q2) "있음" else "없음"}"
+        binding.tvQ3.text = "• 넘어질까봐 두려움: ${if (q3) "있음" else "없음"}"
 
         val (msg, narration) = if (r.isHighRiskSurvey)
-            "⚠ 설문 차원에서 위험 신호가 있어요" to
-            "설문 결과를 알려드릴게요. 설문 답변에서 낙상 위험 신호가 있어요."
+            "설문 차원에서 위험 신호가 있어요" to
+                    "설문 결과를 알려드릴게요. 설문 답변에서 낙상 위험 신호가 있어요."
         else
-            "✓ 설문 차원은 안전해요" to
-            "설문 결과를 알려드릴게요. 설문 답변에서 낙상 위험 신호가 없어요."
-        binding.tvJudgement.text = msg
-        binding.tvJudgement.setTextColor(if (r.isHighRiskSurvey) 0xFFFF9800.toInt() else 0xFF4CAF50.toInt())
+            "설문 차원은 안전해요" to
+                    "설문 결과를 알려드릴게요. 설문 답변에서 낙상 위험 신호가 없어요."
 
-        // TTS 끝까지 들리면 다음 버튼 활성
+        binding.tvJudgement.text = msg
+        binding.tvJudgement.setTextColor(
+            if (r.isHighRiskSurvey) 0xFFFF9800.toInt() else 0xFF4CAF50.toInt()
+        )
+
         binding.btnNext.isEnabled = false
         ttsManager?.speak(narration) {
             if (_binding != null) binding.btnNext.isEnabled = true
         }
         binding.btnNext.setOnClickListener {
-            // 사용자가 누르면 TTS 끊고 즉시 navigate
             ttsManager?.stop()
             findNavController().navigate(R.id.action_result_survey_to_balance)
         }
@@ -66,7 +69,7 @@ class ResultSurveyFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        ttsManager?.shutdown()
+        try { ttsManager?.shutdown() } catch (_: Exception) {}
         ttsManager = null
         _binding = null
     }

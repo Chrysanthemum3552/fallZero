@@ -25,21 +25,24 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- 상단 운동명 -->
     <TextView
         android:id="@+id/tv_exercise_name"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textSize="18sp"
-        android:textColor="@android:color/white"
-        android:background="#80000000"
-        android:padding="8dp"
+        android:textSize="20sp"
+        android:textColor="#FFFF00"
+        android:background="#CC000000"
+        android:padding="10dp"
         android:gravity="center"
         android:layout_marginTop="16dp"
+        android:maxLines="1"
+        android:ellipsize="end"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toEndOf="@id/btn_camera_flip"
         app:layout_constraintEnd_toStartOf="@id/btn_stop" />
 
-    <!-- 카운트 표시: 운동명 아래 우측 (중지 버튼 ✕와 겹치지 않게 운동명 밑) -->
+    <!-- 카운트 표시 -->
     <TextView
         android:id="@+id/tv_count"
         android:layout_width="wrap_content"
@@ -47,16 +50,18 @@
         android:text="0 / 0"
         android:textSize="28sp"
         android:textStyle="bold"
-        android:textColor="@android:color/white"
+        android:textColor="#FFFF00"
         android:background="#CC000000"
-        android:paddingHorizontal="14dp"
-        android:paddingVertical="8dp"
+        android:paddingLeft="14dp"
+        android:paddingRight="14dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
         android:layout_marginTop="8dp"
         android:layout_marginEnd="12dp"
         app:layout_constraintTop_toBottomOf="@id/btn_stop"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 카메라 전환 버튼 — 좌상단 (중지 버튼이 우상단으로 이동했으므로) -->
+    <!-- 카메라 전환 버튼 (좌상단) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_camera_flip"
         style="@style/Widget.MaterialComponents.Button.TextButton"
@@ -75,14 +80,14 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- 큰 카운트다운 (3,2,1,시작!) — 화면 가운데 floating -->
+    <!-- 큰 카운트다운 -->
     <TextView
         android:id="@+id/tv_big_countdown"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:textSize="120sp"
         android:textStyle="bold"
-        android:textColor="#FFFFFF"
+        android:textColor="#FFFF00"
         android:shadowColor="#000000"
         android:shadowDx="2"
         android:shadowDy="2"
@@ -94,23 +99,25 @@
         app:layout_constraintEnd_toEndOf="parent"
         tools:text="3" />
 
+    <!-- 에러 메시지 -->
     <TextView
         android:id="@+id/tv_error_message"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textSize="16sp"
+        android:textSize="18sp"
         android:textColor="#FFFF00"
-        android:background="#80FF0000"
-        android:padding="8dp"
+        android:background="#CC000000"
+        android:padding="12dp"
         android:gravity="center"
         android:visibility="gone"
-        android:layout_marginHorizontal="24dp"
+        android:layout_marginLeft="24dp"
+        android:layout_marginRight="24dp"
         android:layout_marginBottom="120dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 디버그 모드: 수동 카운트 +1 버튼 (하단 중앙) -->
+    <!-- 디버그 +1 버튼 -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_debug_count"
         android:layout_width="wrap_content"
@@ -124,7 +131,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
-    <!-- 중지 버튼 — 우상단 작은 빨간 X 아이콘 (화면 가림 최소화) -->
+    <!-- 중지 버튼 (우상단) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_stop"
         style="@style/Widget.MaterialComponents.Button.TextButton"
@@ -144,8 +151,7 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- ─────────────── 세션 완료 overlay (오늘 운동 모두 완료 시) ───────────────
-         전체 화면을 덮어 축하 메시지 + TTS 발화 후 자동 홈으로 이동. -->
+    <!-- 세션 완료 오버레이 -->
     <FrameLayout
         android:id="@+id/session_complete_overlay"
         android:layout_width="0dp"
@@ -165,13 +171,15 @@
             android:layout_gravity="center"
             android:orientation="vertical"
             android:gravity="center"
-            android:paddingHorizontal="32dp">
+            android:paddingLeft="32dp"
+            android:paddingRight="32dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="🎉"
-                android:textSize="100sp"
+                android:text="★"
+                android:textSize="80sp"
+                android:textColor="#FFFF00"
                 android:gravity="center" />
 
             <TextView
@@ -182,7 +190,7 @@
                 android:text="오늘 운동을 모두 마치셨어요!"
                 android:textSize="28sp"
                 android:textStyle="bold"
-                android:textColor="#FFEB3B"
+                android:textColor="#FFFF00"
                 android:gravity="center" />
 
             <TextView
@@ -192,14 +200,12 @@
                 android:layout_marginTop="16dp"
                 android:text="수고하셨어요. 잠시 후 홈으로 돌아갑니다."
                 android:textSize="20sp"
-                android:textColor="#FFFFFF"
+                android:textColor="#FFE066"
                 android:gravity="center" />
         </LinearLayout>
     </FrameLayout>
 
-    <!-- ─────────────── 일시정지 overlay (사용자 카메라 이탈 시) ───────────────
-         frame이 2초 이상 안 들어오면 표시. 카메라 화면 위 + 안내 overlay 아래.
-         clickable=true로 카메라 영역 터치 차단. 카메라 화면은 살짝 보여 사용자 자세 확인 가능. -->
+    <!-- 일시정지 오버레이 -->
     <FrameLayout
         android:id="@+id/pause_overlay"
         android:layout_width="0dp"
@@ -225,7 +231,6 @@
                 android:layout_height="wrap_content"
                 android:text="⏸"
                 android:textSize="64sp"
-                android:textColor="#FFFFFF"
                 android:gravity="center" />
 
             <TextView
@@ -236,14 +241,12 @@
                 android:text="카메라 앞으로 와주세요"
                 android:textSize="28sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF"
+                android:textColor="#FFFF00"
                 android:gravity="center" />
         </LinearLayout>
     </FrameLayout>
 
-    <!-- ─────────────── 안내 overlay (운동 시작 전 / 양측 전환 시) ───────────────
-         세로 모드 화면 가득 — 동영상 영역이 화면 대부분(~65%)을 차지하고
-         제목은 상단, 안내 멘트는 하단에 자막처럼 작게 표시. 카운트다운은 영상 영역 위에 큰 숫자로 떠있음. -->
+    <!-- 안내 오버레이 -->
     <FrameLayout
         android:id="@+id/guidance_overlay"
         android:layout_width="0dp"
@@ -261,30 +264,32 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <!-- 상단 제목 (작게) -->
             <TextView
                 android:id="@+id/tv_guidance_title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
-                android:layout_marginHorizontal="16dp"
-                android:textSize="22sp"
+                android:layout_marginLeft="16dp"
+                android:layout_marginRight="16dp"
+                android:textSize="24sp"
                 android:textStyle="bold"
-                android:textColor="#FFFFFF"
+                android:textColor="#FFFF00"
                 android:gravity="center"
+                android:background="#CC000000"
+                android:padding="12dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 tools:text="옆으로 다리 들기" />
 
-            <!-- 동영상 영역 (화면 대부분 차지, 16:9 비율 또는 가능한 큰 크기) -->
             <FrameLayout
                 android:id="@+id/video_placeholder"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:layout_marginTop="12dp"
-                android:layout_marginHorizontal="16dp"
-                android:background="#33FFFFFF"
+                android:layout_marginLeft="16dp"
+                android:layout_marginRight="16dp"
+                android:background="#22FFFF00"
                 app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
                 app:layout_constraintBottom_toTopOf="@id/tv_guidance_text"
                 app:layout_constraintStart_toStartOf="parent"
@@ -296,10 +301,9 @@
                     android:layout_gravity="center"
                     android:gravity="center"
                     android:text="@string/guidance_video_placeholder"
-                    android:textColor="#CCCCCC"
-                    android:textSize="18sp" />
+                    android:textColor="#CCCC00"
+                    android:textSize="20sp" />
 
-                <!-- 카운트다운 숫자 (영상 영역 한가운데 큰 글씨) -->
                 <TextView
                     android:id="@+id/tv_guidance_countdown"
                     android:layout_width="wrap_content"
@@ -307,23 +311,25 @@
                     android:layout_gravity="center"
                     android:textSize="120sp"
                     android:textStyle="bold"
-                    android:textColor="#FFFFFF"
+                    android:textColor="#FFFF00"
                     android:gravity="center"
                     android:visibility="gone"
                     tools:text="3" />
             </FrameLayout>
 
-            <!-- 하단 자막 멘트 (작게) -->
             <TextView
                 android:id="@+id/tv_guidance_text"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="24dp"
-                android:layout_marginHorizontal="20dp"
-                android:textSize="14sp"
-                android:lineSpacingMultiplier="1.25"
-                android:textColor="#E0E0E0"
+                android:layout_marginLeft="20dp"
+                android:layout_marginRight="20dp"
+                android:textSize="20sp"
+                android:lineSpacingMultiplier="1.4"
+                android:textColor="#FFFF00"
                 android:gravity="center"
+                android:background="#CC000000"
+                android:padding="16dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"

@@ -12,9 +12,6 @@ import com.fallzero.app.databinding.FragmentResultBalanceBinding
 import com.fallzero.app.util.TTSManager
 import com.fallzero.app.viewmodel.ExamViewModel
 
-/**
- * 검사 결과 2/4: 균형 검사 결과 — 기준(10초) vs 사용자 막대 비교 + TTS.
- */
 class ResultBalanceFragment : Fragment() {
 
     private var _binding: FragmentResultBalanceBinding? = null
@@ -36,7 +33,6 @@ class ResultBalanceFragment : Fragment() {
             return
         }
         val r = phase.result
-        // CDC STEADI 통과 기준 10초가 그래프 우측 끝 = 가득 참. 사용자는 0~10 범위.
         val normSec = 10
         val userSec = r.tandemTimeSec.toInt().coerceIn(0, normSec)
 
@@ -49,13 +45,16 @@ class ResultBalanceFragment : Fragment() {
         binding.tvUserValue.text = "${userSec}초"
 
         val (msg, narration) = if (r.isHighRiskBalance)
-            "⚠ 균형 검사에서 위험 신호가 있어요" to
-            "균형 검사 결과를 알려드릴게요. 안전 기준은 10초이고, ${userSec}초를 유지하셨어요. 위험 신호가 있어요."
+            "균형 검사에서 위험 신호가 있어요" to
+                    "균형 검사 결과를 알려드릴게요. 안전 기준은 10초이고, ${userSec}초를 유지하셨어요. 위험 신호가 있어요."
         else
-            "✓ 균형 검사는 안전해요" to
-            "균형 검사 결과를 알려드릴게요. 안전 기준은 10초이고, ${userSec}초를 유지하셨어요. 안전합니다."
+            "균형 검사는 안전해요" to
+                    "균형 검사 결과를 알려드릴게요. 안전 기준은 10초이고, ${userSec}초를 유지하셨어요. 안전합니다."
+
         binding.tvJudgement.text = msg
-        binding.tvJudgement.setTextColor(if (r.isHighRiskBalance) 0xFFFF9800.toInt() else 0xFF4CAF50.toInt())
+        binding.tvJudgement.setTextColor(
+            if (r.isHighRiskBalance) 0xFFFF9800.toInt() else 0xFF4CAF50.toInt()
+        )
 
         binding.btnNext.isEnabled = false
         ttsManager?.speak(narration) {
@@ -69,7 +68,7 @@ class ResultBalanceFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        ttsManager?.shutdown()
+        try { ttsManager?.shutdown() } catch (_: Exception) {}
         ttsManager = null
         _binding = null
     }

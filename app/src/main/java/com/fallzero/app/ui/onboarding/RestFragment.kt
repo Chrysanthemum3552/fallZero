@@ -12,12 +12,6 @@ import com.fallzero.app.data.SessionFlow
 import com.fallzero.app.databinding.FragmentRestBinding
 import com.fallzero.app.util.TTSManager
 
-/**
- * 운동 사이 휴식 카운트다운. 사용자 조작 없이 초가 끝나면 자동 진행.
- *
- * SessionFlow의 현재 step의 restSeconds 만큼 카운트다운.
- * REST = 운동/세트 사이(15초), SIDE_REST = 양측 전환(5초).
- */
 class RestFragment : Fragment() {
 
     private var _binding: FragmentRestBinding? = null
@@ -45,10 +39,7 @@ class RestFragment : Fragment() {
 
         binding.tvTitle.text = step.title.ifEmpty { "고생하셨어요!" }
         binding.tvSubtitle.text = step.subtitle.ifEmpty { "잠시 쉬었다 갈까요?" }
-
-        // 다음 단계 미리 표시
-        val nextIndex = peekNextLabel()
-        binding.tvNext.text = nextIndex
+        binding.tvNext.text = "다음 운동을 준비해주세요"
 
         ttsManager?.speak("고생하셨어요. ${seconds}초만 쉬었다 갈게요.")
 
@@ -56,21 +47,12 @@ class RestFragment : Fragment() {
             override fun onTick(msLeft: Long) {
                 val s = (msLeft / 1000L).toInt().coerceAtLeast(0)
                 _binding?.tvCountdown?.text = s.toString()
-                // 카운트 음성 제거 — 사용자 명시: 숫자 음성 없이 화면 표시만, 0초 도달 시 자동 진행.
             }
-
             override fun onFinish() {
                 _binding?.tvCountdown?.text = "0"
                 advanceNext()
             }
         }.start()
-    }
-
-    private fun peekNextLabel(): String {
-        // SessionFlow는 큐 기반 — 다음 step을 미리 알려면 advance하기 전에 뭔지 봐야 함
-        // 단순화: 우리는 호출 직전 advance하지 않고, 다음 카운트다운 종료 시 advance한다.
-        // 따라서 여기서는 그냥 안내 텍스트만 표시.
-        return "다음 운동을 준비해주세요"
     }
 
     private fun advanceNext() {
@@ -83,15 +65,15 @@ class RestFragment : Fragment() {
     private fun navigateTo(step: SessionFlow.Step) {
         val nav = findNavController()
         when (step.type) {
-            SessionFlow.StepType.EXERCISE -> nav.navigate(R.id.action_global_exercise)
+            SessionFlow.StepType.EXERCISE         -> nav.navigate(R.id.action_global_exercise)
             SessionFlow.StepType.EXAM_BALANCE,
             SessionFlow.StepType.EXAM_CHAIR_STAND -> nav.navigate(R.id.action_global_exam)
             SessionFlow.StepType.REST,
-            SessionFlow.StepType.SIDE_REST -> nav.navigate(R.id.action_global_rest)
-            SessionFlow.StepType.SIDE_ROTATION -> nav.navigate(R.id.action_global_rotation)
+            SessionFlow.StepType.SIDE_REST        -> nav.navigate(R.id.action_global_rest)
+            SessionFlow.StepType.SIDE_ROTATION    -> nav.navigate(R.id.action_global_rotation)
             SessionFlow.StepType.CHAIR_REPOSITION -> nav.navigate(R.id.action_global_chair_reposition)
-            SessionFlow.StepType.DONE -> nav.navigate(R.id.action_global_home)
-            SessionFlow.StepType.PRE_FLIGHT -> nav.navigate(R.id.action_global_preflight)
+            SessionFlow.StepType.DONE             -> nav.navigate(R.id.action_global_home)
+            SessionFlow.StepType.PRE_FLIGHT       -> nav.navigate(R.id.action_global_preflight)
         }
     }
 

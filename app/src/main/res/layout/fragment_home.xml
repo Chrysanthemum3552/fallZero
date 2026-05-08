@@ -7,7 +7,6 @@
     android:background="@color/background"
     android:padding="20dp">
 
-    <!-- 인사 (작게) -->
     <TextView
         android:id="@+id/tv_greeting"
         android:layout_width="match_parent"
@@ -19,7 +18,7 @@
         android:layout_marginTop="4dp"
         android:layout_marginBottom="12dp" />
 
-    <!-- ─────────────── 탭 토글 버튼 (오늘 운동 / 메뉴) ─────────────── -->
+    <!-- 탭 토글 버튼 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -31,7 +30,7 @@
             android:layout_width="0dp"
             android:layout_height="64dp"
             android:layout_weight="1"
-            android:text="📋 오늘 운동"
+            android:text="오늘 운동"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/on_primary"
@@ -46,7 +45,7 @@
             android:layout_width="0dp"
             android:layout_height="64dp"
             android:layout_weight="1"
-            android:text="📂 메뉴"
+            android:text="메뉴"
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/text_secondary"
@@ -60,13 +59,12 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
     </LinearLayout>
 
-    <!-- 탭 콘텐츠 영역 — FrameLayout: 두 개의 LinearLayout 중 하나만 visible -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
 
-        <!-- ─────────────── 오늘 운동 탭 ─────────────── -->
+        <!-- 오늘 운동 탭 -->
         <ScrollView
             android:id="@+id/tab_today_content"
             android:layout_width="match_parent"
@@ -78,7 +76,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <!-- 운동 시작 (메인 버튼) — 화면 최상단에 배치 (사용자 요구사항) -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_start_exercise"
                     android:layout_width="match_parent"
@@ -90,7 +87,7 @@
                     app:backgroundTint="@color/primary"
                     app:cornerRadius="14dp" />
 
-                <!-- 대시보드 카드: 연속일/위험등급/오늘 상태 — 라벨/값 세로 스택으로 텍스트 잘림 방지 -->
+                <!-- 대시보드 카드 -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -116,9 +113,11 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="🔥 연속"
-                                android:textSize="16sp"
-                                android:textColor="@color/text_secondary" />
+                                android:text="연속 운동"
+                                android:textSize="14sp"
+                                android:textColor="@color/text_secondary"
+                                android:maxLines="1"
+                                android:ellipsize="end" />
 
                             <TextView
                                 android:id="@+id/tv_streak"
@@ -128,7 +127,8 @@
                                 android:textSize="22sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/primary"
-                                android:layout_marginTop="4dp" />
+                                android:layout_marginTop="4dp"
+                                android:maxLines="1" />
                         </LinearLayout>
 
                         <View
@@ -147,16 +147,18 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="⚠️ 위험 등급"
-                                android:textSize="16sp"
-                                android:textColor="@color/text_secondary" />
+                                android:text="위험 등급"
+                                android:textSize="14sp"
+                                android:textColor="@color/text_secondary"
+                                android:maxLines="1"
+                                android:ellipsize="end" />
 
                             <TextView
                                 android:id="@+id/tv_risk_level"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="검사 필요"
-                                android:textSize="18sp"
+                                android:textSize="16sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/text_primary"
                                 android:background="@drawable/bg_risk_level"
@@ -164,7 +166,9 @@
                                 android:paddingRight="10dp"
                                 android:paddingTop="4dp"
                                 android:paddingBottom="4dp"
-                                android:layout_marginTop="4dp" />
+                                android:layout_marginTop="4dp"
+                                android:maxLines="1"
+                                android:ellipsize="end" />
                         </LinearLayout>
 
                         <View
@@ -183,26 +187,29 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="✅ 오늘"
-                                android:textSize="16sp"
-                                android:textColor="@color/text_secondary" />
+                                android:text="오늘 운동"
+                                android:textSize="14sp"
+                                android:textColor="@color/text_secondary"
+                                android:maxLines="1"
+                                android:ellipsize="end" />
 
                             <TextView
                                 android:id="@+id/tv_today_status"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="아직 안 했어요"
-                                android:textSize="18sp"
+                                android:text="미완료"
+                                android:textSize="16sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/warning"
                                 android:gravity="center"
-                                android:layout_marginTop="4dp" />
+                                android:layout_marginTop="4dp"
+                                android:maxLines="1"
+                                android:ellipsize="end" />
                         </LinearLayout>
 
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- 오늘의 운동 체크리스트 -->
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -226,13 +233,15 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:paddingHorizontal="14dp"
-                        android:paddingVertical="6dp" />
+                        android:paddingLeft="14dp"
+                        android:paddingRight="14dp"
+                        android:paddingTop="6dp"
+                        android:paddingBottom="6dp" />
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
         </ScrollView>
 
-        <!-- ─────────────── 메뉴 탭 ─────────────── -->
+        <!-- 메뉴 탭 -->
         <ScrollView
             android:id="@+id/tab_menu_content"
             android:layout_width="match_parent"

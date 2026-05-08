@@ -12,9 +12,6 @@ import com.fallzero.app.databinding.FragmentResultChairBinding
 import com.fallzero.app.util.TTSManager
 import com.fallzero.app.viewmodel.ExamViewModel
 
-/**
- * 검사 결과 3/4: 의자 일어서기 — 연령·성별 기준 vs 사용자 카운트 비교 + TTS.
- */
 class ResultChairFragment : Fragment() {
 
     private var _binding: FragmentResultChairBinding? = null
@@ -38,8 +35,6 @@ class ResultChairFragment : Fragment() {
         val r = phase.result
         val norm = r.chairStandNorm
         val user = r.chairStandCount
-        // norm을 max로 두면 norm 막대가 우측 끝 = 가득 참. user는 0~norm으로 cap.
-        // user가 norm 초과해도 시각적으로는 max 도달 (안전군 통과 의미)
         val displayUser = user.coerceIn(0, norm)
 
         binding.pbNorm.max = norm
@@ -51,13 +46,16 @@ class ResultChairFragment : Fragment() {
         binding.tvUserValue.text = "${user}회"
 
         val (msg, narration) = if (r.isHighRiskChairStand)
-            "⚠ 의자 일어서기에서 위험 신호가 있어요" to
-            "의자 일어서기 결과를 알려드릴게요. 안전 기준은 ${norm}회인데, ${user}회를 하셨어요. 위험 신호가 있어요."
+            "의자 일어서기에서 위험 신호가 있어요" to
+                    "의자 일어서기 결과를 알려드릴게요. 안전 기준은 ${norm}회인데, ${user}회를 하셨어요. 위험 신호가 있어요."
         else
-            "✓ 의자 일어서기는 안전해요" to
-            "의자 일어서기 결과를 알려드릴게요. 안전 기준은 ${norm}회인데, ${user}회를 하셨어요. 안전합니다."
+            "의자 일어서기는 안전해요" to
+                    "의자 일어서기 결과를 알려드릴게요. 안전 기준은 ${norm}회인데, ${user}회를 하셨어요. 안전합니다."
+
         binding.tvJudgement.text = msg
-        binding.tvJudgement.setTextColor(if (r.isHighRiskChairStand) 0xFFFF9800.toInt() else 0xFF4CAF50.toInt())
+        binding.tvJudgement.setTextColor(
+            if (r.isHighRiskChairStand) 0xFFFF9800.toInt() else 0xFF4CAF50.toInt()
+        )
 
         binding.btnNext.isEnabled = false
         ttsManager?.speak(narration) {
@@ -71,7 +69,7 @@ class ResultChairFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        ttsManager?.shutdown()
+        try { ttsManager?.shutdown() } catch (_: Exception) {}
         ttsManager = null
         _binding = null
     }

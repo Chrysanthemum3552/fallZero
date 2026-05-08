@@ -13,7 +13,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="4 / 4"
-        android:textSize="20sp"
+        android:textSize="22sp"
         android:textColor="#888888"
         android:gravity="center"
         android:layout_marginTop="16dp"
@@ -30,13 +30,13 @@
         android:textStyle="bold"
         android:textColor="#FFFFFF"
         android:gravity="center"
-        android:singleLine="true"
+        android:maxLines="1"
+        android:ellipsize="end"
         android:layout_marginTop="16dp"
         app:layout_constraintTop_toBottomOf="@id/tv_step"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 큰 위험군/안전군 뱃지 — 글자 너무 많으면 자동 축소 + singleLine으로 어색한 줄바꿈 방지 -->
     <TextView
         android:id="@+id/tv_risk_badge"
         android:layout_width="0dp"
@@ -45,7 +45,6 @@
         android:textStyle="bold"
         android:gravity="center"
         android:padding="32dp"
-        android:singleLine="true"
         android:maxLines="1"
         android:autoSizeTextType="uniform"
         android:autoSizeMinTextSize="24sp"
@@ -54,31 +53,30 @@
         app:layout_constraintBottom_toTopOf="@id/tv_recommendation"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="⚠ 낙상 위험군" />
+        tools:text="낙상 위험군" />
 
-    <!-- 권장 사항 -->
     <TextView
         android:id="@+id/tv_recommendation"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:textSize="18sp"
+        android:textSize="20sp"
         android:textColor="#FFFFFF"
         android:gravity="center"
         android:lineSpacingMultiplier="1.4"
         android:background="#2A2A2A"
         android:padding="20dp"
-        android:layout_marginBottom="24dp"
-        app:layout_constraintBottom_toTopOf="@id/btn_home"
+        android:layout_marginBottom="12dp"
+        app:layout_constraintBottom_toTopOf="@id/btn_share_guardian"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="3가지 차원 중 X개에서 위험 신호가 있어요. 운동을 시작해 보세요." />
+        tools:text="3가지 항목 중 일부에서 위험 신호가 있어요." />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_share_guardian"
         android:layout_width="match_parent"
         android:layout_height="64dp"
-        android:text="📤 보호자에게 자세한 결과 공유"
-        android:textSize="18sp"
+        android:text="보호자에게 결과 공유"
+        android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginBottom="12dp"
         app:cornerRadius="16dp"

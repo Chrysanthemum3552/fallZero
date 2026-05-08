@@ -18,9 +18,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 보고서 Page 2 — 훈련 이행률
- */
 class ReportPage2Fragment : Fragment() {
 
     private var _binding: FragmentReportPage2Binding? = null
@@ -58,7 +55,6 @@ class ReportPage2Fragment : Fragment() {
                         b.tvRecentSessions.text = getString(R.string.report_no_data)
                         return@collect
                     }
-
                     val dateFormat = SimpleDateFormat("MM/dd (E)", Locale.KOREAN)
                     val sb = StringBuilder("최근 세션 기록:\n")
                     data.recentSessions.take(10).forEach { session ->
