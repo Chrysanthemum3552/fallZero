@@ -19,32 +19,23 @@ import com.fallzero.app.R
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.data.db.entity.ExerciseRecord
 import com.fallzero.app.databinding.FragmentReportBinding
+import com.fallzero.app.ui.exam.SimpleChartView
 import com.fallzero.app.viewmodel.ReportViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * 보고서 Page 1 - 검사 결과 요약 + 최근 세션 운동 결과
- * 담당: 송민석
- */
 class ReportFragment : Fragment() {
 
     private var _binding: FragmentReportBinding? = null
     private val binding get() = _binding!!
     private val viewModel: ReportViewModel by activityViewModels()
 
-    // 운동 ID -> 이름 매핑
     private val exerciseNames = mapOf(
-        1 to "앉아서 무릎 펴기",
-        2 to "옆으로 다리 들기",
-        3 to "뒤로 무릎 굽히기",
-        4 to "발뒤꿈치 들기",
-        5 to "발끝 들기",
-        6 to "무릎 살짝 굽히기",
-        7 to "의자에서 일어서기",
-        8 to "한 발로 서기"
+        1 to "앉아서 무릎 펴기", 2 to "옆으로 다리 들기", 3 to "뒤로 무릎 굽히기",
+        4 to "발뒤꿈치 들기", 5 to "발끝 들기", 6 to "무릎 살짝 굽히기",
+        7 to "의자에서 일어서기", 8 to "한 발로 서기"
     )
 
     override fun onCreateView(
@@ -96,17 +87,43 @@ class ReportFragment : Fragment() {
             }
         }
 
-        // 최근 세션 운동 결과 로드
+        loadExerciseQualityGraph()
         loadRecentSessionResults()
     }
 
+    /** 운동 품질 점수 꺾은선 그래프 (최근 5회 세션 평균) */
+    private fun loadExerciseQualityGraph() {
+        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+        val userId = prefs.getInt("user_id", 0)
+        val db = FallZeroDatabase.getInstance(requireContext())
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val sessions = db.sessionDao().getRecentCompletedSessions(userId, 5)
+            val b = _binding ?: return@launch
+            val chart = b.root.findViewById<SimpleChartView>(R.id.chart_exercise_quality)
+
+            if (sessions.isEmpty()) return@launch
+
+            // 세션별 평균 품질 점수 계산 (오래된 순)
+            val scores = sessions.reversed().mapNotNull { session ->
+                val records = db.sessionDao().getRecordsBySession(session.id)
+                if (records.isEmpty()) null
+                else records.map { it.qualityScore }.average().toFloat()
+            }
+
+            if (scores.isNotEmpty()) {
+                chart?.setData(scores, "#FFFF00")
+            }
+        }
+    }
+
+    /** 최근 세션 운동 결과 - 원래 코드 유지 */
     private fun loadRecentSessionResults() {
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getInt("user_id", 0)
         val db = FallZeroDatabase.getInstance(requireContext())
 
         viewLifecycleOwner.lifecycleScope.launch {
-            // 가장 최근 완료 세션 1개
             val recentSessions = db.sessionDao().getRecentCompletedSessions(userId, 1)
             val b = _binding ?: return@launch
 
@@ -125,17 +142,13 @@ class ReportFragment : Fragment() {
                 return@launch
             }
 
-            // 세션 날짜
-            val dateStr = SimpleDateFormat("MM월 dd일", Locale.KOREAN)
-                .format(Date(session.startedAt))
+            val dateStr = SimpleDateFormat("MM월 dd일", Locale.KOREAN).format(Date(session.startedAt))
             b.tvSessionTitle.text = "${dateStr} 세션"
 
-            // 평균 점수 계산
             val avgScore = records.map { it.qualityScore }.average().toInt()
             b.tvSessionAvg.visibility = View.VISIBLE
             b.tvSessionAvg.text = "평균 품질 점수: ${avgScore}점"
 
-            // 이전 세션과 비교
             val prevSessions = db.sessionDao().getRecentCompletedSessions(userId, 2)
             if (prevSessions.size >= 2) {
                 val prevRecords = db.sessionDao().getRecordsBySession(prevSessions[1].id)
@@ -157,18 +170,14 @@ class ReportFragment : Fragment() {
                 b.tvSessionCompare.visibility = View.GONE
             }
 
-            // 운동별 카드 동적 생성
             b.layoutExerciseCards.removeAllViews()
             records.sortedBy { it.exerciseId }.forEach { record ->
-                val cardView = createExerciseCard(record)
-                b.layoutExerciseCards.addView(cardView)
+                b.layoutExerciseCards.addView(createExerciseCard(record))
             }
         }
     }
 
-    /**
-     * 운동별 결과 카드 동적 생성
-     */
+    /** 운동별 결과 카드 - 원래 코드 유지 (달성/자세/ROM/일관성 태그 포함) */
     private fun createExerciseCard(record: ExerciseRecord): View {
         val ctx = requireContext()
         val name = exerciseNames[record.exerciseId] ?: "운동 ${record.exerciseId}"
@@ -179,47 +188,40 @@ class ReportFragment : Fragment() {
             else -> ContextCompat.getColor(ctx, R.color.error)
         }
 
-        // 카드 컨테이너
         val card = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(40, 36, 40, 36)
             setBackgroundColor(ContextCompat.getColor(ctx, R.color.surface))
-            val lp = LinearLayout.LayoutParams(
+            layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             ).apply { setMargins(0, 0, 0, 24) }
-            layoutParams = lp
         }
 
         // 운동명 + 총점 행
         val headerRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
         val tvName = TextView(ctx).apply {
-            text = name
-            textSize = 15f
+            text = name; textSize = 15f
             setTextColor(ContextCompat.getColor(ctx, R.color.text_primary))
             setTypeface(typeface, android.graphics.Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         }
         val tvScore = TextView(ctx).apply {
-            text = "${score}점"
-            textSize = 16f
+            text = "${score}점"; textSize = 16f
             setTextColor(scoreColor)
             setTypeface(typeface, android.graphics.Typeface.BOLD)
         }
-        headerRow.addView(tvName)
-        headerRow.addView(tvScore)
+        headerRow.addView(tvName); headerRow.addView(tvScore)
         card.addView(headerRow)
 
         // 프로그레스바
         val progressBar = ProgressBar(ctx, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 100
-            progress = score
+            max = 100; progress = score
             progressTintList = android.content.res.ColorStateList.valueOf(scoreColor)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 20
@@ -227,15 +229,13 @@ class ReportFragment : Fragment() {
         }
         card.addView(progressBar)
 
-        // 세부 점수 태그 행
+        // 세부 점수 태그 행 (달성/자세/ROM/일관성) - 원래 코드 유지
         val tagRow = LinearLayout(ctx).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
             )
         }
-
         listOf(
             "달성 ${record.completionScore}" to "#E3F2FD",
             "자세 ${record.formScore}" to "#E8F5E9",
@@ -243,16 +243,13 @@ class ReportFragment : Fragment() {
             "일관성 ${record.consistencyScore}" to "#F3E5F5"
         ).forEach { (label, bgColor) ->
             val tag = TextView(ctx).apply {
-                text = label
-                textSize = 11f
-                setTextColor(Color.parseColor(bgColor).darken())
+                text = label; textSize = 11f
+                setTextColor(android.graphics.Color.parseColor(bgColor).darken())
                 setPadding(16, 8, 16, 8)
-                setBackgroundColor(Color.parseColor(bgColor))
-                val lp = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
+                setBackgroundColor(android.graphics.Color.parseColor(bgColor))
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT
                 ).apply { setMargins(0, 0, 12, 0) }
-                layoutParams = lp
             }
             tagRow.addView(tag)
         }
@@ -267,7 +264,6 @@ class ReportFragment : Fragment() {
     }
 }
 
-// Int 색상을 어둡게 만드는 확장함수 (태그 텍스트용)
 private fun Int.darken(): Int {
     val r = (android.graphics.Color.red(this) * 0.5f).toInt()
     val g = (android.graphics.Color.green(this) * 0.5f).toInt()
@@ -275,7 +271,6 @@ private fun Int.darken(): Int {
     return android.graphics.Color.rgb(r, g, b)
 }
 
-// Color.parseColor 편의 임포트용
 private object Color {
     fun parseColor(hex: String): Int = android.graphics.Color.parseColor(hex)
 }

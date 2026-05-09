@@ -12,7 +12,6 @@
         android:orientation="vertical"
         android:padding="20dp">
 
-        <!-- 제목 -->
         <TextView
             android:id="@+id/tv_title"
             android:layout_width="match_parent"
@@ -93,6 +92,41 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- 운동 품질 점수 꺾은선 그래프 카드 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:paddingTop="16dp"
+                android:paddingBottom="16dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="운동 품질 점수 변화 (최근 5회)"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="8dp" />
+
+                <com.fallzero.app.ui.exam.SimpleChartView
+                    android:id="@+id/chart_exercise_quality"
+                    android:layout_width="match_parent"
+                    android:layout_height="140dp" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- 최근 세션 운동 결과 -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -111,7 +145,6 @@
                 android:paddingTop="20dp"
                 android:paddingBottom="20dp">
 
-                <!-- 세션 날짜 -->
                 <TextView
                     android:id="@+id/tv_session_title"
                     android:layout_width="match_parent"
@@ -122,7 +155,6 @@
                     android:textColor="@color/text_primary"
                     android:layout_marginBottom="6dp" />
 
-                <!-- 평균 점수 -->
                 <TextView
                     android:id="@+id/tv_session_avg"
                     android:layout_width="match_parent"
@@ -132,7 +164,6 @@
                     android:textColor="@color/primary"
                     android:layout_marginBottom="4dp" />
 
-                <!-- 이전 세션 대비 -->
                 <TextView
                     android:id="@+id/tv_session_compare"
                     android:layout_width="match_parent"
@@ -141,7 +172,6 @@
                     android:textColor="@color/success"
                     android:layout_marginBottom="16dp" />
 
-                <!-- 운동별 카드 컨테이너 (동적으로 추가) -->
                 <LinearLayout
                     android:id="@+id/layout_exercise_cards"
                     android:layout_width="match_parent"

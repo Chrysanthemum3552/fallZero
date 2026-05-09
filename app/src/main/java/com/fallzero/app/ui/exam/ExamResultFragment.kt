@@ -3,6 +3,7 @@ package com.fallzero.app.ui.exam
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import android.os.Bundle
 import android.util.AttributeSet
 import android.view.LayoutInflater
@@ -16,7 +17,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.fallzero.app.R
 import com.fallzero.app.data.SessionFlow
-import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.data.db.entity.ExamResult
 import com.fallzero.app.databinding.FragmentExamResultBinding
 import com.fallzero.app.util.ShareHelper
@@ -79,6 +79,7 @@ class ExamResultFragment : Fragment() {
         val result = phase.result
         val isHighRisk = result.finalRiskLevel == "high"
 
+        // 판정 표시
         binding.tvRiskLevel.text = if (isHighRisk)
             getString(R.string.exam_high_risk)
         else
@@ -87,79 +88,47 @@ class ExamResultFragment : Fragment() {
             if (isHighRisk) R.drawable.bg_risk_level else R.drawable.bg_risk_low
         )
 
-        binding.tvRecommendation.text = if (isHighRisk) {
-            "낙상 위험이 감지되었습니다.\n꾸준한 OEP 운동과 의사 상담을 권장합니다."
-        } else {
-            "현재 낙상 위험이 낮습니다.\n예방 운동을 꾸준히 이어나가세요!"
-        }
+        binding.tvRecommendation.text = if (isHighRisk)
+            "낙상 위험이 감지되었습니다. 꾸준한 OEP 운동과 의사 상담을 권장합니다."
+        else
+            "현재 낙상 위험이 낮습니다. 예방 운동을 꾸준히 이어나가세요!"
 
-        loadHistoryAndDrawGraphs(result, isHighRisk)
-    }
+        // 원형 그래프 - 의자 일어서기 (사용자 횟수 / 기준 횟수)
+        val chairColor = if (result.isHighRiskChairStand) "#FF9800" else "#FFFF00"
+        binding.chartChairStand.setData(
+            user = result.chairStandCount.toFloat(),
+            max = result.chairStandNorm.toFloat().coerceAtLeast(1f),
+            color = chairColor,
+            valueText = "${result.chairStandCount}회",
+            normText = "기준 ${result.chairStandNorm}회"
+        )
+        binding.tvChairStandResult.text = if (result.isHighRiskChairStand)
+            "위험 신호 있음"
+        else
+            "안전"
 
-    private fun loadHistoryAndDrawGraphs(current: ExamResult, isHighRisk: Boolean) {
-        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-        val userId = prefs.getInt("user_id", 0)
-        val db = FallZeroDatabase.getInstance(requireContext())
+        // 원형 그래프 - 균형 검사 (탠덤 시간 / 10초)
+        val balanceColor = if (result.isHighRiskBalance) "#FF9800" else "#00FF88"
+        binding.chartBalance.setData(
+            user = result.tandemTimeSec,
+            max = 10f,
+            color = balanceColor,
+            valueText = "${result.tandemTimeSec.toInt()}초",
+            normText = "기준 10초"
+        )
+        binding.tvBalanceResult.text = if (result.isHighRiskBalance)
+            "위험 신호 있음"
+        else
+            "안전"
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            val history = db.examResultDao().getRecentResults(userId, 5)
-            val b = _binding ?: return@launch
-
-            if (history.size >= 2) {
-                // 실제 DB 데이터로 그래프 표시
-                val chairData = history.reversed().map { it.chairStandCount.toFloat() }
-                b.chartChairStand.setData(chairData, "#FFFF00")
-
-                val prev = history.getOrNull(1)
-                if (prev != null) {
-                    val chairDiff = current.chairStandCount - prev.chairStandCount
-                    b.tvChairStandResult.text = when {
-                        chairDiff > 0 -> "지난 검사보다 ${chairDiff}회 더 하셨어요!"
-                        chairDiff < 0 -> "지난 검사보다 ${-chairDiff}회 줄었어요"
-                        else -> "지난 검사와 횟수가 같아요"
-                    }
-
-                    val balanceData = history.reversed().map { it.balanceStageReached.toFloat() }
-                    b.chartBalance.setData(balanceData, "#00FF88")
-
-                    val stageDiff = current.balanceStageReached - prev.balanceStageReached
-                    b.tvBalanceResult.text = when {
-                        stageDiff > 0 -> "${stageDiff}단계 더 통과하셨어요!"
-                        stageDiff < 0 -> "${-stageDiff}단계 줄었어요"
-                        else -> "지난 검사와 단계가 같아요"
-                    }
-                }
-            } else {
-                // ── 더미 데이터 (DB 데이터 부족 시 자동 적용) ──
-                // 현재 값을 마지막 점으로, 이전 4회는 가상 데이터
-                val dummyChair = listOf(
-                    (current.chairStandCount - 4).coerceAtLeast(1).toFloat(),
-                    (current.chairStandCount - 2).coerceAtLeast(1).toFloat(),
-                    (current.chairStandCount - 1).coerceAtLeast(1).toFloat(),
-                    current.chairStandCount.toFloat()
-                )
-                b.chartChairStand.setData(dummyChair, "#FFFF00")
-                b.tvChairStandResult.text =
-                    "${current.chairStandCount}회 완료 (기준 ${current.chairStandNorm}회 이상)"
-
-                val dummyBalance = listOf(
-                    (current.balanceStageReached - 2).coerceAtLeast(1).toFloat(),
-                    (current.balanceStageReached - 1).coerceAtLeast(1).toFloat(),
-                    (current.balanceStageReached - 1).coerceAtLeast(1).toFloat(),
-                    current.balanceStageReached.toFloat()
-                )
-                b.chartBalance.setData(dummyBalance, "#00FF88")
-                b.tvBalanceResult.text = "${current.balanceStageReached}단계 통과"
-            }
-
-            val riskText = if (isHighRisk) "낙상 주의군" else "낙상 안전군"
-            ttsManager?.speak(
-                "검사 결과, ${riskText}에 해당합니다. " +
-                        "의자 일어서기 ${current.chairStandCount}회, " +
-                        "균형 검사 ${current.balanceStageReached}단계 통과입니다. " +
-                        binding.tvRecommendation.text.toString().replace("\n", " ")
-            )
-        }
+        // TTS
+        val riskText = if (isHighRisk) "낙상 주의군" else "낙상 안전군"
+        ttsManager?.speak(
+            "검사 결과, ${riskText}에 해당합니다. " +
+                    "의자 일어서기 ${result.chairStandCount}회, " +
+                    "균형 검사 ${result.tandemTimeSec.toInt()}초입니다. " +
+                    binding.tvRecommendation.text.toString().replace("\n", " ")
+        )
     }
 
     private fun buildShareText(phase: ExamViewModel.ExamPhase.Completed): String {
@@ -169,11 +138,10 @@ class ExamResultFragment : Fragment() {
         val chairStatus = if (r.isHighRiskChairStand) "주의 필요" else "정상"
         val balanceStatus = if (r.isHighRiskBalance) "주의 필요" else "정상"
         val surveyStatus = if (r.isHighRiskSurvey) "1개 이상 해당 (주의)" else "해당 없음 (정상)"
-        val recommendation = if (r.finalRiskLevel == "high") {
+        val recommendation = if (r.finalRiskLevel == "high")
             "낙상 위험이 감지되었습니다. 꾸준한 OEP 운동과 의사 상담을 권장합니다."
-        } else {
+        else
             "현재 낙상 위험이 낮습니다. 예방 운동을 꾸준히 이어나가세요."
-        }
         return buildString {
             appendLine("[낙상제로] 보호자 알림")
             appendLine("━━━━━━━━━━━━━━━━━━")
@@ -202,6 +170,79 @@ class ExamResultFragment : Fragment() {
     }
 }
 
+/** 원형 진행률 그래프 (검사 결과 화면 전용) */
+class CircularChartView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : View(context, attrs) {
+
+    private var userValue = 0f
+    private var maxValue = 10f
+    private var progressColor = android.graphics.Color.YELLOW
+    private var valueText = "0"
+    private var normText = ""
+
+    private val STROKE_WIDTH = 44f
+
+    private val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = STROKE_WIDTH
+        color = android.graphics.Color.parseColor("#333333")
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = STROKE_WIDTH
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val valuePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        isFakeBoldText = true
+        textSize = 52f
+    }
+    private val normPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        textSize = 28f
+        color = android.graphics.Color.parseColor("#888888")
+    }
+
+    fun setData(user: Float, max: Float, color: String, valueText: String, normText: String) {
+        userValue = user
+        maxValue = max.coerceAtLeast(1f)
+        progressColor = android.graphics.Color.parseColor(color)
+        this.valueText = valueText
+        this.normText = normText
+        progressPaint.color = progressColor
+        valuePaint.color = progressColor
+        invalidate()
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val w = width.toFloat()
+        val h = height.toFloat()
+        val pad = STROKE_WIDTH + 12f
+        val oval = RectF(pad, pad, w - pad, h - pad)
+
+        // 배경 원
+        canvas.drawArc(oval, -90f, 360f, false, bgPaint)
+
+        // 진행 호
+        val ratio = (userValue / maxValue).coerceIn(0f, 1f)
+        val sweep = 360f * ratio
+        if (sweep > 0f) canvas.drawArc(oval, -90f, sweep, false, progressPaint)
+
+        // 중앙 값 텍스트
+        val cx = w / 2f
+        val textBlockH = valuePaint.textSize + 10f + normPaint.textSize
+        val startY = (h - textBlockH) / 2f + valuePaint.textSize
+
+        canvas.drawText(valueText, cx, startY, valuePaint)
+        canvas.drawText(normText, cx, startY + normPaint.textSize + 6f, normPaint)
+    }
+}
+
+/** 꺾은선 그래프 (운동 보고서 화면에서 사용) */
 class SimpleChartView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
@@ -210,7 +251,6 @@ class SimpleChartView @JvmOverloads constructor(
     private var data: List<Float> = emptyList()
     private var barColor: Int = android.graphics.Color.parseColor("#FFFF00")
 
-    private val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL }
     private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 6f
@@ -252,7 +292,6 @@ class SimpleChartView @JvmOverloads constructor(
     fun setData(values: List<Float>, colorHex: String) {
         data = values
         barColor = android.graphics.Color.parseColor(colorHex)
-        barPaint.color = barColor
         linePaint.color = barColor
         dotPaint.color = barColor
         latestValuePaint.color = barColor
@@ -266,17 +305,13 @@ class SimpleChartView @JvmOverloads constructor(
 
         val w = width.toFloat()
         val h = height.toFloat()
-        val padTop = 52f
-        val padBottom = 44f
-        val padSide = 24f
+        val padTop = 52f; val padBottom = 44f; val padSide = 24f
         val chartH = h - padTop - padBottom
         val chartW = w - padSide * 2
         val maxVal = (data.maxOrNull() ?: 1f).coerceAtLeast(1f)
 
-        // 검정 배경
         canvas.drawColor(android.graphics.Color.parseColor("#1A1A1A"))
 
-        // 그리드
         for (i in 1..3) {
             val y = padTop + chartH * (1f - i / 4f)
             canvas.drawLine(padSide, y, w - padSide, y, gridPaint)
@@ -284,11 +319,13 @@ class SimpleChartView @JvmOverloads constructor(
 
         if (data.size == 1) {
             val barW = chartW * 0.35f
+            val barPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                style = Paint.Style.FILL
+                color = barColor
+            }
             val barH = (data[0] / maxVal) * chartH * 0.85f
             val left = w / 2 - barW / 2
             val top = padTop + (chartH - barH)
-            val shadowPaint = Paint(barPaint).apply { alpha = 40 }
-            canvas.drawRoundRect(left + 4f, top + 4f, left + barW + 4f, padTop + chartH, 12f, 12f, shadowPaint)
             canvas.drawRoundRect(left, top, left + barW, padTop + chartH, 12f, 12f, barPaint)
             canvas.drawText(data[0].toInt().toString(), w / 2, top - 10f, latestValuePaint)
             canvas.drawText("오늘", w / 2, h - 8f, todayLabelPaint)
@@ -298,7 +335,9 @@ class SimpleChartView @JvmOverloads constructor(
         val stepX = chartW / (data.size - 1)
         val path = android.graphics.Path()
         val fillPath = android.graphics.Path()
-        val fillPaint = Paint(barPaint).apply { alpha = 40; style = Paint.Style.FILL }
+        val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = barColor; alpha = 40; style = Paint.Style.FILL
+        }
 
         data.forEachIndexed { i, value ->
             val x = padSide + i * stepX

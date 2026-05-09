@@ -17,7 +17,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/exam_result_title"
-        android:textSize="28sp"
+        android:textSize="26sp"
         android:textStyle="bold"
         android:textColor="@color/text_primary"
         android:layout_marginBottom="10dp"
@@ -58,21 +58,18 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="판정 중..."
-                android:textSize="22sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:gravity="center"
-                android:paddingLeft="20dp"
-                android:paddingRight="20dp"
+                android:paddingLeft="16dp"
+                android:paddingRight="16dp"
                 android:paddingTop="8dp"
                 android:paddingBottom="8dp"
                 android:background="@drawable/bg_risk_level"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
+                android:maxLines="1" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- 의자 일어서기 그래프 카드 -->
+    <!-- 원형 그래프 카드 (두 개 나란히) -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -87,92 +84,87 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp">
+            android:orientation="horizontal">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="의자 일어서기 횟수 변화"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="6dp"
-                android:maxLines="1"
-                android:ellipsize="end" />
+            <!-- 의자 일어서기 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp">
 
-            <com.fallzero.app.ui.exam.SimpleChartView
-                android:id="@+id/chart_chair_stand"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="의자 일어서기"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="8dp" />
 
-            <TextView
-                android:id="@+id/tv_chair_stand_result"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:textColor="@color/primary"
-                android:textStyle="bold"
-                android:gravity="end"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                <com.fallzero.app.ui.exam.CircularChartView
+                    android:id="@+id/chart_chair_stand"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:layout_gravity="center" />
 
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+                <TextView
+                    android:id="@+id/tv_chair_stand_result"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:layout_marginTop="6dp"
+                    android:maxLines="2" />
+            </LinearLayout>
 
-    <!-- 균형 검사 그래프 카드 -->
-    <com.google.android.material.card.MaterialCardView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:layout_marginBottom="8dp"
-        app:cardCornerRadius="14dp"
-        app:cardElevation="2dp"
-        app:cardBackgroundColor="@color/surface"
-        app:strokeColor="#333333"
-        app:strokeWidth="1dp">
+            <!-- 구분선 -->
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:background="#333333" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp">
+            <!-- 균형 검사 -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp">
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="균형 검사 단계 변화"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="6dp"
-                android:maxLines="1"
-                android:ellipsize="end" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="균형 검사"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="8dp" />
 
-            <com.fallzero.app.ui.exam.SimpleChartView
-                android:id="@+id/chart_balance"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1" />
+                <com.fallzero.app.ui.exam.CircularChartView
+                    android:id="@+id/chart_balance"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:layout_gravity="center" />
 
-            <TextView
-                android:id="@+id/tv_balance_result"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:textColor="@color/success"
-                android:textStyle="bold"
-                android:gravity="end"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
+                <TextView
+                    android:id="@+id/tv_balance_result"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:layout_marginTop="6dp"
+                    android:maxLines="2" />
+            </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
@@ -187,29 +179,22 @@
         app:strokeColor="@color/primary"
         app:strokeWidth="1dp">
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/tv_recommendation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:textSize="15sp"
+            android:textColor="@color/text_primary"
+            android:lineSpacingMultiplier="1.4"
             android:paddingLeft="16dp"
             android:paddingRight="16dp"
             android:paddingTop="12dp"
-            android:paddingBottom="12dp">
-
-            <TextView
-                android:id="@+id/tv_recommendation"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:lineSpacingMultiplier="1.4"
-                android:maxLines="2"
-                android:ellipsize="end" />
-
-        </LinearLayout>
+            android:paddingBottom="12dp"
+            android:maxLines="2"
+            android:ellipsize="end" />
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- 버튼 2개 가로 배치 -->
+    <!-- 버튼 가로 배치 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -221,7 +206,7 @@
             android:layout_height="60dp"
             android:layout_weight="1"
             android:text="결과 공유"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textColor="#000000"
             android:layout_marginEnd="6dp"
             app:backgroundTint="@color/primary"
@@ -234,13 +219,12 @@
             android:layout_height="60dp"
             android:layout_weight="1"
             android:text="홈으로"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textColor="@color/primary"
             android:layout_marginStart="6dp"
             app:strokeColor="@color/primary"
             app:strokeWidth="2dp"
             app:cornerRadius="14dp" />
-
     </LinearLayout>
 
 </LinearLayout>
