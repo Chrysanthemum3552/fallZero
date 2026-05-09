@@ -7,7 +7,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.fallzero.app.R
@@ -16,9 +15,7 @@ import com.fallzero.app.databinding.FragmentHomeBinding
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.util.CastHelper
 import com.fallzero.app.util.ShareHelper
-import com.fallzero.app.viewmodel.ExamViewModel
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
@@ -26,9 +23,6 @@ class HomeFragment : Fragment() {
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
-
-    // 임시 더미 결과용
-    private val examViewModel: ExamViewModel by activityViewModels()
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentHomeBinding.inflate(inflater, container, false)
@@ -50,7 +44,6 @@ class HomeFragment : Fragment() {
             sf.reset()
         }
 
-        // 탭 토글 — 기본 "오늘 운동" 탭 활성
         showTodayTab()
         binding.btnTabToday.setOnClickListener { showTodayTab() }
         binding.btnTabMenu.setOnClickListener { showMenuTab() }
@@ -60,17 +53,12 @@ class HomeFragment : Fragment() {
         }
 
         binding.btnStartExam.setOnClickListener {
-            // 임시: 더미 결과 주입 후 결과 화면 바로 이동
-            // 나중에 실제 검사 연동 시 아래 두 줄 삭제하고 주석 해제
-            examViewModel.injectDummyResult()
-            findNavController().navigate(R.id.action_global_exam_result)
-
-            // 실제 검사 코드 (나중에 활성화)
-            // val isDebug = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-            //     .getBoolean("debug_mode", false)
-            // if (isDebug) SessionFlow.startExamChairStandOnly()
-            // else SessionFlow.startExamSession()
-            // findNavController().navigate(R.id.action_home_to_exam)
+            val isDebug = requireActivity()
+                .getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+                .getBoolean("debug_mode", false)
+            if (isDebug) SessionFlow.startExamChairStandOnly()
+            else SessionFlow.startExamSession()
+            findNavController().navigate(R.id.action_home_to_exam)
         }
 
         binding.btnViewReport.setOnClickListener {
@@ -89,7 +77,6 @@ class HomeFragment : Fragment() {
         loadDashboard()
     }
 
-    /** "오늘 운동" 탭 활성화 — 토글 버튼 색 변경 + 콘텐츠 visibility */
     private fun showTodayTab() {
         binding.tabTodayContent.visibility = View.VISIBLE
         binding.tabMenuContent.visibility = View.GONE
@@ -97,7 +84,6 @@ class HomeFragment : Fragment() {
         applyActiveTabStyle(binding.btnTabMenu, isActive = false)
     }
 
-    /** "메뉴" 탭 활성화 */
     private fun showMenuTab() {
         binding.tabTodayContent.visibility = View.GONE
         binding.tabMenuContent.visibility = View.VISIBLE
@@ -127,8 +113,6 @@ class HomeFragment : Fragment() {
         val todayStart = getTodayStartMillis()
 
         viewLifecycleOwner.lifecycleScope.launch {
-            // 3개 DB 쿼리를 병렬 실행 — sequential 합산보다 ~3배 빠름.
-            // 각 쿼리는 독립적이므로 안전하게 async 가능.
             val streakDeferred = async { calculateStreak(db, userId) }
             val examDeferred = async { db.examResultDao().getLatestResult(userId) }
             val completedIdsDeferred = async {
@@ -139,7 +123,6 @@ class HomeFragment : Fragment() {
             val latestExam = examDeferred.await()
             val completedIds = completedIdsDeferred.await()
 
-            // UI 업데이트는 main 스레드 (lifecycleScope 기본은 Main)
             if (_binding == null) return@launch
 
             binding.tvStreak.text = "${streak}일"
@@ -170,7 +153,6 @@ class HomeFragment : Fragment() {
                 }
             }
 
-            // 8개 운동 체크리스트 — 오늘 한 운동 ID는 ✓, 안 한 건 ○
             renderChecklist(completedIds)
         }
     }
