@@ -56,10 +56,9 @@ class ResultBalanceFragment : Fragment() {
             if (r.isHighRiskBalance) 0xFFFF9800.toInt() else 0xFF4CAF50.toInt()
         )
 
-        binding.btnNext.isEnabled = false
-        ttsManager?.speak(narration) {
-            if (_binding != null) binding.btnNext.isEnabled = true
-        }
+        // TTS 재생 + 버튼은 바로 활성화 (TTS 실패해도 이동 가능)
+        ttsManager?.speak(narration)
+        binding.btnNext.isEnabled = true
         binding.btnNext.setOnClickListener {
             ttsManager?.stop()
             findNavController().navigate(R.id.action_result_balance_to_chair)

@@ -55,10 +55,9 @@ class ResultFinalFragment : Fragment() {
         else
             "종합 결과를 알려드릴게요. 낙상 안전군이에요. 현재 낙상 위험 신호가 없습니다."
 
-        binding.btnHome.isEnabled = false
-        ttsManager?.speak(narration) {
-            if (_binding != null) binding.btnHome.isEnabled = true
-        }
+        // TTS 재생 + 버튼은 바로 활성화 (TTS 실패해도 이동 가능)
+        ttsManager?.speak(narration)
+        binding.btnHome.isEnabled = true
         binding.btnHome.setOnClickListener {
             ttsManager?.stop()
             SessionFlow.reset()

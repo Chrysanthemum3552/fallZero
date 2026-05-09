@@ -7,13 +7,11 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- 메인 레이아웃 (상하 분리) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
-        <!-- 상단 상태 바 -->
         <LinearLayout
             android:id="@+id/layout_top_bar"
             android:layout_width="match_parent"
@@ -66,6 +64,29 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
+            <ImageButton
+                android:id="@+id/btn_camera_flip"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="12dp"
+                android:background="#80000000"
+                android:contentDescription="카메라 전환"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_camera" />
+
+            <TextView
+                android:id="@+id/tv_big_countdown"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:textSize="160sp"
+                android:textStyle="bold"
+                android:textColor="#FFFFFF00"
+                android:gravity="center"
+                android:visibility="gone"
+                tools:text="3" />
+
         </FrameLayout>
 
         <!-- 하단 정보 영역 (45%) -->
@@ -82,7 +103,7 @@
             android:paddingTop="16dp"
             android:paddingBottom="16dp">
 
-            <!-- 타이머 -->
+            <!-- 타이머 행: tv_timer_label은 ExamFragment에서 동적으로 설정 -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -100,12 +121,15 @@
                     android:gravity="center"
                     tools:text="28" />
 
+                <!-- 기본값 비움: ExamFragment에서 상황에 맞게 설정
+                     - 검사 중: "초 남음"
+                     - 완료 시: "" (숨김) -->
                 <TextView
                     android:id="@+id/tv_timer_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="8dp"
-                    android:text="초 남음"
+                    android:text=""
                     android:textSize="32sp"
                     android:textColor="#FFE066" />
 
@@ -116,7 +140,7 @@
                 android:id="@+id/tv_count"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="0"
+                android:text=""
                 android:textSize="40sp"
                 android:textStyle="bold"
                 android:textColor="#FFFF00"
@@ -135,7 +159,6 @@
                 android:gravity="center"
                 android:visibility="gone" />
 
-            <!-- 시작 버튼 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_start_exam"
                 android:layout_width="match_parent"
@@ -148,7 +171,6 @@
                 app:backgroundTint="#FFFF00"
                 app:cornerRadius="16dp" />
 
-            <!-- 균형 검사 종료 버튼 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_balance_fail"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -207,6 +229,7 @@
                 android:gravity="center" />
 
             <TextView
+                android:id="@+id/tv_pause_message"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
@@ -232,7 +255,6 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
-            <!-- 단계 제목 -->
             <TextView
                 android:id="@+id/tv_guidance_title"
                 android:layout_width="0dp"
@@ -254,7 +276,6 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 tools:text="1단계 · 두 발 나란히 서기" />
 
-            <!-- 동영상 플레이스홀더 -->
             <FrameLayout
                 android:id="@+id/video_placeholder"
                 android:layout_width="0dp"
@@ -277,7 +298,6 @@
                     android:textColor="#CCCC00"
                     android:textSize="28sp" />
 
-                <!-- 카운트다운 -->
                 <TextView
                     android:id="@+id/tv_guidance_countdown"
                     android:layout_width="wrap_content"
@@ -291,7 +311,6 @@
                     tools:text="3" />
             </FrameLayout>
 
-            <!-- 단계 설명 (하단) -->
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
