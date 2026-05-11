@@ -46,7 +46,7 @@ class PoseLandmarkerHelper(
     }
 
     private fun setupPoseLandmarker() {
-        // GPU 시도 → 실패 시 CPU fallback. 정확도 100% 동일, 속도만 차이.
+        // GPU 시도 → 실패 시 CPU fallback. 검증 결과 ChairStand 카운트 문제는 GPU 영향 X였음.
         // GPU 호환성 문제로 일부 기기(저가 칩셋, 일부 GPU 드라이버)에서 init 실패할 수 있음.
         if (tryInitWithDelegate(Delegate.GPU)) {
             Log.d(TAG, "PoseLandmarker initialized with GPU delegate")

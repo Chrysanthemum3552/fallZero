@@ -235,7 +235,7 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         bodyOkAnnounced = true
                         showStatus("좋아요! 잘 감지되었어요")
                         // TTS 콜백으로 정확한 완료 시점에 다음 단계 진행
-                        ttsManager?.speak("좋아요! 전신이 잘 보입니다. 곧 검사를 시작합니다.") {
+                        ttsManager?.speak("좋아요! 전신이 잘 보입니다. 곧, 검사를 시작합니다.") {
                             if (_binding != null && !hasAdvanced) advanceToNextStep()
                         }
                     }

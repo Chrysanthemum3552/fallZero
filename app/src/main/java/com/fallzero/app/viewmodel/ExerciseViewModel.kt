@@ -176,9 +176,20 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
 
         // 움직임 감지 (정적 종료 판단) — engine 별 임계값 사용 (ToeRaise/CalfRaise 등 작은 메트릭은 0.005 등)
         val movementThr = engine.movementThreshold
-        if (kotlin.math.abs(result.currentMetric - lastMetricValue) > movementThr) {
+        val metricDelta = kotlin.math.abs(result.currentMetric - lastMetricValue)
+        if (metricDelta > movementThr) {
             lastMovementMs = now
             lastMetricValue = result.currentMetric
+        }
+        // 진단 로그 (ChairStand 한정) — inactivity timeout 임박 시 경고. 4초 임계값에 가까워지면 알림.
+        if (currentExerciseId == 7 && !engine.isInCalibration && !isCompleted) {
+            val sinceMovement = now - lastMovementMs
+            if (sinceMovement > 2500L) {
+                android.util.Log.w("ChairStandDiag",
+                    "INACTIVITY warning: sinceMovement=%dms (timeout @%dms) metricDelta=%.3f movementThr=%.3f curM=%.1f lastM=%.1f".format(
+                        sinceMovement, NO_MOTION_TIMEOUT_MS, metricDelta, movementThr,
+                        result.currentMetric, lastMetricValue))
+            }
         }
 
         // 운동의 "extreme" 추적: ChairStand(#7)는 작을수록 좋음(min), 나머지는 클수록 좋음(max)
@@ -230,6 +241,9 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         // 4초 이상 정적 → 자동 종료. 균형 운동(#8)은 정지 자세를 유지하므로 제외.
         if (!isCompleted && !engine.isInCalibration && currentExerciseId != 8 &&
             now - lastMovementMs > NO_MOTION_TIMEOUT_MS) {
+            // 진단: 어떤 운동에서 timeout으로 끝났는지 명시 (ChairStand 카운트 누락 원인 추적)
+            android.util.Log.w("ChairStandDiag",
+                "INACTIVITY TIMEOUT FIRED! exerciseId=$currentExerciseId sinceMovement=${now - lastMovementMs}ms curCount=${engine.currentCount} curM=${result.currentMetric} → completeExercise(autoEnded=true)")
             isCompleted = true
             // 양측 운동 진행 중이면 현재까지의 카운트를 보존 (데이터 손실 방지)
             if (isBilateral) {
@@ -313,6 +327,12 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
     fun pauseMeasurementForSideSwitch() {
         measurementStarted = false
     }
+
+    /** Fragment가 운동 시작 전에 캘리브레이션 필요 여부 확인.
+     *  - true: 이 운동의 PRB가 없음 → 캘리브레이션 모드로 진입, 안내 후 즉시 startMeasurement (연습 2회 후 자체적으로 3,2,1 트리거)
+     *  - false: PRB 있음 → 캘리브레이션 안 함 → 안내 후 즉시 본 운동, 3,2,1 카운트다운 별도로 호출 필요 (Q3)
+     *  initExercise 후 isReady=true 진입한 다음에만 신뢰 가능. */
+    fun isCalibrationRequired(): Boolean = currentEngine?.isInCalibration ?: false
 
     private fun saveCalibratedPRB(engine: ExerciseEngine) {
         viewModelScope.launch {

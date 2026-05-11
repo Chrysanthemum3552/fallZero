@@ -533,7 +533,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             // TTS 콜백 → 1초 buffer → 카운트다운 → 1.5초 → 측정 시작
                             ttsManager?.speak(
                                 "좋아요! 30초 내에 최대한 많이, 의자에 앉았다가 일어나시면 됩니다. " +
-                                "팔은 가슴에 교차해주세요. 곧 시작합니다."
+                                "팔은 가슴에 교차해주세요. 곧, 시작합니다."
                             ) {
                                 if (_binding == null || hasNavigated) return@speak
                                 _binding?.root?.postDelayed({

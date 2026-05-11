@@ -80,8 +80,8 @@
 
     <!-- Guidance overlay (anatomy: title + video placeholder + script) -->
     <string name="guidance_video_placeholder">운동안내 동영상이 표시됩니다.</string>
-    <string name="guidance_starting_soon">이제 곧 시작합니다. 자리에 서주세요.</string>
-    <string name="guidance_starting_soon_chair">이제 곧 시작합니다. 의자에 앉아주세요.</string>
+    <string name="guidance_starting_soon">이제 곧, 시작합니다. 자리에 서주세요.</string>
+    <string name="guidance_starting_soon_chair">이제 곧, 시작합니다. 의자에 앉아주세요.</string>
 
     <!-- 운동 안내 멘트 8개 (노년층 친화 톤, 권유형) -->
     <string name="ex_guide_1_title">앉아서 무릎 펴기</string>

@@ -171,11 +171,13 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     /**
-     * 새 흐름 (Q1+Q12):
+     * 흐름 (Q1+Q12 + Q3 복구):
      *  1. 운동 안내 overlay + TTS 발화 (카운트다운 없음, 카메라 감지 모두 OFF)
-     *  2. TTS 끝나면 overlay 닫고 → viewModel.startMeasurement() (연습 모드 시작)
-     *  3. 사용자 2회 연습 후 isCalibrating: true→false 전환 감지 시 → handlePostCalibrationCountdown() 호출
-     *  4. "좋아요" + "이제 본격적으로" + 3,2,1 + 시작! → startUserAwayMonitor (모든 카메라 감지 ON)
+     *  2. TTS 끝난 후 분기:
+     *    2a. PRB 없음(=캘리브레이션 필요): overlay 닫고 startMeasurement (연습 모드).
+     *        2회 연습 후 isCalibrating false 전환 시 handlePostCalibrationCountdown 호출.
+     *    2b. PRB 있음(=캘리브레이션 완료된 운동): overlay 닫고 3,2,1 → startMeasurement (본 운동 즉시 진입).
+     *        사용자 명시 — 2번째 이후 운동은 연습 안 하지만 카운트다운은 유지.
      */
     private fun showStartGuidance(exerciseId: Int) {
         val b = _binding ?: return
@@ -186,15 +188,30 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.tvGuidanceCountdown.visibility = View.GONE
         b.guidanceOverlay.visibility = View.VISIBLE
 
-        // 안내 TTS만 발화 → 끝나면 바로 연습 모드 진입 (카운트다운 X, user-away monitor X).
         ttsManager?.speak(getString(scriptRes).replace("\n", " ")) {
             if (_binding == null || hasNavigated) return@speak
-            // overlay 닫고 연습 모드 시작 — engine.processLandmarks ON, 다른 카메라 감지 OFF.
             _binding?.guidanceOverlay?.visibility = View.GONE
             _binding?.tvGuidanceCountdown?.visibility = View.GONE
             lastSpokenCount = -1
-            viewModel.startMeasurement()
-            // userAwayMonitor는 본 운동 시작 후에만 — handlePostCalibrationCountdown에서 호출.
+
+            if (viewModel.isCalibrationRequired()) {
+                // 첫 운동 (캘리브레이션 필요) — 기존 흐름: 연습 모드 즉시 시작
+                viewModel.startMeasurement()
+                // userAwayMonitor는 handlePostCalibrationCountdown에서 시작됨
+            } else {
+                // 캘리브레이션 이미 완료 (2번째 이후 운동) — 3,2,1 카운트다운 후 본 운동 진입 (Q3)
+                // 안내 도중/카운트다운 도중 어떤 감지도 안 함 (measurement는 아직 start 안 됨)
+                postCalibrationStarted = true  // post-cal 카운트다운 트리거 안 되게 차단
+                startCountdown321(insideOverlay = false) {
+                    if (_binding == null || hasNavigated) return@startCountdown321
+                    _binding?.root?.postDelayed({
+                        if (_binding != null && !hasNavigated) {
+                            viewModel.startMeasurement()
+                            startUserAwayMonitor()
+                        }
+                    }, POST_START_DELAY_MS)
+                }
+            }
         }
     }
 
