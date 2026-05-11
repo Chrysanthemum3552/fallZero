@@ -44,8 +44,8 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="#FFD600"
-            android:background="#2C2C2C"
+            android:textColor="@color/text_primary"
+            android:background="#F5F5F5"
             android:padding="16dp"
             android:layout_marginTop="16dp"
             app:layout_constraintTop_toBottomOf="@id/tv_prb_subtitle"
@@ -71,10 +71,8 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
-                android:textColor="#FFD600"
                 android:text="@string/report_btn_prev"
-                android:textSize="16sp"
-                android:background="#2C2C2C"/>
+                android:textSize="16sp" />
 
             <!-- 홈 버튼 -->
             <com.google.android.material.button.MaterialButton
@@ -83,10 +81,8 @@
                 android:layout_height="56dp"
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
-                android:textColor="#FFD600"
                 android:text="홈으로"
-                android:textSize="16sp"
-                android:background="#2C2C2C"/>
+                android:textSize="16sp" />
 
         </LinearLayout>
 

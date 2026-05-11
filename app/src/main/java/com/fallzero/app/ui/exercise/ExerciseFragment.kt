@@ -36,8 +36,6 @@ import kotlinx.coroutines.launch
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
-
-
 class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private var _binding: FragmentExerciseBinding? = null
@@ -181,73 +179,49 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
      */
     private fun showStartGuidance(exerciseId: Int) {
         val b = _binding ?: return
-        b.tvGuidanceTitle.text = getString(guidanceTitleRes(exerciseId))
-        b.tvGuidanceText.text = getString(guidanceScriptRes(exerciseId))
+        val titleRes = guidanceTitleRes(exerciseId)
+        val scriptRes = guidanceScriptRes(exerciseId)
+        b.tvGuidanceTitle.text = getString(titleRes)
+        b.tvGuidanceText.text = getString(scriptRes)
         b.tvGuidanceCountdown.visibility = View.GONE
         b.guidanceOverlay.visibility = View.VISIBLE
 
-        // [핵심] 화면을 닫고 운동을 시작하는 로직을 별도 변수로 분리
-        var isStarted = false
-        val startAction = {
-            if (!isStarted && _binding != null) {
-                isStarted = true
-                _binding?.guidanceOverlay?.visibility = View.GONE
-                _binding?.tvGuidanceCountdown?.visibility = View.GONE
-                lastSpokenCount = -1
-                viewModel.startMeasurement()
-                // 안내 화면이 닫힌 후에 카메라 이탈 감지 등을 시작
-                startUserAwayMonitor()
-            }
+        // 안내 TTS만 발화 → 끝나면 바로 연습 모드 진입 (카운트다운 X, user-away monitor X).
+        ttsManager?.speak(getString(scriptRes).replace("\n", " ")) {
+            if (_binding == null || hasNavigated) return@speak
+            // overlay 닫고 연습 모드 시작 — engine.processLandmarks ON, 다른 카메라 감지 OFF.
+            _binding?.guidanceOverlay?.visibility = View.GONE
+            _binding?.tvGuidanceCountdown?.visibility = View.GONE
+            lastSpokenCount = -1
+            viewModel.startMeasurement()
+            // userAwayMonitor는 본 운동 시작 후에만 — handlePostCalibrationCountdown에서 호출.
         }
-
-        // 1. TTS로 안내문 읽기 (성공하면 콜백으로 시작)
-        ttsManager?.speak(getString(guidanceScriptRes(exerciseId)).replace("\n", " ")) {
-            activity?.runOnUiThread { startAction() }
-        }
-
-        // 2. [안전장치] TTS가 응답 없더라도 5초 뒤에는 무조건 화면 닫고 시작
-        // 안내문 길이에 따라 5000L(5초) ~ 8000L(8초) 정도로 조절하세요.
-        b.root.postDelayed({
-            startAction()
-        }, 5000L)
     }
+
     /**
      * 연습(calibration) 종료 후 본 운동 진입 시퀀스 (Q12).
      * "좋아요!" + "이제 본격적으로 시작할게요" + 3,2,1 + 시작! + 1.5초 → user-away monitor 시작.
      * 동안 measurement는 일시정지 (사용자가 자세 잡을 시간).
      */
     private var postCalibrationStarted = false
-    private var sequenceExecuted = false
-
     private fun handlePostCalibrationCountdown() {
         if (postCalibrationStarted || _binding == null || hasNavigated) return
         postCalibrationStarted = true
+        viewModel.pauseMeasurementForSideSwitch()  // measurement 일시정지
 
-        viewModel.pauseMeasurementForSideSwitch()
-
-        // TTS가 끝나면 다음 단계로, 안 끝나도 5초 뒤엔 무조건 실행
         ttsManager?.speak("좋아요! 이제 본격적으로 시작할게요.") {
-            activity?.runOnUiThread { runPostCalibrationSequence() }
-        }
-
-        binding.root.postDelayed({
-            runPostCalibrationSequence()
-        }, 5000L)
-    }
-
-    private fun runPostCalibrationSequence() {
-        if (sequenceExecuted || _binding == null || hasNavigated) return
-        sequenceExecuted = true
-
-        startCountdown321(insideOverlay = false) {
-            if (_binding == null || hasNavigated) return@startCountdown321
-            _binding?.root?.postDelayed({
-                if (_binding != null && !hasNavigated) {
-                    lastSpokenCount = -1
-                    viewModel.startMeasurement()
-                    startUserAwayMonitor()
-                }
-            }, POST_START_DELAY_MS)
+            if (_binding == null || hasNavigated) return@speak
+            startCountdown321(insideOverlay = false) {
+                if (_binding == null || hasNavigated) return@startCountdown321
+                _binding?.root?.postDelayed({
+                    if (_binding != null && !hasNavigated) {
+                        lastSpokenCount = -1
+                        // 본 운동 시작: measurement 재개 + 모든 카메라 감지 활성
+                        viewModel.startMeasurement()
+                        startUserAwayMonitor()
+                    }
+                }, POST_START_DELAY_MS)
+            }
         }
     }
 
@@ -412,7 +386,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 if (calibrationIntroSpoken && !calibrationCompleteSpoken) {
                                     calibrationCompleteSpoken = true
                                     handlePostCalibrationCountdown()
-
+                                    return@collect  // 카운트다운 중이므로 이번 frame은 UI 업데이트 안 함
                                 }
                                 b.tvCount.text = getString(
                                     R.string.exercise_count_format, state.count, state.targetCount
@@ -603,42 +577,32 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
      *  insideOverlay=false: 양측 전환처럼 카메라 위 일반 카운트 영역에 표시. */
     private fun startCountdown321(insideOverlay: Boolean, onReady: () -> Unit) {
         val b = _binding ?: return
+        // insideOverlay=false인 경우 tv_big_countdown(별도 큰 floating)을 사용해 전신 가림 방지
         val countdownView = if (insideOverlay) b.tvGuidanceCountdown else b.tvBigCountdown
+
         countdownView.visibility = View.VISIBLE
+        countdownView.text = "3"
+        ttsManager?.speak("삼")
+        b.root.postDelayed({
+            if (_binding == null || hasNavigated) return@postDelayed
+            (if (insideOverlay) _binding?.tvGuidanceCountdown else _binding?.tvBigCountdown)?.text = "2"
+            ttsManager?.speak("이")
 
-        // 기존의 postDelayed를 모두 지우고 이 코루틴 블록을 넣습니다.
-        viewLifecycleOwner.lifecycleScope.launch {
-            val steps = listOf("3", "2", "1")
-            val sounds = listOf("삼", "이", "일")
+            _binding?.root?.postDelayed({
+                if (_binding == null || hasNavigated) return@postDelayed
+                (if (insideOverlay) _binding?.tvGuidanceCountdown else _binding?.tvBigCountdown)?.text = "1"
+                ttsManager?.speak("일")
 
-            for (i in steps.indices) {
-                if (_binding == null || hasNavigated) return@launch
-                countdownView.text = steps[i]
-                ttsManager?.speak(sounds[i])
-                delay(1000)
-            }
-
-            if (_binding == null || hasNavigated) return@launch
-            countdownView.text = "시작!"
-
-            var readyCalled = false
-            val triggerReady = {
-                if (!readyCalled) {
-                    readyCalled = true
-                    if (!insideOverlay) _binding?.tvBigCountdown?.visibility = View.GONE
-                    onReady()
-                }
-            }
-
-            // 시작! 발화 후 ready 실행
-            ttsManager?.speak("시작!") {
-                activity?.runOnUiThread { triggerReady() }
-            }
-
-            // 안전장치: 1.5초 후에도 응답 없으면 강제 실행
-            delay(1500)
-            triggerReady()
-        }
+                _binding?.root?.postDelayed({
+                    if (_binding == null || hasNavigated) return@postDelayed
+                    (if (insideOverlay) _binding?.tvGuidanceCountdown else _binding?.tvBigCountdown)?.text = "시작!"
+                    ttsManager?.speak("시작!") {
+                        if (!insideOverlay) _binding?.tvBigCountdown?.visibility = View.GONE
+                        if (_binding != null && !hasNavigated) onReady()
+                    }
+                }, 1000L)
+            }, 1000L)
+        }, 1000L)
     }
 
     private fun bindCameraToSelector(provider: ProcessCameraProvider) {

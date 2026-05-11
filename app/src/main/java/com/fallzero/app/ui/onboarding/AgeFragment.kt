@@ -63,14 +63,19 @@ class AgeFragment : Fragment() {
         if (viewModel.tempAge in MIN_AGE..MAX_AGE) {
             currentAge = viewModel.tempAge
             binding.tvAgeDisplay.text = "${viewModel.tempAge}"
+            binding.btnNext.isEnabled = true
         } else {
             binding.tvAgeDisplay.text = "—"
+            binding.btnNext.isEnabled = false
         }
 
         binding.tvVoiceStatus.visibility = View.INVISIBLE
 
         binding.btnBack.setOnClickListener { findNavController().popBackStack() }
         binding.btnManualInput.setOnClickListener { showManualInputDialog() }
+        binding.btnNext.setOnClickListener {
+            currentAge?.let { confirmAge(it) }
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             delay(600)

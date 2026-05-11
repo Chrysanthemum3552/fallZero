@@ -87,10 +87,8 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_weight="1"
-                android:textColor="#FFD600"
                 android:text="@string/report_btn_prev"
-                android:textSize="16sp"
-                android:background="#2C2C2C"/>
+                android:textSize="16sp" />
 
             <!-- 다음 페이지 버튼 -->
             <com.google.android.material.button.MaterialButton
@@ -100,9 +98,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:text="@string/report_btn_next"
-                android:textColor="#FFD600"
-                android:textSize="16sp"
-                android:background="#2C2C2C"/>
+                android:textSize="16sp" />
 
         </LinearLayout>
 
