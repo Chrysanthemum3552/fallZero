@@ -2,6 +2,7 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/background"
@@ -11,11 +12,10 @@
         android:id="@+id/btn_back"
         style="@style/Widget.MaterialComponents.Button.TextButton"
         android:layout_width="wrap_content"
-        android:layout_height="52dp"
+        android:layout_height="wrap_content"
         android:text="← 뒤로"
         android:textSize="22sp"
         android:textColor="@color/text_primary"
-        android:layout_marginTop="4dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
 
@@ -23,12 +23,12 @@
         android:id="@+id/tv_question"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="나이가 어떻게 되세요?"
-        android:textSize="48sp"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary"
+        android:layout_marginTop="16dp"
         android:lineSpacingMultiplier="1.2"
-        android:layout_marginTop="24dp"
+        android:text="나이가 어떻게 되세요?"
+        android:textColor="@color/text_primary"
+        android:textSize="44sp"
+        android:textStyle="bold"
         app:layout_constraintTop_toBottomOf="@id/btn_back"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -37,16 +37,14 @@
         android:id="@+id/tv_subtitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="음성으로 답하시거나 직접 입력해 주세요"
-        android:textSize="26sp"
-        android:textColor="@color/text_secondary"
-        android:lineSpacingMultiplier="1.3"
         android:layout_marginTop="12dp"
+        android:text="음성으로 답하시거나 직접 입력해 주세요"
+        android:textColor="@color/text_secondary"
+        android:textSize="24sp"
         app:layout_constraintTop_toBottomOf="@id/tv_question"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- 큰 숫자 디스플레이 -->
     <TextView
         android:id="@+id/tv_age_display"
         android:layout_width="0dp"
@@ -59,18 +57,17 @@
         app:layout_constraintTop_toBottomOf="@id/tv_subtitle"
         app:layout_constraintBottom_toTopOf="@id/tv_voice_status"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintVertical_bias="0.5" />
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <TextView
         android:id="@+id/tv_voice_status"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="🎤 듣고 있어요..."
-        android:textSize="24sp"
-        android:textColor="@color/text_secondary"
+        android:textSize="22sp"
+        android:textColor="#FFD600"
         android:gravity="center"
-        android:layout_marginBottom="16dp"
+        android:layout_marginBottom="24dp"
         app:layout_constraintBottom_toTopOf="@id/btn_manual_input"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
@@ -78,26 +75,14 @@
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_manual_input"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="72dp"
+        android:layout_marginHorizontal="8dp"
+        android:layout_marginBottom="16dp"
         android:text="직접 입력"
         android:textSize="26sp"
-        android:layout_marginBottom="12dp"
-        android:layout_marginLeft="32dp"
-        android:layout_marginRight="32dp"
-        app:layout_constraintBottom_toTopOf="@id/btn_next"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_next"
-        android:layout_width="0dp"
-        android:layout_height="80dp"
-        android:text="다음"
-        android:textSize="36sp"
-        android:textStyle="bold"
-        android:layout_marginBottom="24dp"
-        app:cornerRadius="16dp"
+        android:textColor="@color/text_primary"
+        app:strokeColor="@color/text_primary"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

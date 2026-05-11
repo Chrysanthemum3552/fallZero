@@ -12,6 +12,7 @@
         android:layout_height="match_parent"
         android:orientation="vertical">
 
+        <!-- 상단 바 -->
         <LinearLayout
             android:id="@+id/layout_top_bar"
             android:layout_width="match_parent"
@@ -48,7 +49,7 @@
 
         </LinearLayout>
 
-        <!-- 카메라 영역 (55%) -->
+        <!-- 카메라 영역 -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -75,12 +76,13 @@
                 android:padding="8dp"
                 android:src="@android:drawable/ic_menu_camera" />
 
+            <!-- 큰 카운트다운 -->
             <TextView
                 android:id="@+id/tv_big_countdown"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:textSize="160sp"
+                android:textSize="120sp"
                 android:textStyle="bold"
                 android:textColor="#FFFFFF00"
                 android:gravity="center"
@@ -89,7 +91,7 @@
 
         </FrameLayout>
 
-        <!-- 하단 정보 영역 (45%) -->
+        <!-- 하단 정보 영역 -->
         <LinearLayout
             android:id="@+id/layout_center_info"
             android:layout_width="match_parent"
@@ -103,7 +105,7 @@
             android:paddingTop="16dp"
             android:paddingBottom="16dp">
 
-            <!-- 타이머 행: tv_timer_label은 ExamFragment에서 동적으로 설정 -->
+            <!-- 타이머 -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -115,38 +117,37 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="30"
-                    android:textSize="80sp"
+                    android:textSize="64sp"
                     android:textStyle="bold"
                     android:textColor="#FFFF00"
                     android:gravity="center"
                     tools:text="28" />
 
-                <!-- 기본값 비움: ExamFragment에서 상황에 맞게 설정
-                     - 검사 중: "초 남음"
-                     - 완료 시: "" (숨김) -->
                 <TextView
                     android:id="@+id/tv_timer_label"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginLeft="8dp"
                     android:text=""
-                    android:textSize="32sp"
+                    android:textSize="24sp"
                     android:textColor="#FFE066" />
 
             </LinearLayout>
 
-            <!-- 상태 메시지 / 횟수 -->
+            <!-- 상태 메시지 -->
             <TextView
                 android:id="@+id/tv_count"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text=""
-                android:textSize="40sp"
+                android:textSize="28sp"
                 android:textStyle="bold"
                 android:textColor="#FFFF00"
                 android:gravity="center"
                 android:layout_marginTop="8dp"
-                android:lineSpacingMultiplier="1.3"
+                android:lineSpacingMultiplier="1.2"
+                android:maxLines="3"
+                android:ellipsize="end"
                 tools:text="잘하고 있어요!" />
 
             <TextView
@@ -154,23 +155,25 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="회"
-                android:textSize="32sp"
+                android:textSize="24sp"
                 android:textColor="#FFE066"
                 android:gravity="center"
                 android:visibility="gone" />
 
+            <!-- 시작 버튼 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_start_exam"
                 android:layout_width="match_parent"
                 android:layout_height="72dp"
                 android:text="@string/exam_start"
-                android:textSize="32sp"
+                android:textSize="28sp"
                 android:textColor="#000000"
                 android:layout_marginTop="16dp"
                 android:visibility="gone"
                 app:backgroundTint="#FFFF00"
                 app:cornerRadius="16dp" />
 
+            <!-- 실패 버튼 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_balance_fail"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -178,7 +181,7 @@
                 android:layout_height="64dp"
                 android:text="@string/exam_balance_fail"
                 android:textColor="#FFFF00"
-                android:textSize="28sp"
+                android:textSize="24sp"
                 android:visibility="gone"
                 android:layout_marginTop="12dp"
                 app:strokeColor="#FFFF00"
@@ -215,7 +218,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="||"
-                android:textSize="64sp"
+                android:textSize="56sp"
                 android:gravity="center" />
 
             <TextView
@@ -223,7 +226,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="잠시 멈춤"
-                android:textSize="40sp"
+                android:textSize="32sp"
                 android:textStyle="bold"
                 android:textColor="#FFFF00"
                 android:gravity="center" />
@@ -234,7 +237,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="카메라 앞으로 와주세요"
-                android:textSize="32sp"
+                android:textSize="22sp"
                 android:textColor="#FFE066"
                 android:gravity="center" />
 
@@ -255,6 +258,7 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent">
 
+            <!-- 제목 -->
             <TextView
                 android:id="@+id/tv_guidance_title"
                 android:layout_width="0dp"
@@ -262,7 +266,7 @@
                 android:layout_marginTop="24dp"
                 android:layout_marginLeft="20dp"
                 android:layout_marginRight="20dp"
-                android:textSize="36sp"
+                android:textSize="28sp"
                 android:textStyle="bold"
                 android:textColor="#FFFF00"
                 android:gravity="center"
@@ -276,6 +280,7 @@
                 app:layout_constraintEnd_toEndOf="parent"
                 tools:text="1단계 · 두 발 나란히 서기" />
 
+            <!-- 영상 영역 -->
             <FrameLayout
                 android:id="@+id/video_placeholder"
                 android:layout_width="0dp"
@@ -285,7 +290,7 @@
                 android:layout_marginRight="20dp"
                 android:background="#22FFFF00"
                 app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
-                app:layout_constraintBottom_toTopOf="@id/tv_guidance_text"
+                app:layout_constraintBottom_toTopOf="@id/layout_guidance_bottom"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
@@ -296,22 +301,25 @@
                     android:gravity="center"
                     android:text="@string/guidance_video_placeholder"
                     android:textColor="#CCCC00"
-                    android:textSize="28sp" />
+                    android:textSize="24sp" />
 
                 <TextView
                     android:id="@+id/tv_guidance_countdown"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
-                    android:textSize="120sp"
+                    android:textSize="96sp"
                     android:textStyle="bold"
                     android:textColor="#FFFF00"
                     android:gravity="center"
                     android:visibility="gone"
                     tools:text="3" />
+
             </FrameLayout>
 
+            <!-- 하단 설명 -->
             <LinearLayout
+                android:id="@+id/layout_guidance_bottom"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
@@ -328,15 +336,19 @@
                     android:id="@+id/tv_guidance_text"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="28sp"
-                    android:lineSpacingMultiplier="1.6"
+                    android:textSize="20sp"
+                    android:lineSpacingMultiplier="1.2"
                     android:textColor="#FFFF00"
                     android:gravity="center"
+                    android:maxLines="3"
+                    android:ellipsize="end"
+                    android:paddingBottom="8dp"
                     tools:text="양쪽 발을 나란히 모아 붙이고 10초 동안 그대로 서 있으면 됩니다." />
 
             </LinearLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
+
     </FrameLayout>
 
 </FrameLayout>
