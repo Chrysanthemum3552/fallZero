@@ -509,6 +509,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         if (hasNavigated) return
         hasNavigated = true
         cleanupCamera()
+        // 사용자 명시 종료 — 진행 중 발화 즉시 cut (TTSManager.shutdown은 싱글톤 race로 no-op됨)
+        ttsManager?.stop()
         SessionFlow.reset()
         findNavController().navigate(R.id.action_global_home)
     }

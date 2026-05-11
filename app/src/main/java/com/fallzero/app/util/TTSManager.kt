@@ -145,15 +145,20 @@ class TTSManager private constructor(context: Context) : TextToSpeech.OnInitList
         tts.stop()
     }
 
-    /** Fragment.onDestroyView에서 호출됨. 싱글톤으로 변경되며 실제 TTS 엔진은 종료하지 않음.
-     *  진행 발화 cut-off + pending callback 클리어 → 기존 shutdown()의 사용자 관찰 동작 100% 보존. */
+    /** Fragment.onDestroyView에서 호출됨. **싱글톤 race condition 회피를 위해 no-op**.
+     *
+     *  배경: 싱글톤 TTSManager에서 Fragment A의 shutdown()이 새로 진입한 Fragment B의
+     *  방금 등록된 callback까지 클리어하고 발화를 cut하는 race가 발견됨. Fragment lifecycle 표준 순서가
+     *  new.onViewCreated → old.onDestroyView 이므로, A.shutdown()이 B의 speak()를 죽임.
+     *
+     *  대체 동작:
+     *   - 진행 중 발화는 새 Fragment의 speak() 호출 시 QUEUE_FLUSH로 자동 cut됨 (사용자 체감 동일).
+     *   - 명시적 발화 중단이 필요하면 stop()을 직접 호출 (사용자 X 버튼 등). 16개 호출처는 그대로 둠.
+     *   - Application process 종료 시 TextToSpeech는 OS가 자동 회수 — 실제 shutdown 불필요.
+     */
+    @Suppress("UNUSED")
     fun shutdown() {
-        Log.d("TTSDebug", "◼ shutdown() — singleton: alias for stop()")
-        // dangling lambda 방지 — Fragment 파괴 후 onDone NPE 방지
-        callbacks.clear()
-        pendingTexts.clear()
-        pendingQueue.clear()
-        tts.stop()
+        // 의도적 no-op — 위 KDoc 참고
     }
 
     companion object {
