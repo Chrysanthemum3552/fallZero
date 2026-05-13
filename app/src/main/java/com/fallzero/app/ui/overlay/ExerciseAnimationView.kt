@@ -272,7 +272,7 @@ class ExerciseAnimationView @JvmOverloads constructor(
         drawMotionArrow(canvas, 60f, headY, isUp = true)
     }
 
-    // 8. 균형 훈련 (탠덤 서기)
+    // 8. 균형 훈련 (일렬 서기)
     private fun drawBalance(canvas: Canvas) {
         val sway = sin(progress * Math.PI * 2).toFloat() * 8f
 
@@ -280,7 +280,7 @@ class ExerciseAnimationView @JvmOverloads constructor(
         canvas.drawLine(sway, -80f, sway * 0.5f, 20f, bodyPaint)
         canvas.drawLine(sway, -40f, sway - 30f, -10f, bodyPaint)
         canvas.drawLine(sway, -40f, sway + 30f, -10f, bodyPaint)
-        // 다리 (탠덤: 한 발 앞에)
+        // 다리 (일렬: 한 발 앞에)
         canvas.drawLine(sway * 0.5f, 20f, -10f + sway * 0.3f, 80f, bodyPaint)
         canvas.drawLine(-10f + sway * 0.3f, 80f, -20f, 140f, bodyPaint)
         canvas.drawLine(sway * 0.5f, 20f, 10f + sway * 0.3f, 80f, bodyPaint)

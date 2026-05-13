@@ -328,6 +328,12 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         measurementStarted = false
     }
 
+    /** Fragment에서 매 frame 가이드 정보 요청 — 현재 엔진의 getGuide 반환. */
+    fun getGuide(landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>):
+            com.fallzero.app.ui.overlay.ExerciseGuide? {
+        return currentEngine?.getGuide(landmarks)
+    }
+
     /** Fragment가 운동 시작 전에 캘리브레이션 필요 여부 확인.
      *  - true: 이 운동의 PRB가 없음 → 캘리브레이션 모드로 진입, 안내 후 즉시 startMeasurement (연습 2회 후 자체적으로 3,2,1 트리거)
      *  - false: PRB 있음 → 캘리브레이션 안 함 → 안내 후 즉시 본 운동, 3,2,1 카운트다운 별도로 호출 필요 (Q3)

@@ -4,7 +4,7 @@ package com.fallzero.app.data.algorithm
  * CDC STEADI 기준 낙상 위험 판정
  * 출처: CDC STEADI Stay Independent Brochure + 30-Second Chair Stand Test
  *
- * 판정 원칙: 설문 3문항 / 의자일어서기 / 탠덤균형검사 중
+ * 판정 원칙: 설문 3문항 / 의자일어서기 / 일렬균형검사 중
  *           하나라도 기준 미달 → 위험군("high"), 전부 통과 → 비위험군("low")
  */
 object STEADIScorer {
@@ -12,7 +12,7 @@ object STEADIScorer {
     data class ExamRiskResult(
         val isSurveyHighRisk: Boolean,       // Q1||Q2||Q3 중 하나라도 "예"
         val isChairStandHighRisk: Boolean,   // 달성 횟수 < 연령·성별 기준
-        val isBalanceHighRisk: Boolean,      // 탠덤(3단계) 유지시간 < 10초
+        val isBalanceHighRisk: Boolean,      // 일렬(3단계) 유지시간 < 10초
         val chairStandNorm: Int,             // 해당 연령·성별 기준값
         val finalRiskLevel: String           // "high" or "low"
     )
@@ -33,10 +33,13 @@ object STEADIScorer {
         age: Int,
         gender: String,          // "male" or "female"
         chairStandCount: Int,
-        tandemTimeSec: Float     // ★3단계 탠덤 유지시간
+        tandemTimeSec: Float     // ★3단계 일렬 유지시간
     ): ExamRiskResult {
         val isSurveyHighRisk = steadiQ1 || steadiQ2 || steadiQ3
-        val norm = getChairStandNorm(age, gender)
+        // 사용자 명시: 60 미만 연령도 입력 받지만 STEADI 점수 기준은 60세 이상만 정의되어 있어
+        // 60 미만은 60세 기준값으로 평가 (실제 나이는 DB에 그대로 저장됨).
+        val effectiveAge = age.coerceAtLeast(60)
+        val norm = getChairStandNorm(effectiveAge, gender)
         val isChairStandHighRisk = chairStandCount < norm
         val isBalanceHighRisk = tandemTimeSec < 10f
         val finalRisk = if (isSurveyHighRisk || isChairStandHighRisk || isBalanceHighRisk) "high" else "low"
@@ -44,7 +47,9 @@ object STEADIScorer {
     }
 
     fun getChairStandNorm(age: Int, gender: String): Int {
-        val entry = chairStandNorms.entries.firstOrNull { age in it.key }
+        // 사용자 명시: 60 미만 입력도 허용 → 외부 호출에서도 안전하게 60세 기준 적용
+        val effectiveAge = age.coerceAtLeast(60)
+        val entry = chairStandNorms.entries.firstOrNull { effectiveAge in it.key }
             ?: return if (gender == "male") 7 else 4  // 90세 이상 기본값
         return if (gender == "male") entry.value.second else entry.value.first
     }

@@ -53,12 +53,8 @@ class HomeFragment : Fragment() {
         }
 
         binding.btnStartExam.setOnClickListener {
-            val isDebug = requireActivity()
-                .getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-                .getBoolean("debug_mode", false)
-            if (isDebug) SessionFlow.startExamChairStandOnly()
-            else SessionFlow.startExamSession()
-            findNavController().navigate(R.id.action_home_to_exam)
+            // 사용자 명시 8번: 검사 메뉴 화면으로 (전체/단일 stage/의자 선택)
+            findNavController().navigate(R.id.action_home_to_exam_menu)
         }
 
         binding.btnViewReport.setOnClickListener {

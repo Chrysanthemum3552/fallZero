@@ -80,8 +80,8 @@
 
     <!-- Guidance overlay -->
     <string name="guidance_video_placeholder">운동안내 동영상이 표시됩니다.</string>
-    <string name="guidance_starting_soon">이제 곧, 시작합니다. 자리에 서주세요.</string>
-    <string name="guidance_starting_soon_chair">이제 곧, 시작합니다. 의자에 앉아주세요.</string>
+    <string name="guidance_starting_soon">이제 시작합니다. 자리에 서주세요.</string>
+    <string name="guidance_starting_soon_chair">이제 시작합니다. 의자에 앉아주세요.</string>
 
     <!-- 운동 안내 멘트 8개 -->
     <string name="ex_guide_1_title">앉아서 무릎 펴기</string>
@@ -104,14 +104,17 @@
     <!-- 균형 검사 4단계 안내 멘트 -->
     <string name="exam_guide_balance_1_title">1단계 · 두 발 나란히 서기</string>
     <string name="exam_guide_balance_1">1단계, 두 발 나란히 서기입니다.\n양쪽 발을 나란히 모아 붙이고, 두 팔은 가슴에 교차해주세요.\n10초 동안 그대로 서 있으면 됩니다.</string>
-    <string name="exam_guide_balance_2_title">2단계 · 반탠덤 서기</string>
-    <string name="exam_guide_balance_2">2단계, 반탠덤 서기입니다.\n한쪽 발 뒤꿈치를 다른 발 엄지발가락 옆에 놓아주세요.\n두 팔은 가슴에 교차한 채 10초 동안 그대로 서 있으면 됩니다.</string>
-    <string name="exam_guide_balance_3_title">3단계 · 탠덤 서기</string>
-    <string name="exam_guide_balance_3">3단계, 탠덤 서기입니다.\n한쪽 발 뒤꿈치를 다른 발 발끝 바로 앞에 일렬로 놓아주세요.\n두 팔은 가슴에 교차한 채 10초 동안 그대로 서 있으면 됩니다.</string>
+    <string name="exam_guide_balance_2_title">2단계 · 반일렬 서기</string>
+    <string name="exam_guide_balance_2">2단계, 반일렬 서기입니다.\n한쪽 발 뒤꿈치를 다른 발 엄지발가락 옆에 놓아주세요.\n두 팔은 가슴에 교차한 채 10초 동안 그대로 서 있으면 됩니다.</string>
+
+    <string name="exam_guide_balance_3_title">3단계 · 일렬 서기</string>
+    <string name="exam_guide_balance_3">3단계, 일렬 서기입니다.\n한쪽 발 뒤꿈치를 다른 발 발끝 바로 앞에 일렬로 놓아주세요.\n두 팔은 가슴에 교차한 채 10초 동안 그대로 서 있으면 됩니다.</string>
+
+
     <string name="exam_guide_balance_4_title">4단계 · 한 발로 서기</string>
     <string name="exam_guide_balance_4">4단계, 한 발로 서기입니다.\n한쪽 발을 들어 올려 한 발로만 서주세요.\n10초 동안 균형을 유지하시면 됩니다.</string>
 
     <!-- 의자 일어서기 검사 안내 멘트 -->
     <string name="exam_guide_chair_title">의자 일어서기 검사</string>
-    <string name="exam_guide_chair">의자 일어서기 검사입니다.\n의자에 앉아 팔을 가슴에 교차한 채, 30초 동안 손을 짚지 않고 일어섰다가 앉기를 최대한 많이 반복합니다.\n의자를 카메라 앞에 가져와서 놓아주세요.\n준비되면 의자 앞에 가만히 서주세요.</string>
+    <string name="exam_guide_chair">의자 일어서기 검사입니다.\n팔을 가슴 앞에 교차하고, 30초 동안 천천히 앉았다 일어서기를 반복합니다.\n오른쪽 아래 영상을 따라 해주세요.\n의자를 카메라 앞에 놓고, 의자 앞에 가만히 서주세요.</string>
 </resources>

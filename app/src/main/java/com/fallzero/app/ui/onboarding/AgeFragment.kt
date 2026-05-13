@@ -24,6 +24,13 @@ import com.fallzero.app.viewmodel.OnboardingViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/**
+ * 온보딩 2단계: 나이. 60 미만도 받음 (사용자 명시).
+ *  - STEADI 점수 계산은 STEADIScorer에서 max(age, 60)으로 변환 — 여기선 실제 나이 그대로 저장.
+ *  - 화면 진입 시 음성 인식 자동 시작 (예: "칠십" → 70)
+ *  - "직접 입력" 버튼 → 숫자 키패드 다이얼로그
+ *  - 큰 숫자 디스플레이로 현재 입력값 표시. 미입력 시 "—" placeholder.
+ */
 class AgeFragment : Fragment() {
 
     private var _binding: FragmentAgeBinding? = null
@@ -66,7 +73,7 @@ class AgeFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             delay(600)
             if (_binding == null) return@launch
-            ttsManager?.speak("나이를 말씀해 주세요. 만 ${MIN_AGE}세 이상") {
+            ttsManager?.speak("연령을 말씀하세요") {
                 if (_binding != null && !navigated) requestVoiceInput()
             }
         }
@@ -104,8 +111,8 @@ class AgeFragment : Fragment() {
 
     private fun startBlinking(view: View) {
         view.animate().cancel()
-        val anim = android.animation.ObjectAnimator.ofFloat(view, "alpha", 1f, 0.3f).apply {
-            duration = 800L
+        val anim = android.animation.ObjectAnimator.ofFloat(view, "alpha", 1f, 0.55f).apply {
+            duration = 500L
             repeatMode = android.animation.ValueAnimator.REVERSE
             repeatCount = android.animation.ValueAnimator.INFINITE
         }
@@ -126,14 +133,20 @@ class AgeFragment : Fragment() {
         if (age != null && age in MIN_AGE..MAX_AGE) {
             confirmAge(age)
         } else {
-            ttsManager?.speak("나이를 다시 말씀해 주세요. 숫자로 ${MIN_AGE}세 이상") {
+            ttsManager?.speak("연령을 다시 말씀하세요") {
                 if (_binding != null && !navigated) startVoiceListening()
             }
         }
     }
 
+    /** 한국어 숫자 → 정수 변환 (예: "칠십" → 70, "여든다섯" → 85).
+     *  사용자 명시: 60 미만도 허용 → 20~50대 추가. */
     private fun parseKoreanAge(text: String): Int? {
         val tens = mapOf(
+            "스물" to 20, "이십" to 20,
+            "서른" to 30, "삼십" to 30,
+            "마흔" to 40, "사십" to 40,
+            "쉰" to 50, "오십" to 50,
             "예순" to 60, "육십" to 60,
             "일흔" to 70, "칠십" to 70,
             "여든" to 80, "팔십" to 80,
@@ -171,7 +184,7 @@ class AgeFragment : Fragment() {
         }
         AlertDialog.Builder(requireContext())
             .setTitle("나이 입력")
-            .setMessage("만 ${MIN_AGE}세 이상 ${MAX_AGE}세 이하")
+            .setMessage("연령을 입력하세요 (1~${MAX_AGE})")
             .setView(edit)
             .setPositiveButton("확인") { _, _ ->
                 val age = edit.text.toString().toIntOrNull()
@@ -179,7 +192,7 @@ class AgeFragment : Fragment() {
                     confirmAge(age)
                 } else {
                     Toast.makeText(requireContext(),
-                        "${MIN_AGE}세에서 ${MAX_AGE}세 사이로 입력해주세요",
+                        "1세에서 ${MAX_AGE}세 사이로 입력해주세요",
                         Toast.LENGTH_SHORT).show()
                     if (_binding != null) startVoiceListening()
                 }
@@ -213,7 +226,9 @@ class AgeFragment : Fragment() {
     }
 
     companion object {
-        private const val MIN_AGE = 60
+        // 사용자 명시: 60 미만도 허용. STEADI 점수 계산은 STEADIScorer에서 max(age, 60)으로 처리.
+        // 비현실적 값(0세, 200세 등)만 막기 위해 1~110 범위.
+        private const val MIN_AGE = 1
         private const val MAX_AGE = 110
     }
 }

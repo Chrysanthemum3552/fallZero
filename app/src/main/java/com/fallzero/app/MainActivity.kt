@@ -2,6 +2,7 @@ package com.fallzero.app
 
 import android.content.Context
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
 import androidx.work.Data
@@ -22,6 +23,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // 사용자 명시: 앱 실행 중 화면이 timeout으로 꺼지지 않게.
+        // FLAG_KEEP_SCREEN_ON은 Window 단위라 앱이 foreground일 때만 적용됨 (background로 가면 자동 해제).
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         // 앱 시작 시 SessionFlow 초기화 (이전 세션 잔여 상태 제거)
         SessionFlow.reset()

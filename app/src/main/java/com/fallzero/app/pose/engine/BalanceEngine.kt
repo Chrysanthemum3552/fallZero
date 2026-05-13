@@ -49,6 +49,13 @@ class BalanceEngine(
 
     private val smoother = MetricSmoother(alpha = 0.25f)
 
+    // 사용자 명시 권한: 시각화 전용 read-only 캐시. processLandmarks가 이미 계산한 값을 그대로 저장만 함.
+    //  카운트/state/timer 로직 무관. getGuide()에서 읽기 전용으로 사용.
+    private var lastSwayRatio: Float = 0f
+    private var lastHoldProgress: Float = 0f
+    private var lastElapsedSec: Float = 0f
+    private var lastPoseValid: Boolean = true
+
     // 단계별 sway 임계값: 발 간격이 좁을수록 자연 sway가 커지므로 단계별 차등 적용
     // 실측 데이터 기반:
     //   일반 직립(발 벌림): rawA ≈ 0.08~0.12
@@ -246,6 +253,12 @@ class BalanceEngine(
             else if (!isStable && aScore >= swayThreshold) "균형을 잡아주세요"
             else null
 
+        // 시각화 전용 캐시 갱신 — 이미 계산된 값을 그대로 저장만. 카운트/state 로직 무관.
+        lastSwayRatio = aScore / swayThreshold
+        lastHoldProgress = (reportedElapsedSec / targetTimeSec).coerceIn(0f, 1f)
+        lastElapsedSec = reportedElapsedSec
+        lastPoseValid = poseValid
+
         return FrameResult(
             count = currentCount,
             isCountIncremented = countIncremented,
@@ -265,7 +278,32 @@ class BalanceEngine(
         bestHoldTimeSec = 0f
         smoother.reset()
         debugFrameCount = 0
+        // 시각화 캐시 초기화
+        lastSwayRatio = 0f
+        lastHoldProgress = 0f
+        lastElapsedSec = 0f
+        lastPoseValid = true
         // lockedLiftSide는 reset에서 보존 — onSideSwitch로만 flip (운동 #8의 좌→우 전환)
+    }
+
+    /** 사용자 명시 권한: 시각화 전용 read-only 함수. landmarks 사용 안 하고 캐시 값만 반환.
+     *  카운트/state/timer 로직 무관. */
+    override fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {
+        val stageLabel = when (stage) {
+            1 -> "두 발 나란히"
+            2 -> "반일렬"
+            3 -> "일렬"
+            4 -> "한 발 균형"
+            else -> "균형"
+        }
+        return com.fallzero.app.ui.overlay.ExerciseGuide.Bubble(
+            swayRatio = lastSwayRatio,
+            holdProgress = lastHoldProgress,
+            label = stageLabel,
+            elapsedSec = lastElapsedSec,
+            targetSec = targetTimeSec,
+            poseValid = lastPoseValid
+        )
     }
 
     /** 양측 운동 #8(한 발 서기)에서 좌→우 전환 시 호출 — lockedLiftSide flip.

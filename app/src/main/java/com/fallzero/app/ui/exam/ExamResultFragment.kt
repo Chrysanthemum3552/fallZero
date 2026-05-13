@@ -107,7 +107,7 @@ class ExamResultFragment : Fragment() {
         else
             "안전"
 
-        // 원형 그래프 - 균형 검사 (탠덤 시간 / 10초)
+        // 원형 그래프 - 균형 검사 (일렬 시간 / 10초)
         val balanceColor = if (result.isHighRiskBalance) "#FF9800" else "#00FF88"
         binding.chartBalance.setData(
             user = result.tandemTimeSec,
@@ -151,7 +151,7 @@ class ExamResultFragment : Fragment() {
             appendLine()
             appendLine("[세부 검사 결과]")
             appendLine("의자 일어서기: ${r.chairStandCount}회 (기준 ${r.chairStandNorm}회 이상) - $chairStatus")
-            appendLine("균형 검사: ${r.balanceStageReached}단계 통과 / 탠덤 ${r.tandemTimeSec.toInt()}초 - $balanceStatus")
+            appendLine("균형 검사: ${r.balanceStageReached}단계 통과 / 일렬 ${r.tandemTimeSec.toInt()}초 - $balanceStatus")
             appendLine("낙상 위험 설문: $surveyStatus")
             appendLine()
             appendLine("[안내]")

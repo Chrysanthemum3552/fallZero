@@ -136,6 +136,9 @@
             android:id="@+id/action_home_to_exam"
             app:destination="@id/preFlightFragment" />
         <action
+            android:id="@+id/action_home_to_exam_menu"
+            app:destination="@id/examMenuFragment" />
+        <action
             android:id="@+id/action_home_to_report"
             app:destination="@id/reportFragment" />
         <action
@@ -144,6 +147,17 @@
     </fragment>
 
     <!-- ───────── 검사 플로우 ───────── -->
+    <!-- 사용자 명시 8번: 검사 메뉴 화면 (전체/단일 stage/의자 선택) -->
+    <fragment
+        android:id="@+id/examMenuFragment"
+        android:name="com.fallzero.app.ui.exam.ExamMenuFragment"
+        android:label="낙상 위험 검사 메뉴"
+        tools:layout="@layout/fragment_exam_menu">
+        <action
+            android:id="@+id/action_exam_menu_to_exam"
+            app:destination="@id/preFlightFragment" />
+    </fragment>
+
     <fragment
         android:id="@+id/examFragment"
         android:name="com.fallzero.app.ui.exam.ExamFragment"

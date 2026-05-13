@@ -148,6 +148,22 @@ object SessionFlow {
         )
     }
 
+    /** 사용자 명시 8번: 균형 단일 stage만 시작 (메뉴 선택용).
+     *  ExamFragment 진입 후 ExamViewModel.startSingleBalanceStage(stage) 호출 필요.
+     *  startStage 값은 SessionFlow.singleBalanceStage에서 읽음. */
+    var singleBalanceStage: Int = 0  // 0이면 전체 흐름
+    fun startExamSingleBalanceStage(stage: Int) {
+        sessionType = SessionType.EXAM
+        index = 0
+        singleBalanceStage = stage
+        steps = listOf(
+            Step(StepType.PRE_FLIGHT, title = "검사 준비",
+                subtitle = "핸드폰을 수직으로 세우고 전신이 보이도록 서주세요."),
+            Step(StepType.EXAM_BALANCE, title = "${stage}단계 균형 검사"),
+            Step(StepType.DONE)
+        )
+    }
+
     /** 검사 세션 큐 빌드: 정면(균형) → 회전 → 측면(의자일어서기). */
     fun startExamSession() {
         sessionType = SessionType.EXAM

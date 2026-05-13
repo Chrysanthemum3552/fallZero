@@ -50,6 +50,13 @@ interface ExerciseEngine {
      * 각도 기반 운동(0-180°)은 default 0.5°면 충분. 비율/거리 기반 운동(예: ToeRaise 0-0.03)은 훨씬 작은 값 필요.
      */
     val movementThreshold: Float get() = 0.5f
+
+    /**
+     * 가이드 시각화 데이터 반환 (default null = 가이드 없음). 감지 로직과 완전히 분리된 read-only 함수 —
+     * Fragment의 updateGuide가 호출. 감지 로직(state machine/threshold/카운트)에는 영향 없음.
+     * 가이드 화면이 필요한 engine만 override.
+     */
+    fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? = null
 }
 
 data class FrameResult(

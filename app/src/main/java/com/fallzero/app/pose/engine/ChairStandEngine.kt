@@ -31,8 +31,10 @@ class ChairStandEngine(
         if (examMode) {
             setPRB(1f)
         }
-        // 빠른 앉았다-일어서기에 대응: smoother를 반응적으로
-        smoother = com.fallzero.app.pose.MetricSmoother(alpha = 0.5f)
+        // 빠른 앉았다-일어서기에 대응: smoother를 반응적으로 — 사용자 명시 권한:
+        // logcat 분석상 alpha=0.5에서 빠른 동작 시 smoothed metric이 raw를 따라잡지 못해 retThr 미달 → 카운트 누락.
+        // alpha 0.5 → 0.8 (빠른 수렴). threshold/state machine 등 다른 감지 로직 0건 수정.
+        smoother = com.fallzero.app.pose.MetricSmoother(alpha = 0.8f)
     }
 
     // ── 동적 임계값 (검사 모드 전용: ExamFragment.calibrateStanding으로 설정) ──
@@ -166,5 +168,39 @@ class ChairStandEngine(
             dynamicMotionThreshold = 39f
             dynamicReturnThreshold = 42f
         }
+    }
+
+    /** 사용자 명시 권한: 시각화 전용 read-only 함수. 카운트 로직(extractMetric/detectError/threshold/state machine)
+     *  은 절대 건드리지 않음. landmarks에서 raw m을 계산해 progress 0~1로 반환만.
+     *  sit/stand 경계는 기존 임계값 그대로 사용 — 새 변수 추가 X. */
+    override fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {
+        if (isInCalibration) return null
+        if (landmarks.size < 33) return null
+        val visLAnkle = landmarks[LandmarkIndex.LEFT_ANKLE].visibility().orElse(0f)
+        val visRAnkle = landmarks[LandmarkIndex.RIGHT_ANKLE].visibility().orElse(0f)
+        if (visLAnkle < 0.3f && visRAnkle < 0.3f) return null
+        val shoulderMidY = (landmarks[LandmarkIndex.LEFT_SHOULDER].y() +
+                landmarks[LandmarkIndex.RIGHT_SHOULDER].y()) / 2
+        val ankleY = maxOf(landmarks[LandmarkIndex.LEFT_ANKLE].y(),
+                landmarks[LandmarkIndex.RIGHT_ANKLE].y())
+        val m = (ankleY - shoulderMidY) * 100f
+        // sit/stand 경계 (시각화 전용 — 카운트 threshold와 별개):
+        //   사용자 명시: 살짝 앉아도 progress=0 너무 빨리 도달 → sitFloor 더 낮춤 (더 깊이 앉아야 0).
+        //   sitFloor = dynamicMotionThreshold - 4 (검사) / prb - 4 (훈련) — 카운트는 그대로, 시각화만 엄격.
+        val (sitFloor, standCeiling) = when {
+            examMode -> Pair(dynamicMotionThreshold - 4f, dynamicReturnThreshold)
+            trainingStandingBaseline > 0f && (trainingStandingBaseline - prb) >= 5f ->
+                Pair(prb - 4f, trainingStandingBaseline)
+            else -> Pair(prb - 4f, prb + 13f)
+        }
+        val gap = standCeiling - sitFloor
+        val progress = if (gap > 0f) ((m - sitFloor) / gap).coerceIn(0f, 1f) else 0f
+        return com.fallzero.app.ui.overlay.ExerciseGuide.Bar(
+            progress = progress,
+            vertical = true,
+            fillDirection = com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.UP,
+            label = "$exerciseName 진행도",
+            justReached = progress >= 1f
+        )
     }
 }

@@ -17,6 +17,8 @@ class PoseOverlayView @JvmOverloads constructor(
     private var results: PoseLandmarkerResult? = null
     private var imageWidth: Int = 1
     private var imageHeight: Int = 1
+    // 관절 점·연결선 표시 ON/OFF (설정에서 토글). 기본값 false (노년층 화면 단순화).
+    private var showSkeleton: Boolean = false
 
     private val landmarkPaint = Paint().apply {
         color = Color.parseColor("#FF4081")
@@ -52,8 +54,17 @@ class PoseOverlayView @JvmOverloads constructor(
         invalidate()
     }
 
+    /** 관절 점·연결선 표시 ON/OFF — 설정에서 토글한 값을 매 Fragment.onViewCreated에서 전달 */
+    fun setShowSkeleton(show: Boolean) {
+        if (showSkeleton != show) {
+            showSkeleton = show
+            invalidate()
+        }
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        if (!showSkeleton) return  // 토글 OFF면 아무것도 안 그림
         val result = results ?: return
         val allLandmarks = result.landmarks()
         if (allLandmarks.isEmpty()) return

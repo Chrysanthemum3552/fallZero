@@ -121,8 +121,8 @@ class SteadiQ3Fragment : Fragment() {
 
     private fun startBlinking(view: View) {
         view.animate().cancel()
-        val anim = android.animation.ObjectAnimator.ofFloat(view, "alpha", 1f, 0.3f).apply {
-            duration = 800L
+        val anim = android.animation.ObjectAnimator.ofFloat(view, "alpha", 1f, 0.55f).apply {
+            duration = 500L
             repeatMode = android.animation.ValueAnimator.REVERSE
             repeatCount = android.animation.ValueAnimator.INFINITE
         }

@@ -100,8 +100,8 @@ class SteadiQ1Fragment : Fragment() {
     /** 천천히 깜빡임 (alpha 1.0 ↔ 0.3, 800ms 주기) */
     private fun startBlinking(view: View) {
         view.animate().cancel()
-        val anim = android.animation.ObjectAnimator.ofFloat(view, "alpha", 1f, 0.3f).apply {
-            duration = 800L
+        val anim = android.animation.ObjectAnimator.ofFloat(view, "alpha", 1f, 0.55f).apply {
+            duration = 500L
             repeatMode = android.animation.ValueAnimator.REVERSE
             repeatCount = android.animation.ValueAnimator.INFINITE
         }

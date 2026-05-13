@@ -99,7 +99,32 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         startNextBalanceStage()
     }
 
+    /** 사용자 명시 8번: 메뉴에서 특정 균형 stage부터 시작.
+     *  단일 stage 검사 — 통과/실패 후 즉시 BalanceComplete. 다음 stage로 안 넘어감. */
+    fun startSingleBalanceStage(stage: Int) {
+        lastCompletedResult = null
+        lastRiskAssessment = null
+        chairStandTimerJob?.cancel()
+        balanceStageTimerJob?.cancel()
+        chairCount = 0
+        balanceStageReached = 0
+        tandemTimeSec = 0f
+        oneLegTimeSec = 0f
+        currentBalanceStage = stage - 1  // startNextBalanceStage가 ++ 하므로 -1로 시작
+        balanceCountAwaiting = false
+        isPausedForUserAway = false
+        singleStageOnly = true
+        startNextBalanceStage()
+    }
+    private var singleStageOnly: Boolean = false
+
     private fun startNextBalanceStage() {
+        // singleStageOnly: 첫 번째만 진행 후 종료 (메뉴에서 단일 stage 선택)
+        if (singleStageOnly && currentBalanceStage >= 1) {
+            _phase.value = ExamPhase.BalanceComplete(balanceStageReached, tandemTimeSec)
+            singleStageOnly = false
+            return
+        }
         currentBalanceStage++
         Log.d(TAG, "▶ startNextBalanceStage → currentBalanceStage=$currentBalanceStage")
         if (currentBalanceStage > 4) {
@@ -236,6 +261,16 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** 현재 검사 phase에 따른 가이드 정보 반환 — Fragment에서 매 frame 호출.
+     *  ChairStand는 isRunning=true (실제 측정 중)일 때만 가이드 표시 — 준비 모드 시 잘못된 100% 방지. */
+    fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {
+        return when (val p = _phase.value) {
+            is ExamPhase.ChairStand -> if (p.isRunning) chairStandEngine.getGuide(landmarks) else null
+            is ExamPhase.Balance -> balanceEngine.getGuide(landmarks)
+            else -> null
+        }
+    }
+
     fun processLandmarks(landmarks: List<NormalizedLandmark>) {
         // 사용자 이탈 일시정지 중에는 엔진 처리 차단 (Fragment에서 1.5초 buffer 후 resume 호출)
         if (isPausedForUserAway) return
@@ -305,8 +340,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     /** 외부에서 단계 이름 조회 (ExamFragment 등) */
     fun getBalanceStageName(stage: Int): String = when (stage) {
         1 -> "두 발 나란히 서기"
-        2 -> "반탠덤 서기"
-        3 -> "탠덤 서기 (일렬로)"
+        2 -> "반일렬 서기"
+        3 -> "일렬 서기 (일렬로)"
         4 -> "한 발로 서기"
         else -> "${stage}단계"
     }

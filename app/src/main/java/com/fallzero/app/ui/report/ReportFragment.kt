@@ -75,7 +75,7 @@ class ReportFragment : Fragment() {
                         "의자 일어서기: ${latest.chairStandCount}회 (기준 ${latest.chairStandNorm}회)" +
                                 "\n검사일: ${dateFormat.format(Date(latest.performedAt))}"
                     b.tvBalanceDetail.text =
-                        "균형 검사: ${latest.balanceStageReached}단계 · 탠덤 ${latest.tandemTimeSec.toInt()}초"
+                        "균형 검사: ${latest.balanceStageReached}단계 · 일렬 ${latest.tandemTimeSec.toInt()}초"
                     val first = data.firstResult
                     b.tvImprovement.text = when {
                         first == null || first.id == latest.id -> "첫 번째 검사 결과입니다."

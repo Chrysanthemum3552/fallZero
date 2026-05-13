@@ -157,6 +157,76 @@
             android:textSize="22sp"
             android:layout_marginBottom="36dp" />
 
+        <!-- 화면 표시 옵션 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="화면 표시"
+            android:textSize="18sp"
+            android:textColor="@color/text_secondary"
+            android:textStyle="bold"
+            android:layout_marginBottom="10dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="기준점 가이드"
+                android:textSize="20sp"
+                android:textColor="@color/text_primary" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/sw_show_guide"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ON 시 운동·검사 중 &quot;어디까지 해야 할지&quot; 게이지로 표시됩니다."
+            android:textSize="16sp"
+            android:textColor="@color/text_secondary"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginBottom="16dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="관절 점 표시"
+                android:textSize="20sp"
+                android:textColor="@color/text_primary" />
+
+            <androidx.appcompat.widget.SwitchCompat
+                android:id="@+id/sw_show_skeleton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="ON 시 카메라 화면에 33개 관절 위치 + 연결선이 표시됩니다."
+            android:textSize="16sp"
+            android:textColor="@color/text_secondary"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginBottom="32dp" />
+
         <!-- 개발자 옵션 -->
         <TextView
             android:layout_width="wrap_content"
@@ -235,7 +305,59 @@
             android:textSize="16sp"
             android:textColor="@color/text_secondary"
             android:lineSpacingExtra="2dp"
-            android:layout_marginBottom="32dp" />
+            android:layout_marginBottom="16dp" />
+
+        <!-- 음성 길이 측정 (TTS 발화 시간 측정 도구) — 배포 시 제거 예정 -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="음성 길이 측정"
+            android:textSize="20sp"
+            android:textColor="@color/text_primary"
+            android:textStyle="bold"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="대사를 입력하고 측정을 누르면 0.75배속 TTS로 읽어주고 소요 시간을 표시합니다."
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:lineSpacingExtra="2dp"
+            android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/et_tts_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minLines="3"
+            android:maxLines="6"
+            android:gravity="top|start"
+            android:inputType="textMultiLine"
+            android:hint="여기에 대사를 입력하세요"
+            android:textSize="16sp"
+            android:padding="12dp"
+            android:background="#22000000"
+            android:layout_marginBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_tts_measure"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:text="측정"
+            android:textSize="18sp"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/tv_tts_result"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="결과: —"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginBottom="32dp"
+            tools:text="결과: 2.85초" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_reset_onboarding"

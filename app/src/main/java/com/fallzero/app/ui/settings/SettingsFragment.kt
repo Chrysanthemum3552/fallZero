@@ -12,12 +12,17 @@ import androidx.work.WorkManager
 import com.fallzero.app.R
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.databinding.FragmentSettingsBinding
+import com.fallzero.app.util.DisplayPrefs
+import com.fallzero.app.util.TTSManager
 import kotlinx.coroutines.launch
 
 class SettingsFragment : Fragment() {
 
     private var _binding: FragmentSettingsBinding? = null
     private val binding get() = _binding!!
+
+    private var ttsManager: TTSManager? = null
+    private var ttsStartMs: Long = 0L
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -75,6 +80,18 @@ class SettingsFragment : Fragment() {
             Toast.makeText(requireContext(), "정보가 저장되었습니다", Toast.LENGTH_SHORT).show()
         }
 
+        // 기준점 가이드 표시 토글 (default ON)
+        binding.swShowGuide.isChecked = DisplayPrefs.showGuide(requireContext())
+        binding.swShowGuide.setOnCheckedChangeListener { _, isChecked ->
+            DisplayPrefs.setShowGuide(requireContext(), isChecked)
+        }
+
+        // 관절 점 표시 토글 (default OFF)
+        binding.swShowSkeleton.isChecked = DisplayPrefs.showSkeleton(requireContext())
+        binding.swShowSkeleton.setOnCheckedChangeListener { _, isChecked ->
+            DisplayPrefs.setShowSkeleton(requireContext(), isChecked)
+        }
+
         // 디버그 모드
         binding.swDebugMode.isChecked = prefs.getBoolean("debug_mode", false)
         binding.swDebugMode.setOnCheckedChangeListener { _, isChecked ->
@@ -116,6 +133,25 @@ class SettingsFragment : Fragment() {
 
         // 현재 사용 중인 MediaPipe 모델 표시
         binding.tvPoseModel.text = buildPoseModelLabel()
+
+        // ─── 음성 길이 측정 (TTS 발화 시간 측정 도구) ───
+        ttsManager = TTSManager.getInstance(requireContext())
+        binding.btnTtsMeasure.setOnClickListener {
+            val text = binding.etTtsInput.text?.toString()?.trim().orEmpty()
+            if (text.isEmpty()) {
+                Toast.makeText(requireContext(), "대사를 입력해주세요", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            // 재측정 시 이전 발화 중단 + callbacks 클리어
+            ttsManager?.stop()
+            binding.tvTtsResult.text = "측정 중…"
+            ttsStartMs = System.currentTimeMillis()
+            ttsManager?.speak(text) {
+                val b = _binding ?: return@speak
+                val elapsedMs = System.currentTimeMillis() - ttsStartMs
+                b.tvTtsResult.text = "결과: %.2f초".format(elapsedMs / 1000f)
+            }
+        }
     }
 
     /** assets에서 우선순위(heavy → full → lite)로 발견된 첫 모델을 보고 */
@@ -136,6 +172,8 @@ class SettingsFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        try { ttsManager?.stop() } catch (_: Exception) {}
+        ttsManager = null
         _binding = null
     }
 }

@@ -13,46 +13,55 @@
         android:scaleType="centerCrop"
         android:contentDescription="낙상예방 배경 이미지" />
 
-    <!-- 하단 버튼 영역 -->
+    <!-- 사용자 명시 1번: 간단 텍스트 + 큰 시작 버튼 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
         android:orientation="vertical"
+        android:gravity="center_horizontal"
         android:paddingLeft="32dp"
         android:paddingRight="32dp"
-        android:paddingBottom="60dp"
-        android:paddingTop="24dp"
-        android:background="#99000000">
+        android:paddingBottom="60dp">
 
         <TextView
-            android:id="@+id/tv_title"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/onboarding_title"
-            android:textSize="26sp"
-            android:textStyle="bold"
+            android:text="설문조사"
+            android:textSize="20sp"
             android:textColor="#FFFFFF"
-            android:gravity="center"
-            android:layout_marginBottom="8dp" />
+            android:background="#80000000"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:layout_marginBottom="6dp" />
 
         <TextView
-            android:id="@+id/tv_subtitle"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="@string/onboarding_subtitle"
+            android:text="음성 또는 터치로 입력"
             android:textSize="16sp"
-            android:textColor="#DDDDDD"
-            android:gravity="center"
-            android:layout_marginBottom="24dp" />
+            android:textColor="#FFE066"
+            android:background="#80000000"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:layout_marginBottom="20dp" />
 
+        <!-- 시작 버튼: 노란 바탕 + 검정 글자 + 그림자 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_start"
             android:layout_width="match_parent"
-            android:layout_height="64dp"
+            android:layout_height="96dp"
             android:text="@string/btn_start"
-            android:textSize="22sp"
-            app:cornerRadius="12dp" />
+            android:textSize="32sp"
+            android:textStyle="bold"
+            android:textColor="#000000"
+            app:backgroundTint="#FFFF00"
+            app:cornerRadius="16dp"
+            app:elevation="8dp" />
 
     </LinearLayout>
 

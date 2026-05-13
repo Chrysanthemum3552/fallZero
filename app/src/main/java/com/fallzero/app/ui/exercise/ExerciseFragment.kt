@@ -47,6 +47,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var cameraExecutor: ExecutorService? = null
     private var ttsManager: TTSManager? = null
     private var hasNavigated = false
+    // 설정에서 켜진 가이드 표시 여부 (Fragment 진입 시 캐싱, 동적 토글은 다음 운동 진입부터 반영)
+    private var showGuide: Boolean = true
     // 카운트 음성 중복 발화 방지 (검사세션 패턴: 같은 카운트는 한 번만 발화)
     private var lastSpokenCount = -1
     // 양측 전환 안내 진행 중 = SideSwitch state observer가 한 번만 트리거되도록 보장
@@ -75,14 +77,17 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private val USER_AWAY_MSG = "카메라 앞으로 와주세요"
     private val OCCLUSION_MSG = "신체의 일부가 보이지 않습니다. 조금 더 뒤로 가주세요"
     private val FRONT_FACING_MSG = "옆으로 돌아주세요"
-    // 어깨너비/SBU < 0.35 = 측면 자세 (SideRotationFragment의 SIDE_THRESHOLD와 동일)
-    private val SIDE_VIEW_THRESHOLD = 0.35f
+    // 어깨너비/SBU < 0.50 = 측면 자세. 사용자 명시 — 사용자가 화면 보려 상체만 살짝 돌리는 자연스러운
+    //   자세까지 측면으로 인정 (이전 0.35는 너무 엄격해서 "옆으로 돌아주세요" 남발).
+    private val SIDE_VIEW_THRESHOLD = 0.50f
 
     // 카메라 전후면 전환
     @Volatile private var isFrontCamera: Boolean = false
     private var cameraPreview: Preview? = null
     private var cameraAnalyzer: ImageAnalysis? = null
     private val USER_AWAY_TIMEOUT_MS = 2000L
+    // 측면 회전 timeout은 별도로 더 관대하게 (4초) — 사용자가 잠깐 정면 봐도 봐줌
+    private val FRONT_FACING_TIMEOUT_MS = 4000L
     private val PAUSE_RESUME_BUFFER_MS = 1500L
     private val PAUSE_TTS_LOOP_MS = 5000L
 
@@ -113,6 +118,10 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         ttsManager = TTSManager.getInstance(requireContext())
         // 사용자가 이전에 전환한 카메라 facing 복원 (영구 설정)
         isFrontCamera = com.fallzero.app.util.CameraFacingPref.isFrontCamera(requireContext())
+        // 표시 옵션 — 관절 점 (default OFF)
+        binding.poseOverlay.setShowSkeleton(com.fallzero.app.util.DisplayPrefs.showSkeleton(requireContext()))
+        // 가이드 표시 여부 사전 캐싱
+        showGuide = com.fallzero.app.util.DisplayPrefs.showGuide(requireContext())
 
         // SessionFlow에서 현재 운동 ID를 가져옴 (있으면), 없으면 prefs 폴백
         val step = SessionFlow.current()
@@ -182,12 +191,75 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private fun showStartGuidance(exerciseId: Int) {
         val b = _binding ?: return
         val titleRes = guidanceTitleRes(exerciseId)
-        val scriptRes = guidanceScriptRes(exerciseId)
         b.tvGuidanceTitle.text = getString(titleRes)
-        b.tvGuidanceText.text = getString(scriptRes)
+        b.tvGuidanceText.text = ""
         b.tvGuidanceCountdown.visibility = View.GONE
         b.guidanceOverlay.visibility = View.VISIBLE
+        // 사용자 명시: 운동 진입 직후 안내 영상 + ring 설명 — 의자 일어서기 흐름 유사
+        b.tvVideoPlaceholder.text = "안내 영상"
+        b.tvVideoPlaceholder.textSize = 40f
+        b.tvVideoPlaceholder.setTextColor(0xFFFFFF00.toInt())
+        b.tvVideoPlaceholder.visibility = View.VISIBLE
+        b.videoExerciseGuide.visibility = View.GONE
+        val name = getString(titleRes)
+        ttsManager?.speak("$name 입니다. 우선 안내 영상을 시청하겠습니다") {
+            if (_binding == null || hasNavigated) return@speak
+            _binding?.tvVideoPlaceholder?.visibility = View.GONE
+            playExerciseGuideVideo(exerciseId)
+        }
+    }
 
+    /** 운동별 placeholder 영상 → 끝나면 ring 시뮬레이션 + 기존 안내 멘트로 연결. */
+    private fun playExerciseGuideVideo(exerciseId: Int) {
+        val b = _binding ?: return
+        b.videoExerciseGuide.setZOrderOnTop(true)
+        b.videoExerciseGuide.visibility = View.VISIBLE
+        val uri = android.net.Uri.parse(
+            "android.resource://${requireContext().packageName}/${guideVideoRes(exerciseId)}"
+        )
+        b.videoExerciseGuide.setOnPreparedListener { mp ->
+            mp.isLooping = false
+            mp.setVolume(0f, 0f)
+            mp.start()
+        }
+        b.videoExerciseGuide.setOnCompletionListener {
+            if (_binding == null || hasNavigated) return@setOnCompletionListener
+            _binding?.videoExerciseGuide?.visibility = View.GONE
+            startExerciseRingSimulation(exerciseId)
+        }
+        b.videoExerciseGuide.setVideoURI(uri)
+    }
+
+    /** ring 시계방향 채움 0→100% 시뮬레이션 + 기존 안내 멘트 → 캐리브/본운동. */
+    private fun startExerciseRingSimulation(exerciseId: Int) {
+        val b = _binding ?: return
+        b.guideBubble.visibility = View.VISIBLE
+        b.guideBubble.bringToFront()
+        val anim = android.animation.ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 2500L
+            addUpdateListener {
+                val p = it.animatedValue as Float
+                _binding?.guideBubble?.setGuide(
+                    com.fallzero.app.ui.overlay.ExerciseGuide.Bubble(
+                        swayRatio = 0f, holdProgress = p, label = "안내",
+                        elapsedSec = p * 10f, targetSec = 10f, poseValid = true
+                    )
+                )
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (_binding == null || hasNavigated) return
+                    _binding?.guideBubble?.visibility = View.GONE
+                    proceedAfterExerciseGuide(exerciseId)
+                }
+            })
+        }
+        anim.start()
+    }
+
+    /** 안내 영상+ring 끝 후 기존 안내 멘트 발화 → 캐리브/본운동 진입. */
+    private fun proceedAfterExerciseGuide(exerciseId: Int) {
+        val scriptRes = guidanceScriptRes(exerciseId)
         ttsManager?.speak(getString(scriptRes).replace("\n", " ")) {
             if (_binding == null || hasNavigated) return@speak
             _binding?.guidanceOverlay?.visibility = View.GONE
@@ -195,13 +267,9 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             lastSpokenCount = -1
 
             if (viewModel.isCalibrationRequired()) {
-                // 첫 운동 (캘리브레이션 필요) — 기존 흐름: 연습 모드 즉시 시작
                 viewModel.startMeasurement()
-                // userAwayMonitor는 handlePostCalibrationCountdown에서 시작됨
             } else {
-                // 캘리브레이션 이미 완료 (2번째 이후 운동) — 3,2,1 카운트다운 후 본 운동 진입 (Q3)
-                // 안내 도중/카운트다운 도중 어떤 감지도 안 함 (measurement는 아직 start 안 됨)
-                postCalibrationStarted = true  // post-cal 카운트다운 트리거 안 되게 차단
+                postCalibrationStarted = true
                 startCountdown321(insideOverlay = false) {
                     if (_binding == null || hasNavigated) return@startCountdown321
                     _binding?.root?.postDelayed({
@@ -213,6 +281,18 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 }
             }
         }
+    }
+
+    private fun guideVideoRes(exerciseId: Int): Int = when (exerciseId) {
+        1 -> R.raw.knee_extension_guide
+        2 -> R.raw.hip_abduction_guide
+        3 -> R.raw.knee_flexion_guide
+        4 -> R.raw.calf_raise_guide
+        5 -> R.raw.toe_raise_guide
+        6 -> R.raw.knee_bend_guide
+        7 -> R.raw.chair_stand_guide
+        8 -> R.raw.balance_guide
+        else -> R.raw.balance_guide
     }
 
     /**
@@ -400,10 +480,17 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             } else {
                                 // 연습 → 본 운동 전환: 처음 entering Running with isCalibrating=false
                                 // (Q12) "좋아요!" + 3,2,1 + 시작! → user-away monitor 시작
-                                if (calibrationIntroSpoken && !calibrationCompleteSpoken) {
+                                // gate 완화: calibrationIntroSpoken 미발화 상태(첫 frame 빠른 점프)도 허용 —
+                                //   isCalibrationRequired()가 true였던 운동(연습 필요)만 시퀀스 진입.
+                                //   PRB 있는 운동은 showStartGuidance 분기에서 이미 postCalibrationStarted=true 설정.
+                                if (!calibrationCompleteSpoken && !postCalibrationStarted) {
                                     calibrationCompleteSpoken = true
                                     handlePostCalibrationCountdown()
                                     return@collect  // 카운트다운 중이므로 이번 frame은 UI 업데이트 안 함
+                                }
+                                // 연습모드 UI 명시적 해제 — isCalibrating=true 분기에서 set된 "현재 연습 모드입니다" 잔존 방지
+                                if (b.tvErrorMessage.text == getString(R.string.exercise_calibrating)) {
+                                    b.tvErrorMessage.visibility = View.GONE
                                 }
                                 b.tvCount.text = getString(
                                     R.string.exercise_count_format, state.count, state.targetCount
@@ -420,6 +507,14 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 val transientMsg = state.errorMessage ?: state.coachingCueMessage
                                 if (transientMsg != null) {
                                     showTransientMessage(transientMsg)
+                                } else {
+                                    // 사용자 명시 7번: 자세 정상이면 ✓ 초록 "잘 하고 있어요!" 표시.
+                                    // transient 메시지가 4초 쿨다운으로 작동 중이면 덮어쓰지 않게 GONE 체크 후.
+                                    if (b.tvErrorMessage.visibility == View.GONE) {
+                                        b.tvErrorMessage.text = "✓ 잘 하고 있어요!"
+                                        b.tvErrorMessage.setTextColor(0xFF4CAF50.toInt())
+                                        b.tvErrorMessage.visibility = View.VISIBLE
+                                    }
                                 }
                             }
                             b.tvExerciseName.text = SessionFlow.exerciseName(getCurrentExerciseId()) +
@@ -673,7 +768,35 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             // setResults 내부에서 invalidate() 호출 — 중복 호출 제거
             b.poseOverlay.setResults(result, resultBundle.inputImageHeight, resultBundle.inputImageWidth)
             viewModel.processLandmarks(landmarks)
+            // 가이드 시각화 (설정 ON일 때만)
+            if (showGuide) updateGuide(landmarks) else hideGuides()
         }
+    }
+
+    /** 운동 가이드 표시 — Bar 또는 Bubble. 측정 가드(measurementStarted 등) 무관하게 매 frame 갱신 — 사용자는 항상 진행도 확인 가능. */
+    private fun updateGuide(
+        landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>
+    ) {
+        val b = _binding ?: return
+        val guide = viewModel.getGuide(landmarks)
+        when (guide) {
+            is com.fallzero.app.ui.overlay.ExerciseGuide.Bar -> {
+                b.guideBar.visibility = View.VISIBLE
+                b.guideBubble.visibility = View.GONE
+                b.guideBar.setGuide(guide)
+            }
+            is com.fallzero.app.ui.overlay.ExerciseGuide.Bubble -> {
+                b.guideBar.visibility = View.GONE
+                b.guideBubble.visibility = View.VISIBLE
+                b.guideBubble.setGuide(guide)
+            }
+            null -> hideGuides()
+        }
+    }
+
+    private fun hideGuides() {
+        _binding?.guideBar?.visibility = View.GONE
+        _binding?.guideBubble?.visibility = View.GONE
     }
 
     /** 측면 자세 판별: 어깨 너비/SBU < SIDE_VIEW_THRESHOLD = 측면. 정면일 땐 어깨 넓게 보임. */
@@ -710,7 +833,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     onUserAway()
                 } else if (occlusionCheckEnabled && lastFullBodyMs > 0L && now - lastFullBodyMs > USER_AWAY_TIMEOUT_MS) {
                     onPartialOcclusion()
-                } else if (sideFacingCheckEnabled && lastSideViewMs > 0L && now - lastSideViewMs > USER_AWAY_TIMEOUT_MS) {
+                } else if (sideFacingCheckEnabled && lastSideViewMs > 0L && now - lastSideViewMs > FRONT_FACING_TIMEOUT_MS) {
                     onFrontFacing()
                 }
             }

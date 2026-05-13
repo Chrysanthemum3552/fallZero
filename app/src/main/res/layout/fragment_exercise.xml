@@ -25,6 +25,31 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
+    <!-- 가이드 bar (운동 진행도 시각화 — 수직/수평 통합).
+         상단 UI(btn_stop, tv_count, tv_exercise_name) + 하단 디버그 버튼 안 가리게 margin. -->
+    <com.fallzero.app.ui.overlay.GuideBarView
+        android:id="@+id/guide_bar"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="140dp"
+        android:layout_marginBottom="80dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 가이드 ring (균형 운동 #8 전용) — 사용자 명시: 거대한 원형 링 + 가운데 큰 노란 숫자 -->
+    <com.fallzero.app.ui.overlay.BalanceBubbleView
+        android:id="@+id/guide_bubble"
+        android:layout_width="320dp"
+        android:layout_height="320dp"
+        android:layout_marginTop="80dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <!-- 상단 운동명 -->
     <TextView
         android:id="@+id/tv_exercise_name"
@@ -103,21 +128,25 @@
         app:layout_constraintEnd_toEndOf="parent"
         tools:text="3" />
 
-    <!-- 에러 메시지 -->
+    <!-- 자세 피드백 floating (사용자 명시 7번): 잘 하면 초록 ✓, 잘못이면 노란 메시지.
+         반투명 검정 배경으로 가독성 확보. -->
     <TextView
         android:id="@+id/tv_error_message"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:breakStrategy="simple"
         android:hyphenationFrequency="none"
-        android:textSize="18sp"
+        android:textSize="22sp"
+        android:textStyle="bold"
         android:textColor="#FFFF00"
         android:background="#CC000000"
-        android:padding="12dp"
+        android:paddingLeft="20dp"
+        android:paddingRight="20dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
         android:gravity="center"
+        android:lineSpacingMultiplier="1.2"
         android:visibility="gone"
-        android:layout_marginLeft="24dp"
-        android:layout_marginRight="24dp"
         android:layout_marginBottom="120dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -311,13 +340,14 @@
                 android:layout_marginTop="12dp"
                 android:layout_marginLeft="16dp"
                 android:layout_marginRight="16dp"
-                android:background="#22FFFF00"
                 app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
                 app:layout_constraintBottom_toTopOf="@id/tv_guidance_text"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
+                <!-- "안내 영상" 큰 텍스트 / 영상 placeholder — 운동 안내 시작 시 텍스트 → 영상 -->
                 <TextView
+                    android:id="@+id/tv_video_placeholder"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
@@ -326,7 +356,15 @@
                     android:textColor="#CCCC00"
                     android:breakStrategy="simple"
                     android:hyphenationFrequency="none"
-                    android:textSize="20sp" />
+                    android:textSize="20sp"
+                    android:visibility="gone" />
+
+                <!-- 운동별 안내 영상 — 사용자 명시: 운동 진입 직후 placeholder 영상 -->
+                <VideoView
+                    android:id="@+id/video_exercise_guide"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:visibility="gone" />
 
                 <TextView
                     android:id="@+id/tv_guidance_countdown"

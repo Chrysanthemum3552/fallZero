@@ -97,6 +97,8 @@ class ChairRepositionFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListe
         // 사용자 이전 카메라 설정 복원
         isFrontCamera = com.fallzero.app.util.CameraFacingPref.isFrontCamera(requireContext())
         binding.btnCameraFlip.setOnClickListener { toggleCameraFacing() }
+        // 관절 점 표시 토글 적용 (default OFF)
+        binding.poseOverlay.setShowSkeleton(com.fallzero.app.util.DisplayPrefs.showSkeleton(requireContext()))
 
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED) {
