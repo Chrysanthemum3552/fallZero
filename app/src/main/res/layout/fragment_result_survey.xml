@@ -13,6 +13,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="1 / 4"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none"
         android:textSize="22sp"
         android:textColor="#888888"
         android:gravity="center"
@@ -52,6 +54,8 @@
             android:id="@+id/tv_q1"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="22sp"
             android:textColor="#FFFFFF"
             android:lineSpacingMultiplier="1.4" />
@@ -60,6 +64,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="22sp"
             android:textColor="#FFFFFF"
             android:lineSpacingMultiplier="1.4" />
@@ -68,6 +74,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="22sp"
             android:textColor="#FFFFFF"
             android:lineSpacingMultiplier="1.4" />
@@ -77,6 +85,8 @@
         android:id="@+id/tv_judgement"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none"
         android:textSize="24sp"
         android:textStyle="bold"
         android:gravity="center"
@@ -86,7 +96,7 @@
         app:layout_constraintTop_toBottomOf="@id/answer_box"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="설문 차원에서 위험 신호가 있어요" />
+        tools:text="설문 차원에서 위험 신호가\n있어요" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_next"

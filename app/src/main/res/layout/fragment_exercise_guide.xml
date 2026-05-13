@@ -30,6 +30,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="운동을 선택하세요"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none"
         android:textSize="20sp"
         android:textColor="@color/text_secondary"
         android:paddingLeft="24dp"

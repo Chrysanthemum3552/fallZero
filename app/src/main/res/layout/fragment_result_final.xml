@@ -13,6 +13,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="4 / 4"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none"
         android:textSize="22sp"
         android:textColor="#888888"
         android:gravity="center"
@@ -59,6 +61,8 @@
         android:id="@+id/tv_recommendation"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none"
         android:textSize="20sp"
         android:textColor="#FFFFFF"
         android:gravity="center"
@@ -69,7 +73,7 @@
         app:layout_constraintBottom_toTopOf="@id/btn_share_guardian"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        tools:text="3가지 항목 중 일부에서 위험 신호가 있어요." />
+        tools:text="3가지 항목 중 일부에서 위험 신호가\n있어요." />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_share_guardian"

@@ -13,6 +13,8 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="3 / 4"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none"
         android:textSize="22sp"
         android:textColor="#888888"
         android:gravity="center"
@@ -52,6 +54,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="안전 기준 (연령·성별 기준)"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="20sp"
             android:textColor="#FFFF00" />
         <ProgressBar
@@ -69,6 +73,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="22sp"
             android:textColor="#FFFF00" />
         <TextView
@@ -76,6 +82,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="사용자 결과"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="20sp"
             android:textColor="#AAAAAA" />
         <ProgressBar
@@ -93,6 +101,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="#FFFFFF" />
@@ -102,6 +112,8 @@
         android:id="@+id/tv_judgement"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:breakStrategy="simple"
+        android:hyphenationFrequency="none"
         android:textSize="24sp"
         android:textStyle="bold"
         android:gravity="center"

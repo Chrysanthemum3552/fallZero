@@ -17,6 +17,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/settings_title"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="32sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
@@ -28,6 +30,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="알림"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="18sp"
             android:textColor="@color/text_secondary"
             android:textStyle="bold"
@@ -45,6 +49,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="운동 알림"
+                android:breakStrategy="simple"
+                android:hyphenationFrequency="none"
                 android:textSize="22sp"
                 android:textColor="@color/text_primary" />
 
@@ -59,6 +65,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="내 정보"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="18sp"
             android:textColor="@color/text_secondary"
             android:textStyle="bold"
@@ -77,6 +85,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="성별"
+                android:breakStrategy="simple"
+                android:hyphenationFrequency="none"
                 android:textSize="22sp"
                 android:textColor="@color/text_primary" />
 
@@ -118,6 +128,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="나이"
+                android:breakStrategy="simple"
+                android:hyphenationFrequency="none"
                 android:textSize="22sp"
                 android:textColor="@color/text_primary" />
 
@@ -150,6 +162,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="개발자 옵션"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="18sp"
             android:textColor="@color/text_secondary"
             android:textStyle="bold"
@@ -167,6 +181,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="디버그 모드"
+                android:breakStrategy="simple"
+                android:hyphenationFrequency="none"
                 android:textSize="20sp"
                 android:textColor="@color/text_primary" />
 
@@ -180,6 +196,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="ON 시 운동 화면에 수동 카운트 +1 버튼이 표시됩니다."
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="16sp"
             android:textColor="@color/text_secondary"
             android:lineSpacingExtra="2dp"
@@ -197,6 +215,8 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="안내 스킵"
+                android:breakStrategy="simple"
+                android:hyphenationFrequency="none"
                 android:textSize="20sp"
                 android:textColor="@color/text_primary" />
 
@@ -209,7 +229,9 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="ON 시 사전 점검 및 안내를 건너뛰고 즉시 측정 시작합니다."
+            android:text="ON 시 사전 점검 및 안내를 건너뛰고 즉시 측정을\n시작합니다."
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="16sp"
             android:textColor="@color/text_secondary"
             android:lineSpacingExtra="2dp"
@@ -248,6 +270,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="시스템 정보"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="@color/text_secondary"
@@ -258,6 +282,8 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="포즈 인식 모델: 확인 중..."
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
             android:textSize="18sp"
             android:textColor="@color/text_primary"
             android:layout_marginBottom="32dp"

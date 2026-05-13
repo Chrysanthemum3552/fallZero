@@ -24,12 +24,6 @@ import com.fallzero.app.viewmodel.OnboardingViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * 온보딩 2단계: 나이. STEADI 기준 최소 60세.
- *  - 화면 진입 시 음성 인식 자동 시작 (예: "칠십" → 70)
- *  - "직접 입력" 버튼 → 숫자 키패드 다이얼로그
- *  - 큰 숫자 디스플레이로 현재 입력값 표시. 미입력 시 "—" placeholder.
- */
 class AgeFragment : Fragment() {
 
     private var _binding: FragmentAgeBinding? = null
@@ -53,9 +47,7 @@ class AgeFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // popBackStack 후 재진입 시에도 다시 답변 가능
         navigated = false
-
         ttsManager = TTSManager.getInstance(requireContext())
         voiceHelper = VoiceInputHelper(requireContext())
 
@@ -63,19 +55,13 @@ class AgeFragment : Fragment() {
         if (viewModel.tempAge in MIN_AGE..MAX_AGE) {
             currentAge = viewModel.tempAge
             binding.tvAgeDisplay.text = "${viewModel.tempAge}"
-            binding.btnNext.isEnabled = true
         } else {
             binding.tvAgeDisplay.text = "—"
-            binding.btnNext.isEnabled = false
         }
 
         binding.tvVoiceStatus.visibility = View.INVISIBLE
-
         binding.btnBack.setOnClickListener { findNavController().popBackStack() }
         binding.btnManualInput.setOnClickListener { showManualInputDialog() }
-        binding.btnNext.setOnClickListener {
-            currentAge?.let { confirmAge(it) }
-        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             delay(600)
@@ -146,7 +132,6 @@ class AgeFragment : Fragment() {
         }
     }
 
-    /** 한국어 숫자 → 정수 변환 (예: "칠십" → 70, "여든다섯" → 85) */
     private fun parseKoreanAge(text: String): Int? {
         val tens = mapOf(
             "예순" to 60, "육십" to 60,
@@ -213,7 +198,6 @@ class AgeFragment : Fragment() {
         currentAge = age
         viewModel.tempAge = age
         _binding?.tvAgeDisplay?.text = "$age"
-        // TTS 끝나면 navigate (cut off 방지)
         ttsManager?.speak("${age}세로 입력했습니다") {
             if (_binding != null) findNavController().navigate(R.id.action_age_to_q1)
         }
@@ -229,7 +213,6 @@ class AgeFragment : Fragment() {
     }
 
     companion object {
-        // STEADI 기준: chairStandNorms 60..94. 입력 범위 60~110.
         private const val MIN_AGE = 60
         private const val MAX_AGE = 110
     }
