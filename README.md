@@ -7,6 +7,20 @@
 
 ## 1. 업데이트 현황
 
+### 2026-05-14 (전수환) — 진급 알고리즘 정식 반영 + 자세 오류 검출 전면 보강
+- **6-파라미터 보수적 진급 판단** — `ProgressionManager`에 ROM·일관성·속도 저하·Duration 게이트 추가 + `ExerciseViewModel.completeExercise()` 직후 자동 평가 호출부 신설 (이전엔 정의만 있고 호출 안 됨)
+- **균형 자동 진급 신설** — `BalanceProgressionManager.shouldProgressStage()` + 5단계(양손→한손→무지지 10/20/30초) `current_set_level` 자동 갱신 (표만 있던 미작동 상태 해결)
+- **`ExerciseRecord` 스키마 v2 → v3** — `durationMs`/`speedLossRate`/`balanceWobble` 컬럼 추가, rep timestamp는 ViewModel에서 누적해 양측 운동 reset에도 손실 없음
+- **자세 오류 검출 전면 보강** — #1·#4는 `return null`로 무효 상태였던 것 정상화(골반·허벅지 들림 / 몸통 반동), #2·#3·#5·#6에 상체 기울임 / 허벅지 들림 / 몸통 반동 / 무릎 전방 돌출 보상 동작 감지 추가
+- **균형 운동 점수 재해석** — `QualityScorer`에 옵셔널 균형 파라미터 추가, ROM/일관성 슬롯을 **안정성**(1-wobble) / **유지시간 비율**로 계산 (이전 PRB=0 / rep 1개라 고정값)
+- **품질 점수 임계값 노인 대상 완화** — ROM 80%/60% → 70%/50%, CV 5/15/30% → 10/25/40%
+- **ToeRaise/CalfRaise 점수 부정합 해결** — 고정 motionThr 운동의 ROM ratio 항상 낮은 문제 → ROM 계산용으로만 PRB를 motionThr×2로 cap, 작은 신호(mean<0.1)는 일관성 기본 80점
+- **진급 알림 UX** — 운동 종료 즉시 Toast + 다음 Rest 화면 TTS "축하해요! XX 진급" + 화면 제목 변경 (prefs flag 데이터 흐름)
+- **홈 체크리스트 sublabel + 균형 안내 동적 분기** — 운동별 "1세트/2세트", "양손 지지 10초" 표시 + `createEngine` setLevel 기반 시간 차등(10/10/10/20/30초) + stage별 손 지지 안내 멘트
+- **#2/#4 임계값 완화 + autoEnded 알림** — HipAbduction 상체 기울임 0.08→0.12, CalfRaise inactivity 0.005→0.003 (천천히 들 때 종료 버그 fix) + Toast "동작이 감지되지 않아 다음 단계로" 안내
+- **시연용 DEMO_MODE 토글** — `Progression`/`Balance` 매니저 컴파일 상수로 1회 운동만에 진급 발동. init 블록 logcat ⚠ 경고로 시연 후 복구 누락 방지
+- **빌드 환경 복구** — `gradle/wrapper/gradle-wrapper.jar` GitHub 복구 + Android Studio 번들 JDK 21로 Java 25↔Gradle 8.13 비호환 우회
+
 ### 2026-05-14 (이승종) — 시연 직전 시각화·안내 보강
 - **운동/검사 안내 영상 통합** — `chair_stand_guide.mp4`(의자 일어서기 동작 시연) + 8개 운동 placeholder 영상을 안내 단계에 삽입. 영상 종료 시점에 자막·TTS 동기화하여 어르신에게 동작을 시각으로도 전달
 - **균형검사 1단계 ring 설명 단계 추가** — "자세를 잘 잡으면 원이 시계방향으로 채워집니다" TTS + ring 0→1 부드러운 채움 → "자세가 틀리면 0초부터 다시 시작" TTS + 즉시 0 리셋. 노년층 시각 학습 보조

@@ -6,6 +6,7 @@ import com.fallzero.app.pose.AngleCalculator.LandmarkIndex
 import com.fallzero.app.pose.AngleCalculator.Side
 import com.fallzero.app.pose.SBUCalculator
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import kotlin.math.abs
 
 /**
  * 운동 #4: 발뒤꿈치 들기 (Calf Raise)
@@ -39,6 +40,14 @@ class CalfRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private val ratioBuffer = FloatArray(WINDOW_SIZE)
     private var bufferIdx = 0
     private var bufferFilled = false
+
+    // PDF §8: "몸통 앞뒤 반동" 검출용 — 측면 자세에서 shoulder.x가 baseline 대비 일정량 이상
+    // 변동하면 몸이 앞뒤로 흔들리는 보상 동작. 첫 30프레임만 baseline EMA로 안정화.
+    // 무릎 굽힘 검출은 측면 view 각도 추정 부정확으로 기존 주석대로 의도적 미포함.
+    private var shoulderXBaseline: Float = Float.NaN
+    private var swayBaselineFrameCount = 0
+    private val SWAY_BASELINE_FRAMES = 30      // ~1초 (30fps 기준)
+    private val SWAY_THRESHOLD = 0.10f         // SBU의 10% — 측면 자세에서 자연스러운 미세 흔들림 허용
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val sbu = SBUCalculator.calculate(landmarks)
@@ -76,13 +85,33 @@ class CalfRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         return signal
     }
 
-    /** 무릎 펴기 검사 제거 — MediaPipe 측면 view에서 무릎 각도 추정이 부정확해 false positive 빈발.
-     *  사용자 명시 — heel 들기만 측정하고 충분히 들었는지만 판단. */
-    override fun detectError(landmarks: List<NormalizedLandmark>): String? = null
+    /**
+     * 무릎 펴기 검사는 측면 view 각도 추정 부정확으로 의도적 미포함 (기존 설계 유지).
+     * PDF §8의 "몸통 앞뒤 반동"만 보강 — shoulder.x가 baseline 대비 SBU의 SWAY_THRESHOLD 초과하면 경고.
+     */
+    override fun detectError(landmarks: List<NormalizedLandmark>): String? {
+        val sbu = SBUCalculator.calculate(landmarks)
+        if (sbu <= 0f) return null
+        val side = AngleCalculator.pickVisibleSide(landmarks, LandmarkIndex.LEFT_SHOULDER, LandmarkIndex.RIGHT_SHOULDER)
+            ?: return null
+        val shoulderIdx = if (side == Side.LEFT) LandmarkIndex.LEFT_SHOULDER else LandmarkIndex.RIGHT_SHOULDER
+        val shoulderX = landmarks[shoulderIdx].x()
+
+        if (swayBaselineFrameCount < SWAY_BASELINE_FRAMES) {
+            shoulderXBaseline = if (shoulderXBaseline.isNaN()) shoulderX
+                                else shoulderXBaseline * 0.7f + shoulderX * 0.3f
+            swayBaselineFrameCount++
+            return null
+        }
+        val deviationRatio = abs(shoulderX - shoulderXBaseline) / sbu
+        return if (deviationRatio > SWAY_THRESHOLD) "몸이 흔들리지 않도록 해주세요" else null
+    }
 
     override val metricIncreasing = true
-    // inactivity 임계값 — signal 0~0.10 범위 → 0.005.
-    override val movementThreshold = 0.005f
+    // inactivity 임계값 — signal 0~0.10 범위.
+    // 0.005는 천천히 발뒤꿈치 들 때 frame 간 변화량이 미달해 4초 timeout으로 갑자기 종료되는 버그 원인.
+    // 0.003으로 완화 — 정상 운동 페이스에서 충분히 변화가 감지되도록.
+    override val movementThreshold = 0.003f
     // **고정 임계값** (PRB 기반 X) — calf raise는 사용자별 ROM 차이 적음, 해부학 기반 고정값.
     //   고령층 작은 ROM도 카운트 가능하도록 motionThr=0.030 설정.
     //   PRB outlier로 임계값 폭주하던 문제 해결.
@@ -99,5 +128,7 @@ class CalfRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         for (i in ratioBuffer.indices) ratioBuffer[i] = 0f
         bufferIdx = 0
         bufferFilled = false
+        shoulderXBaseline = Float.NaN
+        swayBaselineFrameCount = 0
     }
 }

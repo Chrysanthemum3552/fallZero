@@ -9,6 +9,7 @@ import android.util.Size
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -259,8 +260,16 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     /** 안내 영상+ring 끝 후 기존 안내 멘트 발화 → 캐리브/본운동 진입. */
     private fun proceedAfterExerciseGuide(exerciseId: Int) {
-        val scriptRes = guidanceScriptRes(exerciseId)
-        ttsManager?.speak(getString(scriptRes).replace("\n", " ")) {
+        // 균형 운동(#8)은 setLevel(stage)에 따라 손 지지 정도와 유지 시간이 다르므로 동적 멘트.
+        val scriptText = if (exerciseId == 8) {
+            val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+            balanceGuidanceText(prefs.getInt("current_set_level", 1))
+        } else {
+            getString(guidanceScriptRes(exerciseId)).replace("\n", " ")
+        }
+        // 화면 안내 텍스트도 함께 표시 (음성 안내 보강)
+        binding.tvGuidanceText.text = scriptText
+        ttsManager?.speak(scriptText) {
             if (_binding == null || hasNavigated) return@speak
             _binding?.guidanceOverlay?.visibility = View.GONE
             _binding?.tvGuidanceCountdown?.visibility = View.GONE
@@ -357,12 +366,36 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             5 -> ToeRaiseEngine(targetCount)
             6 -> KneeBendEngine(targetCount)
             7 -> ChairStandEngine(targetCount, examMode = false)
-            // #8 한 발 서기: 자세는 항상 stage 4 (한 발), setLevel은 손 지지 안내(TTS)에만 영향.
-            // 측정 시간은 10초 고정 (기준치 도달 시 즉시 통과 — 사용자 명시).
+            // #8 한 발 서기: 자세 검출은 stage 4(한 발) 로직 고정. 손 지지 여부는 카메라로 검출 불가 — 사용자 책임.
+            // 유지 시간은 진급 단계(setLevel)에 따라 10/10/10/20/30초로 차등.
             // 좌→우 양측 흐름: BalanceEngine.lockedLiftSide가 첫 frame에서 자동 감지, onSideSwitch에서 flip.
-            8 -> BalanceEngine(targetCount = 1, stage = 4, overrideTargetTimeSec = 10f)
+            8 -> BalanceEngine(
+                targetCount = 1,
+                stage = 4,
+                overrideTargetTimeSec = com.fallzero.app.data.algorithm.BalanceProgressionManager.getTargetTime(setLevel)
+            )
             else -> KneeExtensionEngine(targetCount)
         }
+    }
+
+    /**
+     * 운동 #8 안내 멘트 — setLevel(stage)에 따라 손 지지 정도와 유지 시간 안내.
+     *   stage 1: 양손 지지 10초
+     *   stage 2: 한 손 지지 10초
+     *   stage 3: 손 지지 없이 10초
+     *   stage 4: 손 지지 없이 20초
+     *   stage 5: 손 지지 없이 30초
+     */
+    private fun balanceGuidanceText(setLevel: Int): String {
+        val stage = setLevel.coerceIn(1, 5)
+        val level = com.fallzero.app.data.algorithm.BalanceProgressionManager.getLevel(stage)
+        val support = when (stage) {
+            1 -> "양손으로 의자나 벽을 잡고"
+            2 -> "한 손으로 의자나 벽을 잡고"
+            else -> "손 지지 없이"
+        }
+        return "한 발로 서서 균형 잡기 운동입니다. $support 똑바로 서주세요. " +
+               "한쪽 발을 들어 올려 ${level.targetTimeSec.toInt()}초 동안 균형을 유지하세요."
     }
 
     private fun startCamera() {
@@ -540,8 +573,22 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         }
                         is ExerciseViewModel.ExerciseUiState.Completed -> {
                             if (hasNavigated) return@collect
-                            // 완료 멘트 제거 — 다음 단계의 "고생하셨어요. 15초 쉬었다 가요" 멘트와 겹쳐 묻혀버림.
-                            // 점수 정보는 Records에 저장되므로 UI에서 확인 가능.
+                            // 갑작스러운 inactivity 종료 — 사용자가 왜 끝났는지 알 수 있도록 알림.
+                            // (progression 알림과 동시 발생 가능성 낮음 — record 부족하면 진급 안 됨)
+                            if (state.autoEndedByInactivity) {
+                                Toast.makeText(requireContext(),
+                                    "동작이 감지되지 않아 다음 단계로 넘어갑니다.",
+                                    Toast.LENGTH_LONG).show()
+                            }
+                            // 진급 발생 시 다음 화면에서 안내하도록 prefs flag 저장 + 즉시 Toast 보조.
+                            state.progressionResult?.let { result ->
+                                Toast.makeText(requireContext(), result.message, Toast.LENGTH_LONG).show()
+                                // 다음 화면(Rest/Home)이 onResume 시 안내 멘트 발화하도록 prefs flag.
+                                requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+                                    .edit()
+                                    .putString("pending_progression_msg", result.message)
+                                    .apply()
+                            }
                             navigateNext()
                         }
                     }

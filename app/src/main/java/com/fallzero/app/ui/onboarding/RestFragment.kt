@@ -1,5 +1,6 @@
 package com.fallzero.app.ui.onboarding
 
+import android.content.Context
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.LayoutInflater
@@ -37,14 +38,29 @@ class RestFragment : Fragment() {
         val step = SessionFlow.current()
         val seconds = step.restSeconds.coerceAtLeast(1)
 
-        binding.tvTitle.text = step.title.ifEmpty { "고생하셨어요!" }
-        binding.tvSubtitle.text = step.subtitle.ifEmpty { "잠시 쉬었다 갈까요?" }
+        // 직전 운동에서 진급이 발생했으면 ExerciseFragment가 prefs에 저장. 한 번만 안내하고 flag 클리어.
+        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+        val pendingProgressionMsg = prefs.getString("pending_progression_msg", null)
+        if (pendingProgressionMsg != null) {
+            prefs.edit().remove("pending_progression_msg").apply()
+            binding.tvTitle.text = "축하해요!"
+            binding.tvSubtitle.text = pendingProgressionMsg
+        } else {
+            binding.tvTitle.text = step.title.ifEmpty { "고생하셨어요!" }
+            binding.tvSubtitle.text = step.subtitle.ifEmpty { "잠시 쉬었다 갈까요?" }
+        }
 
         // 다음 단계 미리 표시
         val nextIndex = peekNextLabel()
         binding.tvNext.text = nextIndex
 
-        ttsManager?.speak("고생하셨어요. ${seconds}초만 쉬었다 갈게요.")
+        // 진급 안내는 휴식 멘트보다 앞에 — 한 호흡에 발화.
+        val openingTts = if (pendingProgressionMsg != null) {
+            "$pendingProgressionMsg ${seconds}초만 쉬었다 갈게요."
+        } else {
+            "고생하셨어요. ${seconds}초만 쉬었다 갈게요."
+        }
+        ttsManager?.speak(openingTts)
 
         timer = object : CountDownTimer((seconds * 1000L) + 100L, 1000L) {
             override fun onTick(msLeft: Long) {

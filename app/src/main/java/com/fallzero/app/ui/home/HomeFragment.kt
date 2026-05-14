@@ -11,6 +11,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.fallzero.app.R
 import com.fallzero.app.data.SessionFlow
+import com.fallzero.app.data.algorithm.BalanceProgressionManager
 import com.fallzero.app.databinding.FragmentHomeBinding
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.util.CastHelper
@@ -157,6 +158,7 @@ class HomeFragment : Fragment() {
         val container = binding.checklistContainer
         container.removeAllViews()
         val inflater = LayoutInflater.from(requireContext())
+        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val successColor = resources.getColor(R.color.success, null)
         val warningColor = resources.getColor(R.color.warning, null)
         val primaryText = resources.getColor(R.color.text_primary, null)
@@ -165,14 +167,32 @@ class HomeFragment : Fragment() {
             val row = inflater.inflate(R.layout.item_exercise_check, container, false)
             val icon = row.findViewById<TextView>(R.id.tv_check_icon)
             val name = row.findViewById<TextView>(R.id.tv_check_name)
+            val sublabel = row.findViewById<TextView>(R.id.tv_check_sublabel)
             val status = row.findViewById<TextView>(R.id.tv_check_status)
             val isDone = id in completedIds
             icon.text = if (isDone) "✓" else "○"
             icon.setTextColor(if (isDone) successColor else warningColor)
             name.text = SessionFlow.exerciseName(id)
             name.setTextColor(if (isDone) secondaryText else primaryText)
+            // 진급 상태 표시 — 균형: "양손 지지 10초", 근력: "1세트" / "2세트"
+            sublabel.text = progressionLabelFor(id, prefs)
             status.text = if (isDone) "완료" else ""
             container.addView(row)
+        }
+    }
+
+    /** 운동별 현재 진급 상태 라벨. 균형 운동(#8)은 stage→손지지/시간, 근력은 set_level_ex_<id> 기반. */
+    private fun progressionLabelFor(
+        exerciseId: Int,
+        prefs: android.content.SharedPreferences
+    ): String {
+        return if (exerciseId == 8) {
+            val stage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
+            val level = BalanceProgressionManager.getLevel(stage)
+            "${level.description} ${level.targetTimeSec.toInt()}초"
+        } else {
+            val sets = prefs.getInt("set_level_ex_$exerciseId", 1).coerceIn(1, 2)
+            "${sets}세트"
         }
     }
 

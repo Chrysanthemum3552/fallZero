@@ -24,6 +24,14 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var lastLeftFlexion = 0f
     private var lastRightFlexion = 0f
 
+    // PDF §8 — "무릎 과도 전방 돌출" 보상 동작. 측면 자세에서 (knee.x - ankle.x) 의 baseline
+    // (standing 자세)을 잡고, 굽힘 동작 중 절대 차이가 baseline 대비 SBU의 임계값 초과 시 경고.
+    // 좌우 체중 쏠림/몸통 좌우 기울임은 측면 view에서 직접 측정 불가하므로 미포함.
+    private var kneeAnkleDxBaseline: Float = Float.NaN
+    private var kneeForwardBaselineFrameCount = 0
+    private val KNEE_FORWARD_BASELINE_FRAMES = 30
+    private val KNEE_FORWARD_THRESHOLD = 0.15f
+
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         // 양쪽 다리 모두 계산 후 더 큰 flexion 채택 (Q4 fix).
         // pickVisibleSide는 카메라 쪽 다리만 picking → 사용자가 반대편(visibility 낮은) 다리 굽히면 못 잡음.
@@ -52,12 +60,36 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         return flexion
     }
 
-    /** OVER_BEND_DEG 이상 굽히면 "너무 굽히지 마세요" 경고. 살짝 굽히기 의도에서 deep squat 방지.
-     *  사용자 명시: 50°는 너무 빡빡 → 80°로 완화 (적절한 굽힘 범위 보장).
-     *  최적화: extractMetric 캐시값 재사용 — calculateAngle 2회/frame 절감 */
+    /**
+     * 검출 순서 (PDF §8):
+     *   1) 무릎 과도 굽힘 — maxFlex ≥ OVER_BEND_DEG (기존, 사용자 명시 80°)
+     *   2) 무릎 과도 전방 돌출 — (knee.x - ankle.x) 절댓값이 baseline 대비 SBU 비율 초과 (신규)
+     * 최적화: extractMetric 캐시값 재사용 — calculateAngle 2회/frame 절감.
+     */
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
         val maxFlex = maxOf(lastLeftFlexion, lastRightFlexion)
-        return if (maxFlex >= OVER_BEND_DEG) "무릎을 너무 굽히지 마세요" else null
+        if (maxFlex >= OVER_BEND_DEG) return "무릎을 너무 굽히지 마세요"
+
+        // 무릎 전방 돌출 — calibration 중에는 standing baseline 잡기 불안정 (사용자 굽힘 연습 중).
+        if (isInCalibration) return null
+        val sbu = SBUCalculator.calculate(landmarks)
+        if (sbu <= 0f) return null
+        val side = AngleCalculator.pickVisibleSide(landmarks, LandmarkIndex.LEFT_KNEE, LandmarkIndex.RIGHT_KNEE)
+            ?: return null
+        val kneeIdx = if (side == Side.LEFT) LandmarkIndex.LEFT_KNEE else LandmarkIndex.RIGHT_KNEE
+        val ankleIdx = if (side == Side.LEFT) LandmarkIndex.LEFT_ANKLE else LandmarkIndex.RIGHT_ANKLE
+        val dx = landmarks[kneeIdx].x() - landmarks[ankleIdx].x()
+
+        if (kneeForwardBaselineFrameCount < KNEE_FORWARD_BASELINE_FRAMES) {
+            kneeAnkleDxBaseline = if (kneeAnkleDxBaseline.isNaN()) dx
+                                  else kneeAnkleDxBaseline * 0.7f + dx * 0.3f
+            kneeForwardBaselineFrameCount++
+            return null
+        }
+        // 측면 자세는 카메라 방향에 따라 dx 부호가 달라지므로 절댓값으로 비교.
+        // 굽힘 동작 중 |dx|가 standing baseline의 |dx|보다 SBU의 임계값만큼 더 커지면 무릎이 앞으로 더 나간 것.
+        val forwardShift = (abs(dx) - abs(kneeAnkleDxBaseline)) / sbu
+        return if (forwardShift > KNEE_FORWARD_THRESHOLD) "무릎이 너무 앞으로 나오지 않게 해주세요" else null
     }
 
     private val OVER_BEND_DEG = 80f
@@ -70,4 +102,13 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override fun getMotionThreshold() = if (isInCalibration) 25f
         else maxOf(prb.coerceAtMost(MAX_PRB) * 0.70f, 20f)
     override fun getReturnThreshold() = if (isInCalibration) 10f else 12f
+
+    override fun reset() {
+        super.reset()
+        kneeBendDebugCounter = 0
+        lastLeftFlexion = 0f
+        lastRightFlexion = 0f
+        kneeAnkleDxBaseline = Float.NaN
+        kneeForwardBaselineFrameCount = 0
+    }
 }

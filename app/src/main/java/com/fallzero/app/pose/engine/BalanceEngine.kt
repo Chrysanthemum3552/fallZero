@@ -78,6 +78,13 @@ class BalanceEngine(
     private var consecutiveStableFrames = 0
     private val MIN_STABLE_FRAMES = 3
 
+    // 흔들림 누적 — PDF §9 균형 안정성 게이트용. swayRatio = aScore / threshold의 frame 평균.
+    // 1.0에 가까울수록 임계값에 자주 닿음 = 불안정. 0.5 이하면 매우 안정.
+    private var swayRatioSum: Float = 0f
+    private var swayFrameCount: Int = 0
+    override val balanceWobble: Float
+        get() = if (swayFrameCount > 0) swayRatioSum / swayFrameCount else 0f
+
     private var debugFrameCount = 0
 
     override fun setPRB(prbValue: Float) { /* 균형 훈련은 PRB 미사용 */ }
@@ -259,6 +266,13 @@ class BalanceEngine(
         lastElapsedSec = reportedElapsedSec
         lastPoseValid = poseValid
 
+        // PDF §9 균형 안정성용 흔들림 누적 — 자세가 정상일 때만(=의미 있는 측정 구간) 평균에 반영.
+        // poseValid=false 구간은 자세 자체가 잘못된 것이므로 sway 평균에 노이즈로 들어가지 않게 제외.
+        if (poseValid) {
+            swayRatioSum += lastSwayRatio
+            swayFrameCount++
+        }
+
         return FrameResult(
             count = currentCount,
             isCountIncremented = countIncremented,
@@ -283,6 +297,9 @@ class BalanceEngine(
         lastHoldProgress = 0f
         lastElapsedSec = 0f
         lastPoseValid = true
+        // 흔들림 누적 초기화
+        swayRatioSum = 0f
+        swayFrameCount = 0
         // lockedLiftSide는 reset에서 보존 — onSideSwitch로만 flip (운동 #8의 좌→우 전환)
     }
 

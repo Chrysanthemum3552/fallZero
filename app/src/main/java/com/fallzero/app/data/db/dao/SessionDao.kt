@@ -45,4 +45,17 @@ interface SessionDao {
     /** 최근 N일 간 날짜별 완료 세션 수 (연속일 계산용) */
     @Query("SELECT DISTINCT(startedAt / 86400000) as dayEpoch FROM training_sessions WHERE userId = :userId AND isCompleted = 1 ORDER BY dayEpoch DESC")
     suspend fun getCompletedDayEpochs(userId: Int): List<Long>
+
+    /**
+     * 특정 사용자의 특정 운동 최근 기록. ProgressionManager의 3일 연속 안정 성공 판정용.
+     * limit은 30(=한 달치) 정도로 넉넉히 잡아 DurationRatio baseline까지 함께 산출 가능하게 함.
+     */
+    @Query("""
+        SELECT er.* FROM exercise_records er
+        INNER JOIN training_sessions ts ON er.sessionId = ts.id
+        WHERE ts.userId = :userId AND er.exerciseId = :exerciseId
+        ORDER BY er.performedAt DESC
+        LIMIT :limit
+    """)
+    suspend fun getRecentRecordsByExercise(userId: Int, exerciseId: Int, limit: Int = 30): List<ExerciseRecord>
 }

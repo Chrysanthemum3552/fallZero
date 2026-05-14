@@ -18,5 +18,9 @@ data class ExerciseRecord(
     val romScore: Int = 0,           // ROM 활용도 점수 (0~100)
     val consistencyScore: Int = 0,   // 동작 일관성 점수 (0~100)
     val avgMetricRatio: Float = 0f,  // PRB 대비 평균 동작 크기 비율
+    // ─── 개선 진급 알고리즘용 추가 필드 (PDF §5, §6, §9) ───
+    val durationMs: Long = 0L,         // 운동 시작 ~ 목표 수행 완료까지의 총 시간 (ms)
+    val speedLossRate: Float = 0f,     // 후반 3rep vs 초반 3rep RepSpeed 중앙값 기반 저하율 (0~1)
+    val balanceWobble: Float = 0f,     // 균형 운동 sway/threshold 평균 비율 (운동 #8 전용, 0~1+)
     val performedAt: Long = System.currentTimeMillis()
 )

@@ -22,7 +22,7 @@ import com.fallzero.app.data.db.entity.User
         ExerciseRecord::class,
         PRBValue::class
     ],
-    version = 2,  // v2: ExamResult.oneLegTimeSec 추가
+    version = 3,  // v3: ExerciseRecord에 durationMs/speedLossRate/balanceWobble 추가 (개선 진급 알고리즘용)
     exportSchema = false
 )
 abstract class FallZeroDatabase : RoomDatabase() {

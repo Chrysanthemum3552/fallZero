@@ -36,6 +36,14 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var maxAnkleYRight = -Float.MAX_VALUE
     private var minAnkleYRight = Float.MAX_VALUE
 
+    // PDF §8 — "허벅지 앞으로 들림" 보상 동작 검출용 baseline.
+    // 측면 자세 standing pose에서 knee.y가 기준선. 굽힘 동작 중 knee가 baseline 대비 위로
+    // 올라가면(=thigh가 들리면) 보상. calibration 중에는 baseline 안 잡음 (굽힘 연습으로 노이즈).
+    private var kneeYBaseline: Float = Float.NaN
+    private var kneeYBaselineFrameCount = 0
+    private val KNEE_BASELINE_FRAMES = 30          // ~1초
+    private val THIGH_LIFT_THRESHOLD = 0.05f       // SBU의 5%
+
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         // 양쪽 다리 모두 계산 — 어느 쪽이든 굽혀지면 감지 (좌우 구별 X)
         val (lHip, lKnee, lAnkle) = getHipKneeAnkle(landmarks, Side.LEFT)
@@ -76,14 +84,37 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         return flexion
     }
 
-    /** 골반 검사만 유지 — 좌우 구별 논리 제거 (사용자 명시) */
+    /**
+     * 검출 순서:
+     *   1) 골반 좌우 흔들림 (기존)
+     *   2) 허벅지 앞으로 들림 — knee.y가 baseline 대비 위로 올라감 (PDF §8 신규)
+     * 좌우 구별 논리는 사용자 명시로 제거.
+     */
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
         val sbu = SBUCalculator.calculate(landmarks)
         if (sbu <= 0f) return null
+
+        // 1) 골반 좌우 흔들림 (기존)
         val hipShift = abs(
             landmarks[LandmarkIndex.LEFT_HIP].y() - landmarks[LandmarkIndex.RIGHT_HIP].y()
         ) / sbu
-        return if (hipShift >= 0.08f) "골반이 흔들리지 않도록 해주세요" else null
+        if (hipShift >= 0.08f) return "골반이 흔들리지 않도록 해주세요"
+
+        // 2) 허벅지 들림 — calibration 중에는 baseline 신뢰 불가하므로 패스.
+        if (isInCalibration) return null
+        val side = AngleCalculator.pickVisibleSide(landmarks, LandmarkIndex.LEFT_KNEE, LandmarkIndex.RIGHT_KNEE)
+            ?: return null
+        val kneeIdx = if (side == Side.LEFT) LandmarkIndex.LEFT_KNEE else LandmarkIndex.RIGHT_KNEE
+        val kneeY = landmarks[kneeIdx].y()
+
+        if (kneeYBaselineFrameCount < KNEE_BASELINE_FRAMES) {
+            kneeYBaseline = if (kneeYBaseline.isNaN()) kneeY else kneeYBaseline * 0.7f + kneeY * 0.3f
+            kneeYBaselineFrameCount++
+            return null
+        }
+        // image y는 위로 갈수록 작아짐 → baseline - 현재 > 0 = 무릎이 위로 들림.
+        val liftRatio = (kneeYBaseline - kneeY) / sbu
+        return if (liftRatio > THIGH_LIFT_THRESHOLD) "허벅지를 들지 마세요" else null
     }
 
     override val metricIncreasing = true
@@ -98,5 +129,7 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         maxFlexionRight = 0f
         maxAnkleYLeft = -Float.MAX_VALUE; minAnkleYLeft = Float.MAX_VALUE
         maxAnkleYRight = -Float.MAX_VALUE; minAnkleYRight = Float.MAX_VALUE
+        kneeYBaseline = Float.NaN
+        kneeYBaselineFrameCount = 0
     }
 }

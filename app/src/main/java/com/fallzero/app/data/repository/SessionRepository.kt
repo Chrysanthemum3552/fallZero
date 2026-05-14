@@ -32,4 +32,8 @@ class SessionRepository(private val sessionDao: SessionDao) {
 
     suspend fun getRecentCompletedSessions(userId: Int, limit: Int = 7): List<TrainingSession> =
         sessionDao.getRecentCompletedSessions(userId, limit)
+
+    /** ProgressionManager 진급 판정용 — 운동별 최근 기록 */
+    suspend fun getRecentRecordsByExercise(userId: Int, exerciseId: Int, limit: Int = 30): List<ExerciseRecord> =
+        sessionDao.getRecentRecordsByExercise(userId, exerciseId, limit)
 }

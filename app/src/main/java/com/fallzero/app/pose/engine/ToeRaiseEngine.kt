@@ -6,6 +6,7 @@ import com.fallzero.app.pose.AngleCalculator.LandmarkIndex
 import com.fallzero.app.pose.AngleCalculator.Side
 import com.fallzero.app.pose.SBUCalculator
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
@@ -40,6 +41,13 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private val ratioBuffer = FloatArray(WINDOW_SIZE)
     private var bufferIdx = 0
     private var bufferFilled = false
+
+    // PDF §8 — "몸통 반동" 보상 동작 검출용. 측면 자세에서 shoulder.x가 baseline 대비 큰 변동.
+    // calibration 중에는 baseline 안 잡음 (발끝 들기 연습으로 약간의 흔들림 발생 가능).
+    private var shoulderXBaseline: Float = Float.NaN
+    private var swayBaselineFrameCount = 0
+    private val SWAY_BASELINE_FRAMES = 30
+    private val SWAY_THRESHOLD = 0.10f
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val sbu = SBUCalculator.calculate(landmarks)
@@ -95,13 +103,34 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         return signal
     }
 
+    /**
+     * 검출 순서 (PDF §8):
+     *   1) 무릎 과도 굽힘 — kneeFlexion > 15° (기존)
+     *   2) 몸통 반동 — shoulder.x가 baseline 대비 SBU의 SWAY_THRESHOLD 초과 (신규)
+     */
     override fun detectError(landmarks: List<NormalizedLandmark>): String? {
         val side = AngleCalculator.pickVisibleSide(landmarks, LandmarkIndex.LEFT_KNEE, LandmarkIndex.RIGHT_KNEE)
             ?: return null
         val (hip, knee, ankle) = getHipKneeAnkle(landmarks, side)
         val kneeAngle = AngleCalculator.calculateAngle(hip, knee, ankle)
         val kneeFlexion = (180f - kneeAngle).coerceAtLeast(0f)
-        return if (kneeFlexion > 15f) "무릎을 펴주세요" else null
+        if (kneeFlexion > 15f) return "무릎을 펴주세요"
+
+        // 몸통 반동 — calibration 중에는 baseline 신뢰 불가.
+        if (isInCalibration) return null
+        val sbu = SBUCalculator.calculate(landmarks)
+        if (sbu <= 0f) return null
+        val shoulderIdx = if (side == Side.LEFT) LandmarkIndex.LEFT_SHOULDER else LandmarkIndex.RIGHT_SHOULDER
+        val shoulderX = landmarks[shoulderIdx].x()
+
+        if (swayBaselineFrameCount < SWAY_BASELINE_FRAMES) {
+            shoulderXBaseline = if (shoulderXBaseline.isNaN()) shoulderX
+                                else shoulderXBaseline * 0.7f + shoulderX * 0.3f
+            swayBaselineFrameCount++
+            return null
+        }
+        val deviationRatio = abs(shoulderX - shoulderXBaseline) / sbu
+        return if (deviationRatio > SWAY_THRESHOLD) "몸이 흔들리지 않도록 해주세요" else null
     }
 
     override val metricIncreasing = true
@@ -127,5 +156,7 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         for (i in ratioBuffer.indices) ratioBuffer[i] = 0f
         bufferIdx = 0
         bufferFilled = false
+        shoulderXBaseline = Float.NaN
+        swayBaselineFrameCount = 0
     }
 }

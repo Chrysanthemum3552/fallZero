@@ -110,12 +110,28 @@ class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
         val sbu = SBUCalculator.calculate(landmarks)
         if (sbu <= 0f) return null
+
+        // PDF §8 — 골반 기울임 (좌우 hip.y 비대칭)
         val leftHipY = landmarks[LandmarkIndex.LEFT_HIP].y()
         val rightHipY = landmarks[LandmarkIndex.RIGHT_HIP].y()
         val pelvisTiltRatio = abs(leftHipY - rightHipY) / sbu
         val pelvisTiltDeg = Math.toDegrees(kotlin.math.atan2(pelvisTiltRatio.toDouble(), 1.0)).toFloat()
-        return if (pelvisTiltDeg >= 10f) "골반이 기울지 않게 해주세요." else null
+        if (pelvisTiltDeg >= 10f) return "골반이 기울지 않게 해주세요."
+
+        // PDF §8 — "몸통 반대쪽 기울임" 보상 동작. 정면 자세에서 어깨 midpoint와 골반 midpoint는
+        // 해부학적으로 거의 같은 vertical axis 위에 있어야 함. SBU 대비 좌우 편차가 임계값 초과 시 경고.
+        // (baseline 없이 절대 임계값 사용 — 정면 자세 가정.)
+        val shoulderMidX = (landmarks[LandmarkIndex.LEFT_SHOULDER].x() +
+                            landmarks[LandmarkIndex.RIGHT_SHOULDER].x()) / 2f
+        val hipMidX = (landmarks[LandmarkIndex.LEFT_HIP].x() +
+                       landmarks[LandmarkIndex.RIGHT_HIP].x()) / 2f
+        val torsoTiltRatio = abs(shoulderMidX - hipMidX) / sbu
+        return if (torsoTiltRatio > TORSO_TILT_THRESHOLD) "상체가 기울지 않도록 해주세요." else null
     }
+
+    /** 상체 기울임 임계값 — 어깨/골반 midpoint x 차이 ÷ SBU. 0.12 = SBU의 12%.
+     *  너무 빡빡하면 정상 자세에서도 false positive — 노인 대상 균형 마진 고려해 완화. */
+    private val TORSO_TILT_THRESHOLD = 0.12f
 
     override val metricIncreasing = true
     // 외전 각도: 직립 시 ~5°, 옆으로 들면 ~25~40°.
