@@ -23,6 +23,8 @@ CLAUDE.md
 화면설계서/
 
 # 내부 명세서 (로컬 전용 — 절대 변경 금지 흐름 기록)
-docs/
-asset/
-report/
+# leading slash로 top-level만 매칭. 안 그러면 source 패키지의 동명 폴더까지 ignore됨
+# (예: app/.../ui/report/, app/.../ui/docs/ 등)
+/docs/
+/asset/
+/report/
