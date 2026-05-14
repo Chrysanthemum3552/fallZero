@@ -299,9 +299,9 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         4 -> R.raw.calf_raise_guide
         5 -> R.raw.toe_raise_guide
         6 -> R.raw.knee_bend_guide
-        7 -> R.raw.chair_stand_guide
-        8 -> R.raw.balance_guide
-        else -> R.raw.balance_guide
+        7 -> R.raw.chair_stand_guide_subtitled
+        8 -> R.raw.balance_guide_1
+        else -> R.raw.balance_guide_1
     }
 
     /**

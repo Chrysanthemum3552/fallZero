@@ -198,7 +198,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.tvChairSubtitle.visibility = View.GONE  // 자막은 영상에 포함됨
         b.videoChairGuidance.setZOrderOnTop(true)
         b.videoChairGuidance.visibility = View.VISIBLE
-        val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_guide}")
+        val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_guide_subtitled}")
         b.videoChairGuidance.setOnPreparedListener { mp ->
             mp.isLooping = false; mp.setVolume(0f, 0f)
             adjustVideoToAspectRatio(mp.videoWidth, mp.videoHeight)
@@ -534,7 +534,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun startChairGuideVideo() {
         val b = _binding ?: return
-        val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_guide}")
+        val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_guide_subtitled}")
         b.videoChairGuide.setZOrderOnTop(true)
         b.videoChairGuide.setOnPreparedListener { mp -> mp.isLooping=true; mp.setVolume(0f,0f); mp.start() }
         b.videoChairGuide.setOnErrorListener { _,what,extra -> Log.e(TAG,"video error: what=$what extra=$extra"); true }
