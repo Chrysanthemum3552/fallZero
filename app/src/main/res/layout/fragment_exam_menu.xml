@@ -66,6 +66,8 @@
                 android:text="전체 검사 (균형 + 의자 일어서기)"
                 android:textSize="22sp"
                 android:textStyle="bold"
+                android:textColor="@color/on_primary"
+                app:backgroundTint="@color/primary"
                 android:layout_marginBottom="20dp"
                 app:cornerRadius="14dp" />
 
@@ -89,6 +91,8 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:textColor="@color/text_primary"
+                app:strokeColor="@color/primary"
                 android:text="균형 1단계 · 두 발 나란히"
                 android:textSize="19sp"
                 android:layout_marginBottom="10dp" />
@@ -98,6 +102,8 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:textColor="@color/text_primary"
+                app:strokeColor="@color/primary"
                 android:text="균형 2단계 · 반일렬"
                 android:textSize="19sp"
                 android:layout_marginBottom="10dp" />
@@ -107,6 +113,8 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:textColor="@color/text_primary"
+                app:strokeColor="@color/primary"
                 android:text="균형 3단계 · 일렬"
                 android:textSize="19sp"
                 android:layout_marginBottom="10dp" />
@@ -116,6 +124,8 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:textColor="@color/text_primary"
+                app:strokeColor="@color/primary"
                 android:text="균형 4단계 · 한 발 서기"
                 android:textSize="19sp"
                 android:layout_marginBottom="10dp" />
@@ -125,6 +135,8 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:textColor="@color/text_primary"
+                app:strokeColor="@color/primary"
                 android:text="의자 일어서기 (30초)"
                 android:textSize="19sp"
                 android:layout_marginBottom="16dp" />

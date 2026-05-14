@@ -108,6 +108,65 @@ object SessionFlow {
         steps = list
     }
 
+    /**
+     * "운동 도중 중단 → 미완료 운동부터 이어서" 진입용 부분 세션 빌드.
+     *  주어진 exerciseIds(EXERCISE_DISPLAY_ORDER 기반 순서로 정렬되어 들어옴)만 큐에 담아 자동 진행.
+     *  자세 그룹(정면-서서 / 정면-앉기 / 측면-서서 / 측면-앉기) 경계가 남아 있을 때만 회전·의자 재배치 단계를 삽입.
+     *  단 1개만 남아 있는 경우는 startSingleExercise와 동일한 결과가 되도록 분기.
+     */
+    fun startExerciseSessionFrom(exerciseIds: List<Int>) {
+        if (exerciseIds.isEmpty()) return
+        if (exerciseIds.size == 1) {
+            startSingleExercise(exerciseIds.first())
+            // 단일 운동은 isFullExerciseSession=false로 두는 게 의미상 맞음 (startSingleExercise 처리)
+            return
+        }
+        sessionType = SessionType.EXERCISE
+        isFullExerciseSession = true  // 마지막 운동 완료 시 "오늘 운동 완료" 메시지 호환 동작.
+        index = 0
+
+        val remaining = exerciseIds.toSet()
+        val frontStanding = listOf(2, 8).filter { it in remaining }
+        val frontSitting = listOf(7).filter { it in remaining }
+        val sideStanding = listOf(4, 5, 6, 3).filter { it in remaining }
+        val sideSitting = listOf(1).filter { it in remaining }
+
+        val list = mutableListOf<Step>()
+        list += Step(StepType.PRE_FLIGHT, title = "운동 준비",
+            subtitle = "핸드폰을 수직으로 세우고 전신이 보이도록 서주세요.")
+
+        frontStanding.forEachIndexed { i, id ->
+            list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
+            if (i < frontStanding.size - 1) list += restStep()
+        }
+        if (frontStanding.isNotEmpty() && frontSitting.isNotEmpty()) {
+            list += restStep()
+        }
+        frontSitting.forEachIndexed { i, id ->
+            list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
+            if (i < frontSitting.size - 1) list += restStep()
+        }
+        if ((frontStanding.isNotEmpty() || frontSitting.isNotEmpty()) &&
+            (sideStanding.isNotEmpty() || sideSitting.isNotEmpty())) {
+            list += Step(StepType.SIDE_ROTATION, title = "옆으로 돌아주세요",
+                subtitle = "이제 측면 운동입니다. 카메라가 옆모습을 볼 수 있게 옆으로 90도 돌아주세요.")
+        }
+        sideStanding.forEachIndexed { i, id ->
+            list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
+            if (i < sideStanding.size - 1) list += restStep()
+        }
+        if (sideSitting.isNotEmpty()) {
+            list += Step(StepType.CHAIR_REPOSITION, title = "의자에 앉아주세요",
+                subtitle = "이번엔 옆모습으로 의자에 앉으셔야 합니다. 카메라 옆에 의자를 두고 앉아주세요.")
+        }
+        sideSitting.forEachIndexed { i, id ->
+            list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
+            if (i < sideSitting.size - 1) list += restStep()
+        }
+        list += Step(StepType.DONE)
+        steps = list
+    }
+
     private fun restStep() = Step(StepType.REST, restSeconds = REST_SECONDS,
         title = "잠시 쉬어가요", subtitle = "${REST_SECONDS}초 후 다음 운동이 시작됩니다.")
 
@@ -135,6 +194,11 @@ object SessionFlow {
 
     /** 정면 촬영 운동 ID (회전 불필요). #7은 검사세션과 동일하게 정면 어깨 기준 측정. */
     val FRONT_EXERCISES = setOf(2, 7, 8)
+
+    /** 단일 source of truth — 전체 루틴의 운동 순서.
+     *  startExerciseSession()의 실제 큐 빌드 순서와 동일해야 함.
+     *  홈 체크리스트·운동 가이드 리스트도 이 순서를 그대로 사용. */
+    val EXERCISE_DISPLAY_ORDER = listOf(2, 8, 7, 4, 5, 6, 3, 1)
 
     /** 디버그: 균형 검사 건너뛰고 의자 일어서기만 */
     fun startExamChairStandOnly() {

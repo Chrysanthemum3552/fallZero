@@ -10,6 +10,7 @@
     android:layout_marginBottom="6dp"
     app:cardCornerRadius="12dp"
     app:cardElevation="2dp"
+    app:cardBackgroundColor="@color/surface"
     app:strokeWidth="0dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -26,7 +27,7 @@
             android:hyphenationFrequency="none"
             android:textSize="16sp"
             android:textStyle="bold"
-            android:textColor="@android:color/white"
+            android:textColor="@color/on_primary"
             android:background="@drawable/bg_circle_primary"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintStart_toStartOf="parent" />

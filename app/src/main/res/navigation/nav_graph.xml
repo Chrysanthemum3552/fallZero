@@ -249,48 +249,12 @@
         android:label="운동"
         tools:layout="@layout/fragment_exercise" />
 
-    <!-- ───────── 보고서 (3페이지) ───────── -->
+    <!-- ───────── 운동 기록 ───────── -->
     <fragment
         android:id="@+id/reportFragment"
         android:name="com.fallzero.app.ui.report.ReportFragment"
-        android:label="보고서 1"
-        tools:layout="@layout/fragment_report">
-        <action
-            android:id="@+id/action_report_to_page2"
-            app:destination="@id/reportPage2Fragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/reportPage2Fragment"
-        android:name="com.fallzero.app.ui.report.ReportPage2Fragment"
-        android:label="보고서 2"
-        tools:layout="@layout/fragment_report_page2">
-        <action
-            android:id="@+id/action_report2_to_page1"
-            app:destination="@id/reportFragment"
-            app:popUpTo="@id/reportFragment"
-            app:popUpToInclusive="true" />
-        <action
-            android:id="@+id/action_report2_to_page3"
-            app:destination="@id/reportPage3Fragment" />
-    </fragment>
-
-    <fragment
-        android:id="@+id/reportPage3Fragment"
-        android:name="com.fallzero.app.ui.report.ReportPage3Fragment"
-        android:label="보고서 3"
-        tools:layout="@layout/fragment_report_page3">
-        <action
-            android:id="@+id/action_report3_to_page2"
-            app:destination="@id/reportPage2Fragment"
-            app:popUpTo="@id/reportPage2Fragment"
-            app:popUpToInclusive="true" />
-        <action
-            android:id="@+id/action_report3_to_home"
-            app:destination="@id/homeFragment"
-            app:popUpTo="@id/homeFragment"
-            app:popUpToInclusive="true" />
-    </fragment>
+        android:label="운동 기록"
+        tools:layout="@layout/fragment_report" />
 
     <!-- ───────── 설정 ───────── -->
     <fragment

@@ -129,9 +129,9 @@ class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         return if (torsoTiltRatio > TORSO_TILT_THRESHOLD) "상체가 기울지 않도록 해주세요." else null
     }
 
-    /** 상체 기울임 임계값 — 어깨/골반 midpoint x 차이 ÷ SBU. 0.12 = SBU의 12%.
-     *  너무 빡빡하면 정상 자세에서도 false positive — 노인 대상 균형 마진 고려해 완화. */
-    private val TORSO_TILT_THRESHOLD = 0.12f
+    /** 상체 기울임 임계값 — 어깨/골반 midpoint x 차이 ÷ SBU. 0.20 = SBU의 20%.
+     *  외전 시 자연스러운 상체 보상 동작도 허용하도록 0.12 → 0.20으로 완화 (노인 대상). */
+    private val TORSO_TILT_THRESHOLD = 0.20f
 
     override val metricIncreasing = true
     // 외전 각도: 직립 시 ~5°, 옆으로 들면 ~25~40°.

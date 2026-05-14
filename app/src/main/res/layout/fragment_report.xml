@@ -12,6 +12,17 @@
         android:orientation="vertical"
         android:padding="20dp">
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_back"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="52dp"
+            android:text="← 뒤로"
+            android:textSize="22sp"
+            android:textColor="@color/text_primary"
+            android:layout_marginStart="-8dp"
+            android:layout_marginTop="8dp" />
+
         <TextView
             android:id="@+id/tv_title"
             android:layout_width="match_parent"
@@ -22,7 +33,7 @@
             android:textSize="22sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="8dp"
             android:layout_marginBottom="16dp" />
 
         <!-- 검사 결과 카드 -->
@@ -97,12 +108,161 @@
                     android:breakStrategy="simple"
                     android:hyphenationFrequency="none"
                     android:textSize="13sp"
-                    android:textColor="@color/text_secondary"
-                    android:background="#F0F4FF"
+                    android:textColor="@color/text_primary"
+                    android:background="#332D2D2D"
                     android:padding="12dp" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <!-- 현재 진급 단계 카드 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="현재 진급 단계"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/tv_balance_progression"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
+                    android:textSize="16sp"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:id="@+id/tv_strength_progression"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:lineSpacingMultiplier="1.4" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 꾸준한 운동 카드 (Page 2 통합) -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="2dp"
+            app:cardBackgroundColor="@color/surface">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingLeft="20dp"
+                android:paddingRight="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📅 꾸준한 운동"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/tv_weekly_adherence"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary"
+                    android:gravity="center"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="10dp"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_total_sessions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:layout_marginBottom="12dp" />
+
+                <TextView
+                    android:id="@+id/tv_recent_sessions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:breakStrategy="simple"
+                    android:hyphenationFrequency="none"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:lineSpacingMultiplier="1.5" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 운동별 능력 — 8개 운동 각각 카드로 (6지표 시각화) -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="💪 운동별 능력 (최근 5회 평균)"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="달성도·자세·ROM·일관성·속도·시간 — 6개 지표"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
+            android:textSize="13sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginBottom="10dp" />
+
+        <LinearLayout
+            android:id="@+id/layout_ability_cards"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginBottom="8dp" />
 
         <!-- 운동 품질 점수 꺾은선 그래프 카드 -->
         <com.google.android.material.card.MaterialCardView
@@ -141,73 +301,15 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- 최근 세션 운동 결과 -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            app:cardCornerRadius="16dp"
-            app:cardElevation="2dp"
-            app:cardBackgroundColor="@color/surface">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:paddingLeft="20dp"
-                android:paddingRight="20dp"
-                android:paddingTop="20dp"
-                android:paddingBottom="20dp">
-
-                <TextView
-                    android:id="@+id/tv_session_title"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="최근 운동 세션"
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:layout_marginBottom="6dp" />
-
-                <TextView
-                    android:id="@+id/tv_session_avg"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/primary"
-                    android:layout_marginBottom="4dp" />
-
-                <TextView
-                    android:id="@+id/tv_session_compare"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
-                    android:textSize="13sp"
-                    android:textColor="@color/success"
-                    android:layout_marginBottom="16dp" />
-
-                <LinearLayout
-                    android:id="@+id/layout_exercise_cards"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical" />
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- 다음 페이지 버튼 -->
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_next_page"
+            android:id="@+id/btn_share_guardian_report"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="@string/report_btn_next"
+            android:text="보호자에게 공유하기"
             android:textSize="16sp"
+            android:textColor="@color/text_primary"
+            app:strokeColor="@color/primary"
             android:layout_marginBottom="32dp"
             app:cornerRadius="12dp" />
 

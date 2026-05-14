@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
+import androidx.navigation.fragment.findNavController
 import androidx.work.WorkManager
 import com.fallzero.app.R
 import com.fallzero.app.data.db.FallZeroDatabase
@@ -34,6 +35,10 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        binding.btnBack.setOnClickListener {
+            findNavController().navigateUp()
+        }
 
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getInt("user_id", 0)

@@ -3,20 +3,24 @@ package com.fallzero.app.data.algorithm
 import kotlin.math.sqrt
 
 /**
- * 다차원 운동 품질 점수 계산기
+ * 다차원 운동 품질 점수 계산기 — 진급 6게이트와 1:1 통합된 6차원.
  *
- * 4개 차원으로 운동 품질을 평가합니다:
- * 1. 달성도 (Completion)  — 목표 횟수 대비 실제 수행 비율
- * 2. 자세 정확도 (Form)   — 보상 동작(오류) 없이 수행한 비율
- * 3. ROM 활용도 (ROM)     — PRB 대비 실제 동작 크기 (얼마나 충분히 움직였는지)
- * 4. 동작 일관성 (Consistency) — 반복 간 동작 크기의 균일도 (CV 기반)
+ * 6개 차원으로 운동 품질을 평가합니다:
+ * 1. 달성도 (Completion)        — 목표 횟수 대비 실제 수행 비율               20%
+ * 2. 자세 정확도 (Form)          — 보상 동작(오류) 없이 수행한 비율           25%
+ * 3. ROM 활용도 (ROM)           — PRB 대비 실제 동작 크기                  20%
+ * 4. 동작 일관성 (Consistency)    — 반복 간 동작 크기의 균일도 (CV 기반)         15%
+ * 5. 속도 유지력 (SpeedKeep)      — 후반부 속도 저하 없음 (PDF §5)             10%
+ * 6. 시간 효율 (TimeEff)         — 평소 수행 시간 대비 빠르게 완수 (PDF §6)       10%
  *
- * 총합 점수 = 달성도×25% + 자세정확도×30% + ROM활용도×25% + 일관성×20%
+ * 진급 판정과 동일한 6지표를 사용. 진급은 각 지표 점수 ≥ 임계값.
  *
  * 학술 근거:
- * - ROM 활용도: 충분한 가동범위 사용이 근력 향상에 필수 (Schoenfeld & Grgic, JSCR, 2020)
- * - 동작 일관성: 낮은 CV는 운동 제어 능력을 반영 (Stergiou & Decker, JOSPT, 2011)
- * - 보상 동작: 잘못된 자세는 운동 효과를 감소시킴 (Sahrmann, 2002)
+ * - ROM: Schoenfeld & Grgic, JSCR 2020
+ * - Consistency CV: Stergiou & Decker, JOSPT 2011
+ * - Form (보상 동작): Sahrmann 2002
+ * - Speed loss / RIR-velocity: NSCA 2-for-2 원칙 + Velocity-monitored RT (older adults)
+ * - Duration ratio: PDF §6 (겨우 성공 판별)
  */
 object QualityScorer {
 
@@ -24,8 +28,10 @@ object QualityScorer {
         val totalScore: Int,         // 0~100 총합
         val completionScore: Int,    // 0~100 달성도
         val formScore: Int,          // 0~100 자세 정확도
-        val romScore: Int,           // 0~100 ROM 활용도
-        val consistencyScore: Int,   // 0~100 일관성
+        val romScore: Int,           // 0~100 ROM 활용도 (균형 운동은 안정성)
+        val consistencyScore: Int,   // 0~100 일관성    (균형 운동은 유지시간)
+        val speedScore: Int,         // 0~100 속도 유지력 (1 - speedLossRate) 기반
+        val timeScore: Int,          // 0~100 시간 효율  (1 / durationRatio) 기반
         val avgMetricRatio: Float    // PRB 대비 평균 동작 비율
     )
 
@@ -44,6 +50,11 @@ object QualityScorer {
      * 균형 운동(#8)은 정지 자세 유지라 ROM/일관성 개념이 의미 없으므로 같은 슬롯을
      * 안정성/유지시간으로 재해석. 컬럼 스키마는 유지하되 의미가 운동별로 달라짐.
      */
+    /**
+     * @param speedLossRate PDF §5 — 후반부 속도 저하율(0~1+). 데이터 부족 시 0f 권장.
+     * @param durationMs    이번 운동 실제 수행 시간(ms). 0이면 시간 점수 기본 100.
+     * @param baselineDurationMs 평소 평균 수행 시간(ms). null 또는 0이면 시간 점수 기본 100.
+     */
     fun calculate(
         achievedCount: Int,
         targetCount: Int,
@@ -53,7 +64,10 @@ object QualityScorer {
         metricIsDecreasing: Boolean = false,
         balanceWobble: Float? = null,
         bestHoldSec: Float? = null,
-        targetHoldSec: Float? = null
+        targetHoldSec: Float? = null,
+        speedLossRate: Float = 0f,
+        durationMs: Long = 0L,
+        baselineDurationMs: Float? = null
     ): QualityBreakdown {
         val completion = calcCompletion(achievedCount, targetCount)
         val form = calcForm(achievedCount, errorCount)
@@ -62,9 +76,12 @@ object QualityScorer {
         val consistency = if (bestHoldSec != null && targetHoldSec != null && targetHoldSec > 0f)
                   calcHoldDuration(bestHoldSec, targetHoldSec)
                   else calcConsistency(repMetrics)
+        val speed = calcSpeedMaintenance(speedLossRate)
+        val time = calcTimeEfficiency(durationMs, baselineDurationMs)
 
-        // 가중합: 달성도 25% + 자세 30% + ROM(or 안정성) 25% + 일관성(or 유지시간) 20%
-        val total = (completion * 0.25f + form * 0.30f + rom * 0.25f + consistency * 0.20f)
+        // 가중합: 달성도 20% + 자세 25% + ROM(or 안정성) 20% + 일관성(or 유지시간) 15% + 속도 10% + 시간 10%
+        val total = (completion * 0.20f + form * 0.25f + rom * 0.20f +
+                     consistency * 0.15f + speed * 0.10f + time * 0.10f)
             .toInt().coerceIn(0, 100)
 
         // avgMetricRatio: 일반 운동은 PRB 대비 평균 동작. 균형 운동은 유지시간 비율을 대신 저장.
@@ -78,7 +95,34 @@ object QualityScorer {
             else -> 0f
         }
 
-        return QualityBreakdown(total, completion, form, rom, consistency, avgRatio)
+        return QualityBreakdown(total, completion, form, rom, consistency, speed, time, avgRatio)
+    }
+
+    /**
+     * 속도 유지력 점수 (PDF §5) — 후반부 속도 저하율(0~1+)에서 변환.
+     *   score = (1 - speedLossRate) × 100, 0~100 clamp
+     *   loss 0%  → 100점
+     *   loss 20% → 80점  ← 진급 게이트 임계값과 일치
+     *   loss 50% → 50점
+     *   loss 100%+ → 0점
+     */
+    private fun calcSpeedMaintenance(speedLossRate: Float): Int {
+        return ((1f - speedLossRate) * 100f).toInt().coerceIn(0, 100)
+    }
+
+    /**
+     * 시간 효율 점수 (PDF §6) — 평소 평균 수행 시간 대비 비율에서 변환.
+     *   ratio = durationMs / baselineDurationMs
+     *   ratio ≤ 1.0  → 100점 (평소만큼 또는 더 빠름)
+     *   ratio = 1.25 → 80점  ← 진급 게이트 임계값과 일치
+     *   ratio = 2.25 → 0점
+     * 데이터 부족(baseline 없거나 durationMs=0) → 100점 (관대).
+     */
+    private fun calcTimeEfficiency(durationMs: Long, baselineMs: Float?): Int {
+        if (baselineMs == null || baselineMs <= 0f || durationMs <= 0L) return 100
+        val ratio = durationMs.toFloat() / baselineMs
+        if (ratio <= 1.0f) return 100
+        return (100f - (ratio - 1.0f) * 80f).toInt().coerceIn(0, 100)
     }
 
     /**

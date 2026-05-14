@@ -47,7 +47,7 @@ class CalfRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var shoulderXBaseline: Float = Float.NaN
     private var swayBaselineFrameCount = 0
     private val SWAY_BASELINE_FRAMES = 30      // ~1초 (30fps 기준)
-    private val SWAY_THRESHOLD = 0.10f         // SBU의 10% — 측면 자세에서 자연스러운 미세 흔들림 허용
+    private val SWAY_THRESHOLD = 0.18f         // SBU의 18% — 발뒤꿈치 들 때 자연스러운 상체 보상 동작 허용 (노인 대상 완화)
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val sbu = SBUCalculator.calculate(landmarks)

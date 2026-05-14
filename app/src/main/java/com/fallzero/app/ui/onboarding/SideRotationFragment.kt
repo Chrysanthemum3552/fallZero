@@ -86,10 +86,18 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
             "카메라가 옆모습을 볼 수 있게 옆으로 90도 돌아주세요"
         }
 
+        // 직전 운동의 진급 알림이 있으면 회전 안내 앞에 합쳐 발화하고 flag 클리어.
+        // 이 단계를 거치지 않으면 메시지가 다음 REST(다른 운동 후)까지 살아 잘못된 운동에 귀속됨.
+        val pendingMsg = prefs.getString("pending_progression_msg", null)
+        if (pendingMsg != null) {
+            prefs.edit().remove("pending_progression_msg").apply()
+        }
+
         // SessionFlow의 subtitle을 TTS로 읽기 (검사 시 의자 안내 포함)
-        val ttsText = step.subtitle.replace("\n", " ").ifEmpty {
+        val rotateTts = step.subtitle.replace("\n", " ").ifEmpty {
             "이제 측면 운동입니다. 옆으로 90도 돌아주세요."
         }
+        val ttsText = if (pendingMsg != null) "$pendingMsg $rotateTts" else rotateTts
         ttsManager?.speak(ttsText)
 
         // 사용자 이전 설정 복원

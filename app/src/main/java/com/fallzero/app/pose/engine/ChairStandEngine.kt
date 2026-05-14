@@ -78,14 +78,14 @@ class ChairStandEngine(
                 landmarks[LandmarkIndex.RIGHT_ANKLE].y())
         // 정규화 없이 단순 차이 × 100 (가장 안정적). BaseRepEngine debugTag로 일괄 로깅.
         val m = (ankleY - shoulderMidY) * 100f
-        // 훈련 모드: IDLE 상태의 max M = standing baseline. 캘리브레이션 여부 무관하게 트래킹.
-        //   - 캘리브레이션 첫 운동: 연습 IDLE에서 baseline 잡힘 → 본 운동 시 dynamic threshold 즉시 적용
-        //   - PRB 이미 있는 2번째 이후 운동: 본 운동 시작 직후 IDLE에서 baseline 잡힘 → 즉시 dynamic
-        // 비현실적인 outlier(>100) 무시 (mediapipe noise 또는 user 화면 이탈).
-        if (!examMode && state == EngineState.IDLE && m in 30f..80f && m > trainingStandingBaseline) {
+        // 훈련 모드 standing baseline 트래킹 — 사용자 명시 권한 (의자 sit이 detect 안 되는 버그 수정):
+        //   PRB(앉은 자세 캘리브레이션 값) 의존 완전 제거. exam mode와 동일한 standing-baseline 공식 사용.
+        //   sit 값이 baseline으로 잘못 잡히지 않도록 STANDING_MIN(42) 이상의 M만 baseline 후보로 인정.
+        //   이 임계값 미만의 M은 의자 sit이거나 측정 노이즈로 간주.
+        if (!examMode && !isInCalibration && m in STANDING_MIN..80f && m > trainingStandingBaseline) {
             trainingStandingBaseline = m
-            Log.d("ChairDebug", "TRAIN baseline updated: standingM=%.1f (motThr=%.1f retThr=%.1f, prb=%.1f)".format(
-                m, m - 9f, m - 5f, prb))
+            Log.d("ChairDebug", "TRAIN baseline updated: standingM=%.1f state=%s motThr=%.1f retThr=%.1f".format(
+                m, state, m - 9f, m - 5f))
         }
 
         // ── 시연 진단 로그 (매 프레임) — 카운트 안 늘어나는 원인 추적 ──
@@ -101,10 +101,10 @@ class ChairStandEngine(
         val meetsMot = m <= motThr
         val meetsRet = m >= retThr
         Log.d("ChairStandDiag",
-            "F#%d state=%s inCal=%b cnt=%d M=%.1f motThr=%.1f retThr=%.1f meetsMot=%b meetsRet=%b base=%.1f prb=%.1f reliable=%b visSh(L=%.2f R=%.2f) visAnkle(L=%.2f R=%.2f)".format(
+            "F#%d state=%s inCal=%b cnt=%d M=%.1f motThr=%.1f retThr=%.1f meetsMot=%b meetsRet=%b base=%.1f visSh(L=%.2f R=%.2f) visAnkle(L=%.2f R=%.2f)".format(
                 diagFrameCount, state, isInCalibration, currentCount,
                 m, motThr, retThr, meetsMot, meetsRet,
-                trainingStandingBaseline, prb, isBaselineReliable(),
+                trainingStandingBaseline,
                 visLSh, visRSh, visLAn, visRAn))
         return m
     }
@@ -130,33 +130,33 @@ class ChairStandEngine(
      *   meetsReturn = M ≥ returnThreshold (일어섬 감지)
      * 올바른 hysteresis: motionThreshold < returnThreshold (둘 사이가 노이즈 zone).
      *
-     * 훈련 모드 임계값 — baseline-prb gap에 비례한 동적 임계값:
-     *  - sit (prb) 위 30% = motionThr (앉음 감지)
-     *  - sit (prb) 위 70% = returnThr (일어섬 감지)
-     *  - gap이 작은 사용자(perspective 영향)도 적절히 처리되도록 비례 방식 사용.
-     *  - 최소 gap 5 요구 (noise 보호).
+     * 훈련 모드 임계값 — exam mode와 동일 식: standingBaseline 기준 (PRB 의존 제거).
+     *   사용자 명시 권한 — PRB 기반 공식이 "캘리브레이션 sit 자세"보다 얕은 의자 sit을 detect 못 함.
+     *   baseline 잡힐 때까지(첫 stand-up 1초 내외) 합리적 기본값 사용.
+     *   기본값(motion=41, return=45)은 exam mode의 평균 사용자(standingM≈50)와 동일.
      */
-    private fun isBaselineReliable(): Boolean =
-        trainingStandingBaseline > 0f && (trainingStandingBaseline - prb) >= 5f
-
     override fun getMotionThreshold(): Float = when {
         examMode -> dynamicMotionThreshold
-        isInCalibration -> 39f                                    // 캘리브레이션 모드 기본값 (PRB=0 안전 처리)
-        isBaselineReliable() -> {                                 // 비례 임계값: sit 위 30%
-            val gap = trainingStandingBaseline - prb
-            prb + gap * 0.30f
-        }
-        else -> prb + 9f                                          // fallback: prb(sit) + 9
+        isInCalibration -> 39f                                    // 캘리브레이션 모드 기본값
+        trainingStandingBaseline > 0f -> trainingStandingBaseline - 9f  // exam mode와 동일 식
+        else -> DEFAULT_MOTION_THR                                  // baseline 잡히기 전 안전값
     }
 
     override fun getReturnThreshold(): Float = when {
         examMode -> dynamicReturnThreshold
-        isInCalibration -> 42f                                    // 캘리브레이션 모드 기본값
-        isBaselineReliable() -> {                                 // 비례 임계값: sit 위 70%
-            val gap = trainingStandingBaseline - prb
-            prb + gap * 0.70f
-        }
-        else -> prb + 13f                                         // fallback: prb(sit) + 13
+        isInCalibration -> 42f
+        trainingStandingBaseline > 0f -> trainingStandingBaseline - 5f
+        else -> DEFAULT_RETURN_THR
+    }
+
+    companion object {
+        /** standing baseline 후보로 인정할 M 하한 — 이 미만은 sit 또는 노이즈로 간주.
+         *  사용자 평균 standing M(45~65)보다 약간 낮게 잡아 보수적 standing 후보만 채택. */
+        private const val STANDING_MIN = 42f
+        /** baseline 잡히기 전 기본 motion threshold (exam mode standingM=50 → 50-9=41 가정). */
+        private const val DEFAULT_MOTION_THR = 41f
+        /** baseline 잡히기 전 기본 return threshold (exam mode standingM=50 → 50-5=45 가정). */
+        private const val DEFAULT_RETURN_THR = 45f
     }
 
     override fun reset() {
@@ -185,14 +185,12 @@ class ChairStandEngine(
                 landmarks[LandmarkIndex.RIGHT_ANKLE].y())
         val m = (ankleY - shoulderMidY) * 100f
         // sit/stand 경계 (시각화 전용 — 카운트 threshold와 별개):
-        //   사용자 명시: 살짝 앉아도 progress=0 너무 빨리 도달 → sitFloor 더 낮춤 (더 깊이 앉아야 0).
-        //   sitFloor = dynamicMotionThreshold - 4 (검사) / prb - 4 (훈련) — 카운트는 그대로, 시각화만 엄격.
-        val (sitFloor, standCeiling) = when {
-            examMode -> Pair(dynamicMotionThreshold - 4f, dynamicReturnThreshold)
-            trainingStandingBaseline > 0f && (trainingStandingBaseline - prb) >= 5f ->
-                Pair(prb - 4f, trainingStandingBaseline)
-            else -> Pair(prb - 4f, prb + 13f)
-        }
+        //   훈련 모드도 standing baseline 기반으로 통일 (PRB 의존 제거 — getMotionThreshold 변경과 일치).
+        //   sitFloor = motionThr - 4 (살짝 앉아도 progress=0 빨리 안 도달하도록 더 깊이).
+        val motThr = getMotionThreshold()
+        val retThr = getReturnThreshold()
+        val sitFloor = motThr - 4f
+        val standCeiling = retThr
         val gap = standCeiling - sitFloor
         val progress = if (gap > 0f) ((m - sitFloor) / gap).coerceIn(0f, 1f) else 0f
         return com.fallzero.app.ui.overlay.ExerciseGuide.Bar(

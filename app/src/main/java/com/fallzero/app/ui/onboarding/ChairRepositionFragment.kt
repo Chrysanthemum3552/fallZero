@@ -89,9 +89,16 @@ class ChairRepositionFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListe
             "옆모습으로 의자에 앉아주세요"
         }
 
-        val ttsText = step.subtitle.replace("\n", " ").ifEmpty {
+        // 직전 운동의 진급 알림이 있으면 의자 안내 앞에 합쳐 발화하고 flag 클리어.
+        val pendingMsg = prefs.getString("pending_progression_msg", null)
+        if (pendingMsg != null) {
+            prefs.edit().remove("pending_progression_msg").apply()
+        }
+
+        val chairTts = step.subtitle.replace("\n", " ").ifEmpty {
             "이번엔 옆모습으로 의자에 앉으셔야 합니다. 카메라 옆에 의자를 두고 앉아주세요."
         }
+        val ttsText = if (pendingMsg != null) "$pendingMsg $chairTts" else chairTts
         ttsManager?.speak(ttsText)
 
         // 사용자 이전 카메라 설정 복원

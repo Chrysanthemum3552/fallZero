@@ -1,7 +1,10 @@
 package com.fallzero.app
 
 import android.content.Context
+import android.graphics.Color
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.fragment.NavHostFragment
@@ -21,6 +24,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // ActionBar 타이틀 — colorPrimary가 노란색이라 Material 기본 흰 글씨로는 안 보임.
+        // SpannableString으로 검정(=on_primary) 색상 강제. "낙상제로" 표시.
+        supportActionBar?.title = SpannableString("낙상제로").apply {
+            setSpan(ForegroundColorSpan(Color.BLACK), 0, length, 0)
+        }
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

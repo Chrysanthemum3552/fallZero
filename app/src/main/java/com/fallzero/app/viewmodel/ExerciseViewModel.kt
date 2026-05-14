@@ -395,8 +395,24 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             val prbForScorer = when (currentExerciseId) {
                 4 -> currentPrb.coerceAtMost(0.060f)   // CalfRaise: motionThr(0.030) × 2
                 5 -> currentPrb.coerceAtMost(0.044f)   // ToeRaise: motionThr(0.022) × 2
+                // KneeBend "살짝 굽히기": motionThr=24.5° (cap 35°×0.70). PRB 그대로 쓰면 깊게 굽혀야 ROM 100.
+                // ROM 계산용으로 25°로 cap — 카운트된 rep(≥24.5°)은 ratio≥0.98로 ROM ≈100 보장.
+                6 -> currentPrb.coerceAtMost(25f)
                 else -> currentPrb
             }
+            // PDF §5·§6 측정값 — 6지표 통합으로 QualityScorer 계산에도 필요해 먼저 산출.
+            val durationMs = if (exerciseStartMs > 0L) System.currentTimeMillis() - exerciseStartMs else 0L
+            val speedLossRate = calculateSpeedLossRate(allRepTimestamps)
+            val balanceWobble = engine.balanceWobble
+            // 시간 효율 점수용 baseline: 과거 성공한 같은 운동의 durationMs 평균. 3개 미만이면 null → score=100.
+            val pastRecords = sessionRepository.getRecentRecordsByExercise(userId, currentExerciseId, 30)
+            val priorSuccess = pastRecords.filter {
+                it.achievedCount >= it.targetCount && it.durationMs > 0L
+            }
+            val baselineDurationMs: Float? = if (priorSuccess.size >= 3) {
+                priorSuccess.map { it.durationMs.toFloat() }.average().toFloat()
+            } else null
+
             val breakdown = QualityScorer.calculate(
                 achievedCount = totalAchieved,
                 targetCount = totalTarget,
@@ -406,12 +422,11 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                 metricIsDecreasing = currentExerciseId == 7,  // ChairStand: 작을수록 좋음 (D%)
                 balanceWobble = balanceWobbleForScorer,
                 bestHoldSec = bestHoldForScorer,
-                targetHoldSec = targetHoldForScorer
+                targetHoldSec = targetHoldForScorer,
+                speedLossRate = speedLossRate,
+                durationMs = durationMs,
+                baselineDurationMs = baselineDurationMs
             )
-            // PDF §5·§6 개선 진급 알고리즘용 측정값 — 진급 판단(step 3)에서 사용.
-            val durationMs = if (exerciseStartMs > 0L) System.currentTimeMillis() - exerciseStartMs else 0L
-            val speedLossRate = calculateSpeedLossRate(allRepTimestamps)
-            val balanceWobble = engine.balanceWobble
             sessionRepository.saveRecord(
                 ExerciseRecord(
                     sessionId = currentSessionId.toInt(),

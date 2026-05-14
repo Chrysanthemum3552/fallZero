@@ -18,19 +18,36 @@
 - **나이 입력 화면 개선 — 음성/직접 입력 모두 자동 이동, 다음 버튼 제거
 - **설문 질문 텍스트 줄바꿈 — strings.xml \n 직접 삽입으로 단어 중간 분리 방지
 
-### 2026-05-14 (전수환) — 진급 알고리즘 정식 반영 + 자세 오류 검출 전면 보강
-- **6-파라미터 보수적 진급 판단** — `ProgressionManager`에 ROM·일관성·속도 저하·Duration 게이트 추가 + `ExerciseViewModel.completeExercise()` 직후 자동 평가 호출부 신설 (이전엔 정의만 있고 호출 안 됨)
-- **균형 자동 진급 신설** — `BalanceProgressionManager.shouldProgressStage()` + 5단계(양손→한손→무지지 10/20/30초) `current_set_level` 자동 갱신 (표만 있던 미작동 상태 해결)
-- **`ExerciseRecord` 스키마 v2 → v3** — `durationMs`/`speedLossRate`/`balanceWobble` 컬럼 추가, rep timestamp는 ViewModel에서 누적해 양측 운동 reset에도 손실 없음
-- **자세 오류 검출 전면 보강** — #1·#4는 `return null`로 무효 상태였던 것 정상화(골반·허벅지 들림 / 몸통 반동), #2·#3·#5·#6에 상체 기울임 / 허벅지 들림 / 몸통 반동 / 무릎 전방 돌출 보상 동작 감지 추가
-- **균형 운동 점수 재해석** — `QualityScorer`에 옵셔널 균형 파라미터 추가, ROM/일관성 슬롯을 **안정성**(1-wobble) / **유지시간 비율**로 계산 (이전 PRB=0 / rep 1개라 고정값)
+### 2026-05-14 (전수환) — 진급 알고리즘 정식 반영 + 자세 오류 검출 + 가시성 일괄 보강
+- **6-파라미터 보수적 진급 판단 + 호출부 신설** — `ProgressionManager`에 ROM·일관성·속도 저하·Duration 게이트 추가, `ExerciseViewModel.completeExercise()` 직후 자동 평가 (이전엔 정의만 있고 호출 안 됨)
+- **균형 자동 진급 신설** — `BalanceProgressionManager.shouldProgressStage()` + 5단계(양손→한손→무지지 10/20/30초) `current_set_level` 자동 갱신
+- **`ExerciseRecord` 스키마 v2 → v3** — `durationMs`/`speedLossRate`/`balanceWobble` 컬럼 추가, rep timestamp ViewModel 누적으로 양측 운동 reset에도 손실 없음
+- **자세 오류 검출 6개 엔진 보강** — #1·#4는 `return null`로 무효였던 것 정상화(골반·허벅지 들림 / 몸통 반동), #2·#3·#5·#6에 상체 기울임 / 허벅지 들림 / 몸통 반동 / 무릎 전방 돌출 추가
+- **균형 운동 점수 재해석** — `QualityScorer`에 옵셔널 균형 파라미터 추가, ROM/일관성 슬롯을 **안정성(1-wobble)** / **유지시간 비율**로 계산 (이전 PRB=0 / rep 1개라 무의미한 고정값)
 - **품질 점수 임계값 노인 대상 완화** — ROM 80%/60% → 70%/50%, CV 5/15/30% → 10/25/40%
-- **ToeRaise/CalfRaise 점수 부정합 해결** — 고정 motionThr 운동의 ROM ratio 항상 낮은 문제 → ROM 계산용으로만 PRB를 motionThr×2로 cap, 작은 신호(mean<0.1)는 일관성 기본 80점
-- **진급 알림 UX** — 운동 종료 즉시 Toast + 다음 Rest 화면 TTS "축하해요! XX 진급" + 화면 제목 변경 (prefs flag 데이터 흐름)
-- **홈 체크리스트 sublabel + 균형 안내 동적 분기** — 운동별 "1세트/2세트", "양손 지지 10초" 표시 + `createEngine` setLevel 기반 시간 차등(10/10/10/20/30초) + stage별 손 지지 안내 멘트
-- **#2/#4 임계값 완화 + autoEnded 알림** — HipAbduction 상체 기울임 0.08→0.12, CalfRaise inactivity 0.005→0.003 (천천히 들 때 종료 버그 fix) + Toast "동작이 감지되지 않아 다음 단계로" 안내
-- **시연용 DEMO_MODE 토글** — `Progression`/`Balance` 매니저 컴파일 상수로 1회 운동만에 진급 발동. init 블록 logcat ⚠ 경고로 시연 후 복구 누락 방지
+- **ToeRaise/CalfRaise 점수 부정합 해결** — 고정 motionThr 운동의 ROM ratio 항상 낮은 문제 → ROM 계산용 PRB를 motionThr×2로 cap, 작은 신호(mean<0.1)는 일관성 기본 80점
+- **진급 알림 UX** — 운동 종료 즉시 Toast + 다음 Rest 화면 TTS "축하해요! XX 진급" + 제목 변경
+- **균형 운동 setLevel별 동작·안내 동적 분기** — `createEngine` 시간 차등(10/10/10/20/30초), 안내 멘트 stage별 "양손/한손/손 지지 없이", 홈 체크리스트 sublabel "양손 지지 10초" 등 표시
+- **#2/#4 임계값 완화 + autoEnded 알림** — HipAbduction 상체 기울임 0.08→0.12, CalfRaise inactivity 0.005→0.003 (천천히 들 때 종료 버그 fix) + Toast 안내
+- **시연용 DEMO_MODE 토글 + 자동 경고** — `Progression`/`Balance` 매니저 컴파일 상수로 1회 운동만에 진급 발동, init 블록 logcat ⚠ 경고로 복구 누락 방지
+- **보고서 단일 화면 통합** — Page 2/3 카드로 흡수, "보고서" → **"운동 기록"** 명칭 변경, "1/3·페이지" 표현 제거, 노인 친화 위→아래 스크롤
+- **"내 능력" 능력 지표 다각화** — PRB 단독(1회 max 측정값으로 부족) → 운동별 최근 5회 평균 점수 + 자세 정확도 + 잘함/보통/노력 필요 등급 + PRB 부가 표시
+- **보호자 공유 종합 현황 보고서화** — 위험 등급/이전 검사 대비/연속 일수/주간 이행/진급 단계/운동별 PRB/최근 평가까지 5섹션 자세 보고서로 확장
+- **앱 전반 가시성 일괄 점검·fix** — 위험 등급 색 동적 분기(위험→진한 빨강, 안전→진한 녹색), 검사 메뉴/설정 남녀 토글/운동 리스트 카드 배경·번호 색 명시, `#F0F4FF` 등 옅은 배경 어두운 톤으로 통일. ActionBar "낙상제로"는 `SpannableString`+`ForegroundColorSpan(BLACK)`으로 노란 배경 위에 검정 글씨 복원
 - **빌드 환경 복구** — `gradle/wrapper/gradle-wrapper.jar` GitHub 복구 + Android Studio 번들 JDK 21로 Java 25↔Gradle 8.13 비호환 우회
+- **세 화면 일관 뒤로가기** — 운동 가이드·운동 기록·설정에 `← 뒤로` 버튼 추가 (`MaterialButton.TextButton` + `findNavController().navigateUp()`). 검사 메뉴와 동일 스타일
+- **운동 순서 단일 source of truth** — `SessionFlow.EXERCISE_DISPLAY_ORDER = [2,8,7,4,5,6,3,1]` 신설, 홈 체크리스트·운동 가이드 리스트·실제 세션 큐가 모두 이 상수 참조 → 화면 간 순서 불일치 제거
+- **미완료 운동 자동 이어가기** — `SessionFlow.startExerciseSessionFrom(remainingIds)` 신설. 운동 가이드에서 미완료 운동 탭하면 그 운동부터 나머지 미완료들을 부분 세션 큐로 자동 진행 (자세 그룹 경계 회전·의자 단계도 적절히 삽입)
+- **자세 임계값 노인 대상 추가 완화** — HipAbduction 상체 기울임 0.12→0.20, CalfRaise 어깨 sway 0.10→0.18, KneeBend 무릎 전방 돌출 0.15→0.25
+- **ChairStand 운동 모드 PRB 의존 분리** — 기존 식이 캘리브레이션 sit보다 얕은 의자 sit을 못 잡는 버그 해결. 검사 모드와 동일한 `motionThr = baseline−9 / returnThr = baseline−5` 사용. baseline 후보를 M>42로 제한해 sit이 baseline으로 잘못 잡히지 않게
+- **진급 알림 전달 누락 fix** — `pending_progression_msg` 플래그를 SideRotation·ChairReposition에서도 읽고 비우도록 추가. #7 진급 후 SIDE_ROTATION을 거치며 메시지가 살아남아 이후 운동의 진급 안내로 잘못 들리던 문제 제거
+- **운동 기록 화면 크래시 fix** — `"%.1f$unit\n".format(...)`에서 unit="%"(#7 PRB 단위)이면 `%\n`이 conversion으로 해석돼 `UnknownFormatConversionException`. format/concat 분리
+- **6지표 통합** — `QualityScorer`에 `speedScore`/`timeScore` 추가, 가중치 20/25/20/15/10/10. 진급 6게이트와 1:1 매칭. 새 두 점수는 DB 스키마 안 건드리고 `speedLossRate`/`durationMs` 컬럼에서 표시 시점에 계산
+- **운동별 능력 카드 — 좌우 스와이프** — 8개 운동 각각 카드 1장, 카드 안에서 `RecyclerView`+`PagerSnapHelper`로 최근 5회 record를 평균 아닌 개별 페이지로 노출 (점수·등급·날짜·6지표 ProgressBar). 카드 푸터에 "최신 ◀ N / 5 ▶ 오래된" 페이지 인디케이터
+- **품질 점수 변화 그래프 — 6지표 평균으로 전환** — legacy `qualityScore`(가중합) 대신 6 sub-score의 산술 평균을 record별로 계산하고 session 내에서 다시 평균. 시간 효율 baseline은 운동별로 cache
+- **보고서 중복 카드 제거** — "최근 세션 결과" 카드(평균 품질 점수·세션 비교·per-exercise 카드 8개) 전면 삭제. 운동별 점수는 새 능력 카드에서 이미 표시되므로 중복
+- **무릎 살짝 굽히기 ROM 완화** — `prbForScorer` 캡에 #6 추가(`coerceAtMost(25f)`). 카운트된 rep는 모두 ≥24.5°이므로 ROM ≈100점 보장. "살짝 굽히기" 임상 정의에 맞춤
+- **죽은 코드 정리** — `ReportPage2Fragment`/`ReportPage3Fragment` + 두 페이지 레이아웃 + `item_ability_card.xml`(평균 표시 잔재) + 미사용 strings(`report_btn_next` 등) + nav_graph 죽은 fragment·action 모두 삭제
 
 ### 2026-05-14 (이승종) — 시연 직전 시각화·안내 보강
 - **운동/검사 안내 영상 통합** — `chair_stand_guide.mp4`(의자 일어서기 동작 시연) + 8개 운동 placeholder 영상을 안내 단계에 삽입. 영상 종료 시점에 자막·TTS 동기화하여 어르신에게 동작을 시각으로도 전달

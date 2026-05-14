@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 1 페이지 = 1 record. width는 어댑터에서 RecyclerView 폭에 맞게 강제 설정. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp">
+
+    <!-- 점수 + 날짜 + 등급 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+            android:id="@+id/tv_score"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary"
+            tools:text="82점" />
+
+        <TextView
+            android:id="@+id/tv_grade_date"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="13sp"
+            android:textColor="@color/text_secondary"
+            android:layout_marginStart="12dp"
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
+            tools:text="🟡 보통이에요\n2026-05-14" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/text_secondary"
+        android:alpha="0.2"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <include layout="@layout/inc_ability_row" android:id="@+id/row_completion" />
+    <include layout="@layout/inc_ability_row" android:id="@+id/row_form" />
+    <include layout="@layout/inc_ability_row" android:id="@+id/row_rom" />
+    <include layout="@layout/inc_ability_row" android:id="@+id/row_consistency" />
+    <include layout="@layout/inc_ability_row" android:id="@+id/row_speed" />
+    <include layout="@layout/inc_ability_row" android:id="@+id/row_time" />
+
+</LinearLayout>

@@ -59,9 +59,21 @@ class ExercisePreviewFragment : Fragment() {
 
         binding.btnStart.setOnClickListener {
             // SessionFlow가 이미 활성(전체 루틴) → preflight로 바로 진입
-            // 비활성(개별 운동) → 단일 운동을 큐에 넣고 시작
+            // 비활성:
+            //   - resume_from_exercise_id 플래그 있으면 → 부분 세션 빌드 (선택 운동부터 나머지 미완료 자동 진행)
+            //   - 없으면 → 단일 운동 큐
             if (SessionFlow.sessionType == SessionFlow.SessionType.NONE) {
-                SessionFlow.startSingleExercise(exerciseId)
+                val resumeCsv = prefs.getString("resume_from_exercise_id", null)
+                val resumeIds = resumeCsv?.split(",")
+                    ?.mapNotNull { it.trim().toIntOrNull() }
+                    .orEmpty()
+                // 플래그는 한 번 쓰고 비움 (다음 진입 시 잔존 방지)
+                prefs.edit().remove("resume_from_exercise_id").apply()
+                if (resumeIds.size > 1) {
+                    SessionFlow.startExerciseSessionFrom(resumeIds)
+                } else {
+                    SessionFlow.startSingleExercise(exerciseId)
+                }
             }
             findNavController().navigate(R.id.action_preview_to_preflight)
         }

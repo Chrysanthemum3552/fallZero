@@ -30,7 +30,7 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var kneeAnkleDxBaseline: Float = Float.NaN
     private var kneeForwardBaselineFrameCount = 0
     private val KNEE_FORWARD_BASELINE_FRAMES = 30
-    private val KNEE_FORWARD_THRESHOLD = 0.15f
+    private val KNEE_FORWARD_THRESHOLD = 0.25f  // standing baseline 대비 SBU의 25%까지 허용 (노인 대상 완화, 기존 0.15 → 0.25)
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         // 양쪽 다리 모두 계산 후 더 큰 flexion 채택 (Q4 fix).

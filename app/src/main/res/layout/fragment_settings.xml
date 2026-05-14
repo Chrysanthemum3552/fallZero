@@ -13,6 +13,17 @@
         android:orientation="vertical"
         android:padding="24dp">
 
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_back"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="52dp"
+            android:text="← 뒤로"
+            android:textSize="22sp"
+            android:textColor="@color/text_primary"
+            android:layout_marginStart="-12dp"
+            android:layout_marginTop="8dp" />
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -22,7 +33,7 @@
             android:textSize="32sp"
             android:textStyle="bold"
             android:textColor="@color/text_primary"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="8dp"
             android:layout_marginBottom="28dp" />
 
         <!-- 알림 설정 -->
@@ -103,7 +114,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="52dp"
                     android:text="남성"
-                    android:textSize="18sp" />
+                    android:textSize="18sp"
+                    android:textColor="@color/text_primary"
+                    app:strokeColor="@color/primary" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_female"
@@ -111,7 +124,9 @@
                     android:layout_width="wrap_content"
                     android:layout_height="52dp"
                     android:text="여성"
-                    android:textSize="18sp" />
+                    android:textSize="18sp"
+                    android:textColor="@color/text_primary"
+                    app:strokeColor="@color/primary" />
             </com.google.android.material.button.MaterialButtonToggleGroup>
         </LinearLayout>
 

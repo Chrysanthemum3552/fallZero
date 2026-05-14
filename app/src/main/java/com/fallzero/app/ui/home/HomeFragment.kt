@@ -130,8 +130,13 @@ class HomeFragment : Fragment() {
                 binding.tvRiskLevel.setBackgroundResource(
                     if (isHighRisk) R.drawable.bg_risk_level else R.drawable.bg_risk_low
                 )
+                // text_primary가 노란색(#FFFF00)이라 옅은 배경 위에서 안 보임 → 위험/안전별 진한 색으로 덮어쓰기.
+                binding.tvRiskLevel.setTextColor(
+                    if (isHighRisk) 0xFFC62828.toInt() else 0xFF2E7D32.toInt()
+                )
             } else {
                 binding.tvRiskLevel.text = "검사 필요"
+                binding.tvRiskLevel.setTextColor(0xFF424242.toInt())
             }
 
             val doneCount = completedIds.size
@@ -163,7 +168,7 @@ class HomeFragment : Fragment() {
         val warningColor = resources.getColor(R.color.warning, null)
         val primaryText = resources.getColor(R.color.text_primary, null)
         val secondaryText = resources.getColor(R.color.text_secondary, null)
-        for (id in 1..8) {
+        for (id in SessionFlow.EXERCISE_DISPLAY_ORDER) {
             val row = inflater.inflate(R.layout.item_exercise_check, container, false)
             val icon = row.findViewById<TextView>(R.id.tv_check_icon)
             val name = row.findViewById<TextView>(R.id.tv_check_name)
