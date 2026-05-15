@@ -487,6 +487,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         ttsManager?.speak("자세를 유지해주세요")
                     }, 6880L)
                 }
+
                 2 -> {
                     // 0.00초: "두 팔은 가슴에 교차해주세요" (정지 2.50초)
                     ttsManager?.speak("두 팔은 가슴에 교차해주세요")
@@ -501,6 +502,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         ttsManager?.speak("자세를 유지해주세요")
                     }, 13800L)
                 }
+
                 3 -> {
                     // 0.00초: "두 팔은 가슴에 교차해주세요" (정지 2.50초)
                     ttsManager?.speak("두 팔은 가슴에 교차해주세요")
@@ -515,22 +517,24 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         ttsManager?.speak("자세를 유지해주세요")
                     }, 13800L)
                 }
+
                 4 -> {
-                    // 0.00초: "두 팔은 가슴에 교차해주세요" (정지 2.50초)
+                    // 0.00초: "두 팔은 가슴에 교차해주세요" (0.00~3.10초)
                     ttsManager?.speak("두 팔은 가슴에 교차해주세요")
-                    // 5.00초: "한쪽 발을 들어 올려 한 발로만 서주세요" (정지 3.54초)
+                    // 5.53초: "한쪽 발을 들어 올려 한 발로만 서주세요" (5.60~10.40초)
+                    // 기존 5000L -> 5600L 수정 (0.6초 빨랐음)
                     b.root.postDelayed({
                         if (_binding == null || hasNavigated) return@postDelayed
                         ttsManager?.speak("한쪽 발을 들어 올려 한 발로만 서주세요")
-                    }, 5000L)
-                    // 12.07초: "자세를 유지해주세요" (정지 2.01초)
+                    }, 5600L)
+                    // 13.83초: "자세를 유지해주세요" (13.93~16.14초)
+                    // 기존 12070L -> 13940L 수정 (1.87초나 빨랐음)
                     b.root.postDelayed({
                         if (_binding == null || hasNavigated) return@postDelayed
                         ttsManager?.speak("자세를 유지해주세요")
-                    }, 12070L)
+                    }, 13940L)
                 }
             }
-        }
 
         b.videoChairGuidance.setOnCompletionListener {
             if (_binding == null || hasNavigated) return@setOnCompletionListener
