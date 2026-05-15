@@ -307,7 +307,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             mp.start()
             // 0.00초: 정지 구간 2.43초 동안 TTS 재생
             ttsManager?.speak("팔을 가슴 앞에 교차하세요")
-            // 4.43초: 두 번째 정지 구간 시작 (2.78초 동안 TTS 재생)
+            // 4.43초: 두 번째 정지 구간 시작
             b.root.postDelayed({
                 if (_binding == null || hasNavigated) return@postDelayed
                 ttsManager?.speak("이제 천천히 앉았다 일어서세요")
@@ -479,62 +479,72 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
             when (stage) {
                 1 -> {
-                    // 0.00초: "뒷꿈치를 모아주시고, 팔을 가슴 앞에 교차하세요" (정지 4.88초)
+                    // 0.00초: "뒷꿈치를 모아주시고, 팔을 가슴 앞에 교차하세요" (0.00~4.88초)
                     ttsManager?.speak("뒷꿈치를 모아주시고, 팔을 가슴 앞에 교차하세요")
-                    // 6.88초: "자세를 유지해주세요" (정지 2.01초)
+                    // 6.88초: "자세를 유지해주세요" (6.88~8.89초)
                     b.root.postDelayed({
                         if (_binding == null || hasNavigated) return@postDelayed
                         ttsManager?.speak("자세를 유지해주세요")
                     }, 6880L)
                 }
-
                 2 -> {
-                    // 0.00초: "두 팔은 가슴에 교차해주세요" (정지 2.50초)
+                    // [영상 총 25.75초: 나레이션 17.75s + 전환화면 3s + 발이미지 5s]
+                    // 0.00초: "두 팔은 가슴에 교차해주세요" (0.00~2.75초)
                     ttsManager?.speak("두 팔은 가슴에 교차해주세요")
-                    // 4.60초: 발 위치 안내 자막 시작
+                    // 4.60초: "한쪽 발 뒤꿈치를 다른 발 엄지발가락 옆에 놓으세요" (4.60~9.50초)
                     b.root.postDelayed({
                         if (_binding == null || hasNavigated) return@postDelayed
                         ttsManager?.speak("한쪽 발 뒤꿈치를 다른 발 엄지발가락 옆에 놓으세요")
                     }, 4600L)
-                    // 13.80초: 자세 유지 자막 시작
+                    // 13.80초: "자세를 유지해주세요" (13.80~15.50초)
                     b.root.postDelayed({
                         if (_binding == null || hasNavigated) return@postDelayed
                         ttsManager?.speak("자세를 유지해주세요")
                     }, 13800L)
+                    // 17.75초: 전환 나레이션 화면 시작 (인물 배경 + 텍스트 오버레이, 3초)
+                    // -> 20.75초: 반일렬서기 발 실루엣 이미지 화면 (5초)
+                    b.root.postDelayed({
+                        if (_binding == null || hasNavigated) return@postDelayed
+                        ttsManager?.speak("다음 화면은 위에서 봤을 때 발 모양입니다. 참고하세요")
+                    }, 17750L)
                 }
-
                 3 -> {
-                    // 0.00초: "두 팔은 가슴에 교차해주세요" (정지 2.50초)
+                    // [영상 총 25.75초: 나레이션 17.75s + 전환화면 3s + 발이미지 5s]
+                    // 0.00초: "두 팔은 가슴에 교차해주세요" (0.00~2.75초)
                     ttsManager?.speak("두 팔은 가슴에 교차해주세요")
-                    // 5.60초: 발 위치 안내 자막 시작
+                    // 5.60초: "한쪽 발 뒤꿈치를 다른 발 발끝 바로 앞에 일렬로 놓으세요" (5.60~10.50초)
                     b.root.postDelayed({
                         if (_binding == null || hasNavigated) return@postDelayed
                         ttsManager?.speak("한쪽 발 뒤꿈치를 다른 발 발끝 바로 앞에 일렬로 놓으세요")
                     }, 5600L)
-                    // 13.80초: 자세 유지 자막 시작
+                    // 13.80초: "자세를 유지해주세요" (13.80~15.50초)
+                    b.root.postDelayed({
+                        if (_binding == null || hasNavigated) return@postDelayed
+                        ttsManager?.speak("자세를 유지해주세요")
+                    }, 13800L)
+                    // 17.75초: 전환 나레이션 화면 시작 (인물 배경 + 텍스트 오버레이, 3초)
+                    // -> 20.75초: 일렬서기 발 실루엣 이미지 화면 (5초)
+                    b.root.postDelayed({
+                        if (_binding == null || hasNavigated) return@postDelayed
+                        ttsManager?.speak("다음 화면은 위에서 봤을 때 발 모양입니다. 참고하세요")
+                    }, 17750L)
+                }
+                4 -> {
+                    // 0.00초: "두 팔은 가슴에 교차해주세요" (0.00~3.07초)
+                    ttsManager?.speak("두 팔은 가슴에 교차해주세요")
+                    // 5.53초: "한쪽 발을 들어 올려 한 발로만 서주세요" (5.53~10.33초)
+                    b.root.postDelayed({
+                        if (_binding == null || hasNavigated) return@postDelayed
+                        ttsManager?.speak("한쪽 발을 들어 올려 한 발로만 서주세요")
+                    }, 5500L)
+                    // 13.83초: "자세를 유지해주세요" (13.83~15.97초)
                     b.root.postDelayed({
                         if (_binding == null || hasNavigated) return@postDelayed
                         ttsManager?.speak("자세를 유지해주세요")
                     }, 13800L)
                 }
-
-                4 -> {
-                    // 0.00초: "두 팔은 가슴에 교차해주세요" (0.00~3.10초)
-                    ttsManager?.speak("두 팔은 가슴에 교차해주세요")
-                    // 5.53초: "한쪽 발을 들어 올려 한 발로만 서주세요" (5.60~10.40초)
-                    // 기존 5000L -> 5600L 수정 (0.6초 빨랐음)
-                    b.root.postDelayed({
-                        if (_binding == null || hasNavigated) return@postDelayed
-                        ttsManager?.speak("한쪽 발을 들어 올려 한 발로만 서주세요")
-                    }, 5600L)
-                    // 13.83초: "자세를 유지해주세요" (13.93~16.14초)
-                    // 기존 12070L -> 13940L 수정 (1.87초나 빨랐음)
-                    b.root.postDelayed({
-                        if (_binding == null || hasNavigated) return@postDelayed
-                        ttsManager?.speak("자세를 유지해주세요")
-                    }, 13940L)
-                }
             }
+        } // setOnPreparedListener 닫는 괄호
 
         b.videoChairGuidance.setOnCompletionListener {
             if (_binding == null || hasNavigated) return@setOnCompletionListener
