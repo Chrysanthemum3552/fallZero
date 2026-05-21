@@ -47,7 +47,7 @@ class CalfRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var shoulderXBaseline: Float = Float.NaN
     private var swayBaselineFrameCount = 0
     private val SWAY_BASELINE_FRAMES = 30      // ~1초 (30fps 기준)
-    private val SWAY_THRESHOLD = 0.18f         // SBU의 18% — 발뒤꿈치 들 때 자연스러운 상체 보상 동작 허용 (노인 대상 완화)
+    private val SWAY_THRESHOLD = 0.25f         // SBU의 25% — 발뒤꿈치 들 때 자연스러운 상체 보상 동작 추가 허용 (노인 대상 추가 완화 0.18→0.25)
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val sbu = SBUCalculator.calculate(landmarks)
@@ -112,6 +112,9 @@ class CalfRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     // 0.005는 천천히 발뒤꿈치 들 때 frame 간 변화량이 미달해 4초 timeout으로 갑자기 종료되는 버그 원인.
     // 0.003으로 완화 — 정상 운동 페이스에서 충분히 변화가 감지되도록.
     override val movementThreshold = 0.003f
+    // 작은 ROM + 측면 촬영 + 노인 사용자의 느린 페이스 — 4초 timeout이 조기 종료 유발.
+    // 8초로 완화: 한 사이클(2~3초) × 2회분 grace 확보, 진짜 운동 중단(>8초 정지)만 종료.
+    override val inactivityTimeoutMs = 8000L
     // **고정 임계값** (PRB 기반 X) — calf raise는 사용자별 ROM 차이 적음, 해부학 기반 고정값.
     //   고령층 작은 ROM도 카운트 가능하도록 motionThr=0.030 설정.
     //   PRB outlier로 임계값 폭주하던 문제 해결.

@@ -101,7 +101,8 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private val MAX_PRB = 35f
     override fun getMotionThreshold() = if (isInCalibration) 25f
         else maxOf(prb.coerceAtMost(MAX_PRB) * 0.70f, 20f)
-    override fun getReturnThreshold() = if (isInCalibration) 10f else 12f
+    // 복귀 기준 완화 — 노인 사용자가 무릎을 완전히 펴기 어려운 점 고려 (12° → 16°). 16° 이내면 카운트.
+    override fun getReturnThreshold() = if (isInCalibration) 10f else 16f
 
     override fun reset() {
         super.reset()

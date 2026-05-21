@@ -260,12 +260,13 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             lastMetricValue = result.currentMetric
         }
 
-        // 4초 이상 정적 → 자동 종료. 균형 운동(#8)은 정지 자세를 유지하므로 제외.
+        // inactivity 자동 종료 — engine별 timeout(default 4초, CalfRaise/ToeRaise 8초). 균형 운동(#8) 제외.
+        val inactivityTimeoutMs = engine.inactivityTimeoutMs
         if (!isCompleted && !engine.isInCalibration && currentExerciseId != 8 &&
-            now - lastMovementMs > NO_MOTION_TIMEOUT_MS) {
+            now - lastMovementMs > inactivityTimeoutMs) {
             // 진단: 어떤 운동에서 timeout으로 끝났는지 명시 (ChairStand 카운트 누락 원인 추적)
             android.util.Log.w("ChairStandDiag",
-                "INACTIVITY TIMEOUT FIRED! exerciseId=$currentExerciseId sinceMovement=${now - lastMovementMs}ms curCount=${engine.currentCount} curM=${result.currentMetric} → completeExercise(autoEnded=true)")
+                "INACTIVITY TIMEOUT FIRED! exerciseId=$currentExerciseId sinceMovement=${now - lastMovementMs}ms timeout=${inactivityTimeoutMs}ms curCount=${engine.currentCount} curM=${result.currentMetric} → completeExercise(autoEnded=true)")
             isCompleted = true
             // 양측 운동 진행 중이면 현재까지의 카운트를 보존 (데이터 손실 방지)
             if (isBilateral) {
@@ -511,15 +512,25 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                 prefs.edit().putInt(key, 2).apply()
                 android.util.Log.i("Progression",
                     "Strength exerciseId=$currentExerciseId progressed: 1 set → 2 sets")
+                val name = currentEngine?.exerciseName ?: "이 운동"
                 return ProgressionResult(
                     isBalance = false,
                     previousLevel = currentEx,
                     newLevel = 2,
-                    message = "축하해요! ${currentEngine?.exerciseName ?: "이 운동"}이 2세트로 진급했어요."
+                    message = "축하해요! $name${subjectParticle(name)} 2세트로 진급했어요."
                 )
             }
             return null
         }
+    }
+
+    /** 한글 받침 유무에 따라 주격 조사("이"/"가") 자동 선택. */
+    private fun subjectParticle(noun: String): String {
+        val last = noun.lastOrNull() ?: return "이"
+        val code = last.code
+        if (code !in 0xAC00..0xD7A3) return "이"  // 한글 음절이 아니면 default
+        val hasFinalConsonant = (code - 0xAC00) % 28 != 0
+        return if (hasFinalConsonant) "이" else "가"
     }
 
     /** 진급 알림용 UI 데이터. UI는 Completed 상태의 progressionResult가 null이 아닐 때만 알림 표시. */

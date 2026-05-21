@@ -94,13 +94,13 @@ class HomeFragment : Fragment() {
             btn.backgroundTintList = android.content.res.ColorStateList.valueOf(
                 ctx.resources.getColor(R.color.primary, null))
             btn.setTextColor(ctx.resources.getColor(R.color.on_primary, null))
-            btn.strokeWidth = 0
         } else {
+            // surface pill 안에서 비활성 탭은 투명 — pill 배경이 비치도록
             btn.backgroundTintList = android.content.res.ColorStateList.valueOf(
-                ctx.resources.getColor(R.color.surface, null))
+                android.graphics.Color.TRANSPARENT)
             btn.setTextColor(ctx.resources.getColor(R.color.text_secondary, null))
-            btn.strokeWidth = (2 * ctx.resources.displayMetrics.density).toInt()
         }
+        btn.strokeWidth = 0
     }
 
     private fun loadDashboard() {
@@ -122,27 +122,28 @@ class HomeFragment : Fragment() {
 
             if (_binding == null) return@launch
 
-            binding.tvStreak.text = "${streak}일"
+            binding.tvStreak.text = streak.toString()
 
+            val strokeWidthPx = (2 * resources.displayMetrics.density).toInt()
             if (latestExam != null) {
                 val isHighRisk = latestExam.finalRiskLevel == "high"
                 binding.tvRiskLevel.text = if (isHighRisk) "위험군" else "비위험군"
-                binding.tvRiskLevel.setBackgroundResource(
-                    if (isHighRisk) R.drawable.bg_risk_level else R.drawable.bg_risk_low
-                )
-                // text_primary가 노란색(#FFFF00)이라 옅은 배경 위에서 안 보임 → 위험/안전별 진한 색으로 덮어쓰기.
+                // 검정 surface 카드 위에서 보이는 밝은 색으로 등급 구분 (알약 배경 제거됨)
                 binding.tvRiskLevel.setTextColor(
-                    if (isHighRisk) 0xFFC62828.toInt() else 0xFF2E7D32.toInt()
+                    resources.getColor(if (isHighRisk) R.color.error else R.color.success, null)
                 )
+                binding.cardRisk.strokeWidth = 0
             } else {
                 binding.tvRiskLevel.text = "검사 필요"
-                binding.tvRiskLevel.setTextColor(0xFF424242.toInt())
+                binding.tvRiskLevel.setTextColor(resources.getColor(R.color.warning, null))
+                binding.cardRisk.strokeColor = resources.getColor(R.color.warning, null)
+                binding.cardRisk.strokeWidth = strokeWidthPx
             }
 
             val doneCount = completedIds.size
             when {
                 doneCount >= 8 -> {
-                    binding.tvTodayStatus.text = "완료!"
+                    binding.tvTodayStatus.text = "완료"
                     binding.tvTodayStatus.setTextColor(resources.getColor(R.color.success, null))
                 }
                 doneCount > 0 -> {
@@ -155,6 +156,26 @@ class HomeFragment : Fragment() {
                 }
             }
 
+            binding.tvTodayProgressInline.text = "$doneCount / 8"
+            binding.tvTodayProgressInline.setTextColor(
+                resources.getColor(
+                    if (doneCount >= 8) R.color.success else R.color.primary,
+                    null
+                )
+            )
+            binding.pbTodayProgress.progress = doneCount.coerceAtMost(8)
+
+            if (doneCount >= 8) {
+                binding.tvStartExerciseMain.text = "오늘 운동 다 했어요"
+                binding.tvStartExerciseMeta.text = "한 번 더 하시려면 누르세요"
+            } else {
+                binding.tvStartExerciseMain.text = "▶ 운동 시작하기"
+                binding.tvStartExerciseMeta.text = if (doneCount > 0)
+                    "남은 운동 ${8 - doneCount}가지"
+                else
+                    "총 8가지 동작 · 약 15분"
+            }
+
             renderChecklist(completedIds)
         }
     }
@@ -165,23 +186,47 @@ class HomeFragment : Fragment() {
         val inflater = LayoutInflater.from(requireContext())
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val successColor = resources.getColor(R.color.success, null)
-        val warningColor = resources.getColor(R.color.warning, null)
+        val primaryColor = resources.getColor(R.color.primary, null)
         val primaryText = resources.getColor(R.color.text_primary, null)
         val secondaryText = resources.getColor(R.color.text_secondary, null)
+        // 3상태: 완료(✓ success / 옅음) · 다음 차례(● primary / 강조) · 대기(○ secondary / 일반)
+        var nextAssigned = false
         for (id in SessionFlow.EXERCISE_DISPLAY_ORDER) {
             val row = inflater.inflate(R.layout.item_exercise_check, container, false)
             val icon = row.findViewById<TextView>(R.id.tv_check_icon)
             val name = row.findViewById<TextView>(R.id.tv_check_name)
             val sublabel = row.findViewById<TextView>(R.id.tv_check_sublabel)
             val status = row.findViewById<TextView>(R.id.tv_check_status)
+
             val isDone = id in completedIds
-            icon.text = if (isDone) "✓" else "○"
-            icon.setTextColor(if (isDone) successColor else warningColor)
+            val isNext = !isDone && !nextAssigned
+            if (isNext) nextAssigned = true
+
+            when {
+                isDone -> {
+                    icon.text = "✓"
+                    icon.setTextColor(successColor)
+                    name.setTextColor(secondaryText)
+                    status.text = "완료"
+                    status.setTextColor(successColor)
+                }
+                isNext -> {
+                    icon.text = "●"
+                    icon.setTextColor(primaryColor)
+                    name.setTextColor(primaryText)
+                    status.text = "다음"
+                    status.setTextColor(primaryColor)
+                }
+                else -> {
+                    icon.text = "○"
+                    icon.setTextColor(secondaryText)
+                    name.setTextColor(primaryText)
+                    status.text = ""
+                }
+            }
             name.text = SessionFlow.exerciseName(id)
-            name.setTextColor(if (isDone) secondaryText else primaryText)
             // 진급 상태 표시 — 균형: "양손 지지 10초", 근력: "1세트" / "2세트"
             sublabel.text = progressionLabelFor(id, prefs)
-            status.text = if (isDone) "완료" else ""
             container.addView(row)
         }
     }
@@ -228,32 +273,63 @@ class HomeFragment : Fragment() {
     private fun shareGuardianReport() {
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getInt("user_id", 0)
+        val userName = prefs.getString("user_name", "사용자") ?: "사용자"
         val db = FallZeroDatabase.getInstance(requireContext())
 
         viewLifecycleOwner.lifecycleScope.launch {
             val latestExam = db.examResultDao().getLatestResult(userId)
             val streak = calculateStreak(db, userId)
             val todayStart = getTodayStartMillis()
-            val todayCount = db.sessionDao().getTodayCompletedCount(userId, todayStart)
+            val todayCompletedIds = db.sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
 
-            val report = buildString {
-                appendLine("[낙상제로] 보호자 알림")
-                appendLine("━━━━━━━━━━━━━━━")
-                appendLine()
-                appendLine("연속 운동: ${streak}일")
-                appendLine("오늘 운동: ${if (todayCount > 0) "완료" else "미완료"}")
-                if (latestExam != null) {
-                    appendLine("위험 등급: ${if (latestExam.finalRiskLevel == "high") "위험군" else "비위험군"}")
-                    appendLine("의자 일어서기: ${latestExam.chairStandCount}회")
-                    appendLine("균형 검사: ${latestExam.balanceStageReached}단계")
+            val sessionRepo = com.fallzero.app.data.repository.SessionRepository(db.sessionDao())
+            val evals = com.fallzero.app.data.SessionFlow.EXERCISE_DISPLAY_ORDER.map { exId ->
+                val records = sessionRepo.getRecentRecordsByExercise(userId, exId, limit = 30)
+                val name = exerciseDisplayName(exId)
+                if (exId == 8) {
+                    val stage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
+                    com.fallzero.app.data.algorithm.ProgressionEvaluator.evaluateBalance(stage, records)
+                } else {
+                    val setLevel = prefs.getInt("set_level_ex_$exId", 1).coerceIn(1, 2)
+                    com.fallzero.app.data.algorithm.ProgressionEvaluator.evaluateStrength(exId, name, setLevel, records)
                 }
-                appendLine()
-                appendLine("━━━━━━━━━━━━━━━")
-                appendLine("낙상제로 앱에서 전송됨")
             }
 
-            ShareHelper.shareText(requireActivity(), "낙상제로 보호자 알림", report)
+            val riskLevel = when {
+                latestExam == null -> "검사 필요"
+                latestExam.finalRiskLevel == "high" -> "위험군"
+                else -> "비위험군"
+            }
+            val isHighRisk = latestExam?.let { it.finalRiskLevel == "high" }
+            val today = java.text.SimpleDateFormat("yyyy년 M월 d일", java.util.Locale.KOREA)
+                .format(java.util.Date())
+
+            val header = com.fallzero.app.util.GuardianReportRenderer.HeaderInfo(
+                userName = userName,
+                date = today,
+                riskLevel = riskLevel,
+                isHighRisk = isHighRisk,
+                streakDays = streak,
+                todayCompleted = todayCompletedIds.size,
+                todayTotal = 8
+            )
+
+            val bitmap = com.fallzero.app.util.GuardianReportRenderer.render(header, evals)
+            val filename = "fallzero_report_${System.currentTimeMillis()}.png"
+            ShareHelper.shareBitmap(requireActivity(), bitmap, filename)
         }
+    }
+
+    private fun exerciseDisplayName(id: Int): String = when (id) {
+        1 -> "앉아서 무릎 펴기"
+        2 -> "옆으로 다리 들기"
+        3 -> "뒤로 무릎 굽히기"
+        4 -> "발뒤꿈치 들기"
+        5 -> "발끝 들기"
+        6 -> "무릎 살짝 굽히기"
+        7 -> "의자에서 일어서기"
+        8 -> "한 발로 서서 균형 잡기"
+        else -> "운동 $id"
     }
 
     override fun onDestroyView() {

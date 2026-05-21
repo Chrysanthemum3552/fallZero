@@ -6,7 +6,14 @@
 ---
 
 ## 1. 업데이트 현황
-- **2026-05-14 (송민석) — UI/UX 개선 + 안내 영상 제작
+### 2026-05-21 (전수환) — 홈화면 개편 + 보호자 보고서 + 노인 친화 임계값 완화
+- **홈화면 디자인 개편 (awesome-design-md 차용)** — 탭 pill 세그먼트, CTA 카드, stat 3카드 분리·높이 통일, 체크리스트 3상태(완료/다음/대기) + 진행도 ProgressBar
+- **보호자 보고서 신설** — `ProgressionEvaluator` + `GuardianReportRenderer` 1080px 비트맵 공유. (A) 운동별 5회 횟수 막대 + 자연어 평가 (B) 진급 6게이트 표 + 추세
+- **운동 엔진 임계값 노인 친화 추가 완화** — CalfRaise/ToeRaise inactivity 8초·sway 0.25, KneeBend/Flexion returnThr 16°/28°, STEADI 진급 알림 조사 자동 처리
+- **균형 검사 sway baseline 차분** — 자세 진입 1초 trimmed mean 학습 → `|aScore - baseline|` 측정으로 사용자별 자연 정렬 자동 흡수 (부동 자세 정상 초록)
+- **카메라 이탈/재개 흐름 통일 + 가시성 fix** — 운동·검사 모두 재개 시 3-2-1 카운트다운, 안내 영상 단계 알림 차단, 노랑 위 노랑 6개 화면 MaterialButton fix
+
+### 2026-05-14 (송민석) — UI/UX 개선 + 안내 영상 제작
 
 - **안내 영상 자막 타이밍 개선 — 자막 표시 후 TTS 완료 -> 영상 재개 -> 동작 수행 순서로 변경 (기존: 자막·동작 동시 진행)
 - **TTS 속도 기준 정지 구간 삽입 — setSpeechRate(0.75f) 기준 음절당 0.28초 계산으로 각 자막 구간 정지 시간 산출

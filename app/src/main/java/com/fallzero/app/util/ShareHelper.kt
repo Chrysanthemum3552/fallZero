@@ -23,9 +23,10 @@ object ShareHelper {
         val file = File(context.cacheDir, filename)
         FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
 
+        // authority는 AndroidManifest의 <provider android:authorities="${applicationId}.provider" />와 일치해야 함
         val uri: Uri = FileProvider.getUriForFile(
             context,
-            "${context.packageName}.fileprovider",
+            "${context.packageName}.provider",
             file
         )
 

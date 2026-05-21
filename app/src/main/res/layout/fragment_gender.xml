@@ -69,7 +69,9 @@
             android:text="남성"
             android:textSize="48sp"
             android:textStyle="bold"
+            android:textColor="@color/on_primary"
             android:layout_marginEnd="8dp"
+            app:backgroundTint="@color/primary"
             app:cornerRadius="20dp" />
 
         <com.google.android.material.button.MaterialButton
@@ -80,7 +82,9 @@
             android:text="여성"
             android:textSize="48sp"
             android:textStyle="bold"
+            android:textColor="@color/on_primary"
             android:layout_marginStart="8dp"
+            app:backgroundTint="@color/primary"
             app:cornerRadius="20dp" />
     </LinearLayout>
 

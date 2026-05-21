@@ -47,7 +47,7 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var shoulderXBaseline: Float = Float.NaN
     private var swayBaselineFrameCount = 0
     private val SWAY_BASELINE_FRAMES = 30
-    private val SWAY_THRESHOLD = 0.10f
+    private val SWAY_THRESHOLD = 0.25f         // SBU의 25% — 발끝 들 때 자연스러운 상체 보상 동작 허용 (노인 대상 완화 0.10→0.25, CalfRaise와 동일)
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val sbu = SBUCalculator.calculate(landmarks)
@@ -136,6 +136,8 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override val metricIncreasing = true
     // inactivity 임계값
     override val movementThreshold = 0.005f
+    // CalfRaise와 동일 — 작은 ROM 운동의 조기 종료 방지 (4초 → 8초)
+    override val inactivityTimeoutMs = 8000L
     // **고정 임계값** (PRB 기반 X) — toe raise 해부학 기반.
     //   고령층 작은 ROM 수용을 위해 motionThr 0.030 → 0.022.
     //   gap = 0.010 (hysteresis 유지).

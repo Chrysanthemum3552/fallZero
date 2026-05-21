@@ -170,7 +170,9 @@
             android:layout_height="60dp"
             android:text="정보 저장"
             android:textSize="22sp"
-            android:layout_marginBottom="36dp" />
+            android:textColor="@color/on_primary"
+            android:layout_marginBottom="36dp"
+            app:backgroundTint="@color/primary" />
 
         <!-- 화면 표시 옵션 -->
         <TextView
@@ -361,7 +363,9 @@
             android:layout_height="52dp"
             android:text="측정"
             android:textSize="18sp"
-            android:layout_marginBottom="8dp" />
+            android:textColor="@color/on_primary"
+            android:layout_marginBottom="8dp"
+            app:backgroundTint="@color/primary" />
 
         <TextView
             android:id="@+id/tv_tts_result"

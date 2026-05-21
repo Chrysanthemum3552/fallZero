@@ -120,7 +120,8 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override val metricIncreasing = true
     // 슬굴곡(180-angle): 직립 시 ~0~10°, 굽히면 ~60~90°.
     override fun getMotionThreshold() = if (isInCalibration) 30f else maxOf(prb * 0.55f, 40f)
-    override fun getReturnThreshold() = if (isInCalibration) 10f else 20f
+    // 복귀 기준 완화 — 발을 완전히 내려놓기 어려운 점 고려 (20° → 28°). 28° 이내면 카운트.
+    override fun getReturnThreshold() = if (isInCalibration) 10f else 28f
 
     override fun reset() {
         super.reset()

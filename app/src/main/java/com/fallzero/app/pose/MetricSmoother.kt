@@ -34,3 +34,4 @@ class MetricSmoother(private val alpha: Float = 0.3f) {
         smoothedValue = 0f
     }
 }
+

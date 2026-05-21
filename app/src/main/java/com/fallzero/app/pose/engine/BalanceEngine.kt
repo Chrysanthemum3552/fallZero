@@ -56,19 +56,20 @@ class BalanceEngine(
     private var lastElapsedSec: Float = 0f
     private var lastPoseValid: Boolean = true
 
-    // 단계별 sway 임계값: 발 간격이 좁을수록 자연 sway가 커지므로 단계별 차등 적용
-    // 실측 데이터 기반:
-    //   일반 직립(발 벌림): rawA ≈ 0.08~0.12
-    //   발 모음(stage 1):  rawA ≈ 0.19~0.22 (자연 sway)
-    //   탠덤(stage 3):     rawA ≈ 0.15~0.25 (자연 sway)
-    //   한 발(stage 4):    rawA ≈ 0.20~0.30 (자연 sway)
-    //   → 임계값은 "자연 sway + 마진"으로 설정, "진짜 균형 잃음(0.35+)"과 구분
-    private fun getSwayThreshold(): Float = when (stage) {
-        1 -> 0.28f   // 발 모음: 자연 sway ~0.20 + 마진
-        2 -> 0.30f   // 반탠덤: 자연 sway ~0.22 + 마진
-        3 -> 0.33f   // 탠덤: 자연 sway ~0.25 + 마진
-        4 -> 0.45f   // 한 발: 자연 sway ~0.28 + 큰 마진
-        else -> 0.28f
+    // 자세 진입 초반 1초간 aScore를 모아 사용자별 자연 정렬을 baseline으로 학습.
+    // 이후 sway = |aScore - baseline| (변동량만 측정) — 사용자 신체비례/카메라 각도 차이 자동 흡수.
+    private var baselineAScore: Float = Float.NaN
+    private val baselineSamples = mutableListOf<Float>()
+    private val BASELINE_SAMPLES_TARGET = 30   // ~1초 @ 30fps
+
+    // 단계별 sway 허용 마진 — baseline 차분 이후 절대 변동 허용량 (SBU 단위).
+    // 한 발 서기는 자연 흔들림이 크므로 마진도 큼.
+    private fun getSwayMargin(): Float = when (stage) {
+        1 -> 0.10f
+        2 -> 0.10f
+        3 -> 0.12f
+        4 -> 0.20f
+        else -> 0.10f
     }
 
     // 최대 연속 유지 시간 (리포트용)
@@ -191,9 +192,26 @@ class BalanceEngine(
             }
         }
 
-        // ── 3. 안정성 판단: 자세가 맞고 + sway가 임계값 이내 ──
-        val swayThreshold = getSwayThreshold()
-        val isStable = poseValid && aScore < swayThreshold
+        // ── 3. baseline 학습: 자세 valid인 초기 1초 aScore 수집 → trimmed mean ──
+        if (poseValid && baselineAScore.isNaN()) {
+            baselineSamples.add(aScore)
+            if (baselineSamples.size >= BASELINE_SAMPLES_TARGET) {
+                val sorted = baselineSamples.toFloatArray().apply { sort() }
+                // 30~70 percentile 평균 (outlier 제거) — landmark jitter, 자세 정착 흔들림 영향 최소화
+                val q30 = (sorted.size * 0.30).toInt()
+                val q70 = (sorted.size * 0.70).toInt()
+                var sum = 0f
+                for (i in q30 until q70) sum += sorted[i]
+                baselineAScore = sum / (q70 - q30).coerceAtLeast(1)
+                Log.d("BalanceDebug", "▶ stage=$stage baseline 학습 완료 = %.3f (n=${baselineSamples.size})".format(baselineAScore))
+            }
+        }
+
+        // ── 4. 안정성 판단: 사용자 baseline 대비 변동량으로 측정 ──
+        val swayMargin = getSwayMargin()
+        // baseline 측정 중에는 일단 stable로 간주 (poseValid 조건은 그대로) — 사용자에게 초록 보여주며 baseline 수집
+        val correctedSway = if (baselineAScore.isNaN()) 0f else abs(aScore - baselineAScore)
+        val isStable = poseValid && correctedSway < swayMargin
         val nowMs = System.currentTimeMillis()
 
         var countIncremented = false
@@ -243,9 +261,10 @@ class BalanceEngine(
         // 디버그 로그
         debugFrameCount++
         if (debugFrameCount % 30 == 0) {
+            val baselineStr = if (baselineAScore.isNaN()) "측정중(${baselineSamples.size}/$BASELINE_SAMPLES_TARGET)" else "%.3f".format(baselineAScore)
             Log.d("BalanceDebug",
-                "stage=$stage side=$side rawA=%.3f sA=%.3f thr=%.2f pose=%b footX=%.2f footY=%.2f stable=$isStable state=$state best=%.1f elapsed=%.1f"
-                    .format(rawAScore, aScore, swayThreshold, poseValid, footXNorm, footYNorm,
+                "stage=$stage side=$side rawA=%.3f sA=%.3f baseline=%s corr=%.3f margin=%.2f pose=%b stable=$isStable state=$state best=%.1f elapsed=%.1f"
+                    .format(rawAScore, aScore, baselineStr, correctedSway, swayMargin, poseValid,
                         bestHoldTimeSec, if (stableStartTimeMs > 0) (nowMs - stableStartTimeMs) / 1000f else 0f))
         }
 
@@ -257,18 +276,18 @@ class BalanceEngine(
         // errorMsg가 없어도 자세 힌트가 있으면 전달 (IDLE 상태에서 왜 카운트 안 되는지 피드백)
         val finalErrorMsg = errorMsg
             ?: if (!poseValid) poseHint
-            else if (!isStable && aScore >= swayThreshold) "균형을 잡아주세요"
+            else if (!isStable && correctedSway >= swayMargin) "균형을 잡아주세요"
             else null
 
         // 시각화 전용 캐시 갱신 — 이미 계산된 값을 그대로 저장만. 카운트/state 로직 무관.
-        lastSwayRatio = aScore / swayThreshold
+        // baseline 측정 중에는 0 (= 초록) 표시. baseline 완료 후엔 correctedSway 기반 ratio.
+        lastSwayRatio = if (baselineAScore.isNaN()) 0f else correctedSway / swayMargin
         lastHoldProgress = (reportedElapsedSec / targetTimeSec).coerceIn(0f, 1f)
         lastElapsedSec = reportedElapsedSec
         lastPoseValid = poseValid
 
-        // PDF §9 균형 안정성용 흔들림 누적 — 자세가 정상일 때만(=의미 있는 측정 구간) 평균에 반영.
-        // poseValid=false 구간은 자세 자체가 잘못된 것이므로 sway 평균에 노이즈로 들어가지 않게 제외.
-        if (poseValid) {
+        // PDF §9 균형 안정성용 흔들림 누적 — 자세가 정상이고 baseline 측정 완료된 구간만 평균에 반영.
+        if (poseValid && !baselineAScore.isNaN()) {
             swayRatioSum += lastSwayRatio
             swayFrameCount++
         }
@@ -292,6 +311,9 @@ class BalanceEngine(
         bestHoldTimeSec = 0f
         smoother.reset()
         debugFrameCount = 0
+        // baseline 학습 상태 리셋 — 다음 측정 시 처음부터 다시 학습
+        baselineAScore = Float.NaN
+        baselineSamples.clear()
         // 시각화 캐시 초기화
         lastSwayRatio = 0f
         lastHoldProgress = 0f

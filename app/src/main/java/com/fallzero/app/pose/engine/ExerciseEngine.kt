@@ -46,10 +46,17 @@ interface ExerciseEngine {
     fun onSideSwitch() {}
 
     /**
-     * inactivity 감지용 임계값 — ExerciseViewModel이 NO_MOTION_TIMEOUT(4초) 안에 metric 변화량이 이 값 미만이면 자동 종료.
+     * inactivity 감지용 임계값 — `inactivityTimeoutMs` 안에 metric 변화량이 이 값 미만이면 자동 종료.
      * 각도 기반 운동(0-180°)은 default 0.5°면 충분. 비율/거리 기반 운동(예: ToeRaise 0-0.03)은 훨씬 작은 값 필요.
      */
     val movementThreshold: Float get() = 0.5f
+
+    /**
+     * inactivity 자동 종료 timeout (ms). default 4초.
+     * 작은 ROM 운동(CalfRaise/ToeRaise)은 한 사이클이 천천히 진행되면 frame 간 delta가 미달해
+     * 4초 안에 종료되는 false-positive 발생 → 해당 engine만 override해서 길게.
+     */
+    val inactivityTimeoutMs: Long get() = 4000L
 
     /**
      * 가이드 시각화 데이터 반환 (default null = 가이드 없음). 감지 로직과 완전히 분리된 read-only 함수 —

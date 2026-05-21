@@ -1,6 +1,7 @@
 package com.fallzero.app.ui.exercise
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -13,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.lifecycle.lifecycleScope
 import com.fallzero.app.R
 import com.fallzero.app.data.SessionFlow
+import com.fallzero.app.data.algorithm.BalanceProgressionManager
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.databinding.FragmentExerciseGuideBinding
 import kotlinx.coroutines.launch
@@ -62,34 +64,22 @@ class ExerciseGuideFragment : Fragment() {
         }
 
         binding.rvExercises.layoutManager = LinearLayoutManager(requireContext())
-        binding.rvExercises.adapter = ExerciseAdapter(exercises) { exercise ->
-            // 개별 운동 — 미리보기 화면 표시 (SessionFlow 미사용)
-            // 단, 오늘 미완료 운동이 이 운동 이후로도 있으면 "resume" 플래그를 세워
-            // 미리보기 화면의 시작 버튼이 단일 운동 대신 부분 세션을 빌드하게 한다.
-            val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-            prefs.edit().putInt("selected_exercise_id", exercise.id).apply()
-            prefs.edit().remove("resume_from_exercise_id").apply()
-            SessionFlow.reset()
 
-            val userId = prefs.getInt("user_id", 0)
-            viewLifecycleOwner.lifecycleScope.launch {
-                val todayStart = getTodayStartMillis()
-                val completed = FallZeroDatabase.getInstance(requireContext())
-                    .sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
-                // tapped 운동 이후(포함)의 미완료 운동들을 표시 순서대로 추출
-                val resumeQueue = SessionFlow.EXERCISE_DISPLAY_ORDER
-                    .dropWhile { it != exercise.id }
-                    .filter { it == exercise.id || it !in completed }
-                if (resumeQueue.size > 1) {
-                    // tapped 이후에 미완료 운동이 더 있음 → 부분 세션 큐로 자동 진행
-                    prefs.edit()
-                        .putString("resume_from_exercise_id",
-                            resumeQueue.joinToString(","))
-                        .apply()
-                }
-                if (_binding != null) {
-                    findNavController().navigate(R.id.action_guide_to_preview)
-                }
+        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+        val userId = prefs.getInt("user_id", 0)
+
+        // 비동기로 오늘 완료 운동 로드 후 어댑터에 주입 (홈 체크리스트와 동일 패턴)
+        viewLifecycleOwner.lifecycleScope.launch {
+            val todayStart = getTodayStartMillis()
+            val completedIds = FallZeroDatabase.getInstance(requireContext())
+                .sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
+            if (_binding == null) return@launch
+            binding.rvExercises.adapter = ExerciseAdapter(
+                exercises,
+                completedIds,
+                { id -> setLabelFor(id, prefs) }
+            ) { exercise ->
+                handleExerciseClick(exercise, prefs, userId)
             }
         }
 
@@ -97,6 +87,44 @@ class ExerciseGuideFragment : Fragment() {
             // 전체 운동 루틴 — 미리보기 건너뛰고 사전 점검부터 자동 진행
             SessionFlow.startExerciseSession()
             findNavController().navigate(R.id.action_guide_to_preflight)
+        }
+    }
+
+    private fun handleExerciseClick(exercise: ExerciseInfo, prefs: SharedPreferences, userId: Int) {
+        // 개별 운동 — 미리보기 화면 표시 (SessionFlow 미사용)
+        // 단, 오늘 미완료 운동이 이 운동 이후로도 있으면 "resume" 플래그를 세워
+        // 미리보기 화면의 시작 버튼이 단일 운동 대신 부분 세션을 빌드하게 한다.
+        prefs.edit().putInt("selected_exercise_id", exercise.id).apply()
+        prefs.edit().remove("resume_from_exercise_id").apply()
+        SessionFlow.reset()
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            val todayStart = getTodayStartMillis()
+            val completed = FallZeroDatabase.getInstance(requireContext())
+                .sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
+            val resumeQueue = SessionFlow.EXERCISE_DISPLAY_ORDER
+                .dropWhile { it != exercise.id }
+                .filter { it == exercise.id || it !in completed }
+            if (resumeQueue.size > 1) {
+                prefs.edit()
+                    .putString("resume_from_exercise_id", resumeQueue.joinToString(","))
+                    .apply()
+            }
+            if (_binding != null) {
+                findNavController().navigate(R.id.action_guide_to_preview)
+            }
+        }
+    }
+
+    /** 운동별 진급 상태 — 균형: 단계+시간, 근력: 1세트 / 2세트. 홈 체크리스트와 동일. */
+    private fun setLabelFor(exerciseId: Int, prefs: SharedPreferences): String {
+        return if (exerciseId == 8) {
+            val stage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
+            val level = BalanceProgressionManager.getLevel(stage)
+            "${level.description} ${level.targetTimeSec.toInt()}초"
+        } else {
+            val sets = prefs.getInt("set_level_ex_$exerciseId", 1).coerceIn(1, 2)
+            "${sets}세트"
         }
     }
 
@@ -118,6 +146,8 @@ class ExerciseGuideFragment : Fragment() {
     // ── RecyclerView Adapter ──
     class ExerciseAdapter(
         private val items: List<ExerciseInfo>,
+        private val completedIds: Set<Int>,
+        private val setLabelProvider: (Int) -> String,
         private val onClick: (ExerciseInfo) -> Unit
     ) : RecyclerView.Adapter<ExerciseAdapter.ViewHolder>() {
 
@@ -126,6 +156,8 @@ class ExerciseGuideFragment : Fragment() {
             val tvName: TextView = view.findViewById(R.id.tv_name)
             val tvDesc: TextView = view.findViewById(R.id.tv_desc)
             val tvCameraTag: TextView = view.findViewById(R.id.tv_camera_tag)
+            val tvStatus: TextView = view.findViewById(R.id.tv_status)
+            val tvSetInfo: TextView = view.findViewById(R.id.tv_set_info)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -133,13 +165,39 @@ class ExerciseGuideFragment : Fragment() {
             return ViewHolder(view)
         }
 
+        // "다음 차례" 판정: completedIds에 없는 첫 번째 운동 (표시 순서 기준)
+        private val nextExerciseId: Int? = items.firstOrNull { it.id !in completedIds }?.id
+
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = items[position]
-            // 표시 순서 번호 (운동 ID가 아니라 1~8 순서)
+            val ctx = holder.itemView.context
+            val isDone = item.id in completedIds
+            val isNext = item.id == nextExerciseId
+
             holder.tvNumber.text = (position + 1).toString()
             holder.tvName.text = item.name
             holder.tvDesc.text = item.description
             holder.tvCameraTag.text = item.cameraDirection
+            holder.tvSetInfo.text = setLabelProvider(item.id)
+
+            // 3상태: 완료(success "완료") · 다음 차례(primary "다음") · 대기(빈 텍스트, 운동명 일반)
+            when {
+                isDone -> {
+                    holder.tvStatus.text = "완료"
+                    holder.tvStatus.setTextColor(ctx.resources.getColor(R.color.success, null))
+                    holder.tvName.setTextColor(ctx.resources.getColor(R.color.text_secondary, null))
+                }
+                isNext -> {
+                    holder.tvStatus.text = "다음"
+                    holder.tvStatus.setTextColor(ctx.resources.getColor(R.color.primary, null))
+                    holder.tvName.setTextColor(ctx.resources.getColor(R.color.text_primary, null))
+                }
+                else -> {
+                    holder.tvStatus.text = ""
+                    holder.tvName.setTextColor(ctx.resources.getColor(R.color.text_primary, null))
+                }
+            }
+
             holder.itemView.setOnClickListener { onClick(item) }
         }
 

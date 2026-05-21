@@ -950,31 +950,57 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun onOcclusionCleared() {
         if (!isPausedForOcclusion || userReturnInProgress) return
+        Log.d(TAG, "▶ onOcclusionCleared — 재개 시퀀스 시작")
         userReturnInProgress = true
         pauseAnnounceJob?.cancel()
         viewLifecycleOwner.lifecycleScope.launch {
             delay(PAUSE_RESUME_BUFFER_MS)
-            userReturnInProgress = false
-            if (!isAdded || hasNavigated) return@launch
+            if (!isAdded || hasNavigated) {
+                userReturnInProgress = false
+                return@launch
+            }
             _binding?.pauseOverlay?.visibility = View.GONE
-            isPausedForOcclusion = false
-            viewModel.resumeFromUserAway()
-            ttsManager?.speak("전신이 잘 보입니다. 다시 시작합니다.")
+            ttsManager?.speak("전신이 잘 보입니다. 자세를 다시 잡아주세요")
+            resumeWithCountdown(isOcclusion = true)
         }
     }
 
     private fun onUserReturned() {
         if (!isPausedForUserAway || userReturnInProgress) return
+        Log.d(TAG, "▶ onUserReturned — 재개 시퀀스 시작")
         userReturnInProgress = true
         pauseAnnounceJob?.cancel()
         viewLifecycleOwner.lifecycleScope.launch {
             delay(PAUSE_RESUME_BUFFER_MS)
-            userReturnInProgress = false
-            if (!isAdded || hasNavigated) return@launch
+            if (!isAdded || hasNavigated) {
+                userReturnInProgress = false
+                return@launch
+            }
             _binding?.pauseOverlay?.visibility = View.GONE
-            isPausedForUserAway = false
+            ttsManager?.speak("다시 자세를 잡아주세요")
+            resumeWithCountdown(isOcclusion = false)
+        }
+    }
+
+    /**
+     * 재개 공통 시퀀스 — 3-2-1 카운트다운 후 ViewModel resume 호출.
+     * `userReturnInProgress` 플래그는 카운트다운 종료 후에 해제하여 도중 재진입 차단.
+     * 카운트다운 자체가 사용자에게 "측정이 다시 시작됨"을 명확히 알리는 UX 신호 역할.
+     */
+    private fun resumeWithCountdown(isOcclusion: Boolean) {
+        startCountdown321 {
+            if (_binding == null || hasNavigated) {
+                userReturnInProgress = false
+                return@startCountdown321
+            }
+            Log.d(TAG, "▶ resume countdown 종료 — viewModel.resumeFromUserAway() 호출")
+            if (isOcclusion) isPausedForOcclusion = false else isPausedForUserAway = false
             viewModel.resumeFromUserAway()
-            ttsManager?.speak("다시 시작합니다.")
+            // lastValidFrameMs/lastFullBodyMs 갱신해 즉시 재이탈 false-positive 방지
+            val now = System.currentTimeMillis()
+            lastValidFrameMs = now
+            lastFullBodyMs = now
+            userReturnInProgress = false
         }
     }
 

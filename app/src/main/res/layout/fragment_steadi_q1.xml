@@ -81,8 +81,10 @@
             android:text="예"
             android:textSize="36sp"
             android:textStyle="bold"
+            android:textColor="@color/on_primary"
             android:maxLines="1"
             android:layout_marginEnd="8dp"
+            app:backgroundTint="@color/primary"
             app:cornerRadius="20dp" />
 
         <com.google.android.material.button.MaterialButton
@@ -93,8 +95,10 @@
             android:text="아니오"
             android:textSize="36sp"
             android:textStyle="bold"
+            android:textColor="@color/on_primary"
             android:maxLines="1"
             android:layout_marginStart="8dp"
+            app:backgroundTint="@color/primary"
             app:cornerRadius="20dp" />
     </LinearLayout>
 

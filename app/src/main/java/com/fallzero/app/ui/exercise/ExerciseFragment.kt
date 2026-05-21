@@ -73,6 +73,9 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     @Volatile private var isPausedForOcclusion = false  // 부분 가림 (landmarks 있지만 전신 안 보임)
     @Volatile private var isPausedForFrontFacing = false // 측면 운동 중 정면을 향함
     @Volatile private var userReturnInProgress = false
+    // 안내 영상·음성 재생 단계 가드 — true인 동안 어떤 user-away 알림도 발화/표시 금지.
+    // showStartGuidance 시작 시 true, 실제 측정 시작 직전(startMeasurement 호출 전)에 false로.
+    @Volatile private var isInGuidancePhase = false
     private var userAwayCheckJob: Job? = null
     private var pauseAnnounceJob: Job? = null
     private val USER_AWAY_MSG = "카메라 앞으로 와주세요"
@@ -191,6 +194,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
      */
     private fun showStartGuidance(exerciseId: Int) {
         val b = _binding ?: return
+        // 안내 단계 진입 — 이 시점부터 startMeasurement 직전까지 user-away 알림 완전 차단
+        isInGuidancePhase = true
         val titleRes = guidanceTitleRes(exerciseId)
         b.tvGuidanceTitle.text = getString(titleRes)
         b.tvGuidanceText.text = ""
@@ -231,8 +236,15 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.videoExerciseGuide.setVideoURI(uri)
     }
 
-    /** ring 시계방향 채움 0→100% 시뮬레이션 + 기존 안내 멘트 → 캐리브/본운동. */
+    /** 게이지 시뮬레이션 → 안내 멘트 → 캐리브/본운동.
+     *  실제 측정 시 보일 게이지 타입과 동일하게 시연 — 균형(#8)은 Bubble, 그 외는 Bar. */
     private fun startExerciseRingSimulation(exerciseId: Int) {
+        if (exerciseId == 8) startBubbleDemo(exerciseId)
+        else startBarDemo(exerciseId)
+    }
+
+    /** 균형 운동 — Bubble(원형 링) 시뮬레이션. 0→1로 채워지며 안전영역 유지 시간 시연. */
+    private fun startBubbleDemo(exerciseId: Int) {
         val b = _binding ?: return
         b.guideBubble.visibility = View.VISIBLE
         b.guideBubble.bringToFront()
@@ -258,6 +270,37 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         anim.start()
     }
 
+    /** 근력 운동 — Bar(막대) 시뮬레이션. 0→1→0 한 사이클 시연하여 실제 측정 시 막대 움직임 미리보기. */
+    private fun startBarDemo(exerciseId: Int) {
+        val b = _binding ?: return
+        b.guideBar.visibility = View.VISIBLE
+        b.guideBar.bringToFront()
+        val label = getString(guidanceTitleRes(exerciseId))
+        val anim = android.animation.ValueAnimator.ofFloat(0f, 1f, 0f).apply {
+            duration = 2500L
+            addUpdateListener {
+                val p = it.animatedValue as Float
+                _binding?.guideBar?.setGuide(
+                    com.fallzero.app.ui.overlay.ExerciseGuide.Bar(
+                        progress = p,
+                        vertical = true,
+                        fillDirection = com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.UP,
+                        label = label,
+                        justReached = false
+                    )
+                )
+            }
+            addListener(object : android.animation.AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: android.animation.Animator) {
+                    if (_binding == null || hasNavigated) return
+                    _binding?.guideBar?.visibility = View.GONE
+                    proceedAfterExerciseGuide(exerciseId)
+                }
+            })
+        }
+        anim.start()
+    }
+
     /** 안내 영상+ring 끝 후 기존 안내 멘트 발화 → 캐리브/본운동 진입. */
     private fun proceedAfterExerciseGuide(exerciseId: Int) {
         // 균형 운동(#8)은 setLevel(stage)에 따라 손 지지 정도와 유지 시간이 다르므로 동적 멘트.
@@ -276,13 +319,17 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             lastSpokenCount = -1
 
             if (viewModel.isCalibrationRequired()) {
+                isInGuidancePhase = false
                 viewModel.startMeasurement()
+                // 캘리브레이션 중에도 user-away 모니터 활성화 — 모든 운동 단계에서 일관된 일시정지/재개
+                startUserAwayMonitor()
             } else {
                 postCalibrationStarted = true
                 startCountdown321(insideOverlay = false) {
                     if (_binding == null || hasNavigated) return@startCountdown321
                     _binding?.root?.postDelayed({
                         if (_binding != null && !hasNavigated) {
+                            isInGuidancePhase = false
                             viewModel.startMeasurement()
                             startUserAwayMonitor()
                         }
@@ -873,6 +920,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         userAwayCheckJob = viewLifecycleOwner.lifecycleScope.launch {
             while (isAdded && !hasNavigated) {
                 delay(500)
+                // 안내 단계에서는 절대 알림 안 띄움 (방어적 가드 — 본 monitor는 startMeasurement 이후 시작되지만 race 대비)
+                if (isInGuidancePhase) continue
                 if (isPausedForUserAway || isPausedForOcclusion || isPausedForFrontFacing) continue
                 val now = System.currentTimeMillis()
                 // 우선순위: 완전 이탈 > 부분 가림 > 정면 회피
@@ -888,6 +937,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun onUserAway() {
+        if (isInGuidancePhase) { Log.d(TAG, "onUserAway skipped — in guidance phase"); return }
         if (isPausedForUserAway || isPausedForOcclusion || isPausedForFrontFacing) return
         isPausedForUserAway = true
         viewModel.pauseForUserAway()
@@ -895,6 +945,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun onPartialOcclusion() {
+        if (isInGuidancePhase) { Log.d(TAG, "onPartialOcclusion skipped — in guidance phase"); return }
         if (isPausedForUserAway || isPausedForOcclusion || isPausedForFrontFacing) return
         isPausedForOcclusion = true
         viewModel.pauseForUserAway()  // engine pause는 동일 — overlay 메시지만 다름
@@ -903,6 +954,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     /** 측면 운동 중 사용자가 정면을 향함 → 일시정지 + "옆으로 돌아주세요" 반복 안내. */
     private fun onFrontFacing() {
+        if (isInGuidancePhase) { Log.d(TAG, "onFrontFacing skipped — in guidance phase"); return }
         if (isPausedForUserAway || isPausedForOcclusion || isPausedForFrontFacing) return
         isPausedForFrontFacing = true
         viewModel.pauseForUserAway()
@@ -928,47 +980,80 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun onUserReturned() {
         if (!isPausedForUserAway || userReturnInProgress) return
+        Log.d(TAG, "▶ onUserReturned — 재개 시퀀스 시작")
         userReturnInProgress = true
         pauseAnnounceJob?.cancel()
-        // 자세 잡을 시간(1.5초) 버퍼 후 측정 재개
         viewLifecycleOwner.lifecycleScope.launch {
             delay(PAUSE_RESUME_BUFFER_MS)
-            userReturnInProgress = false
-            if (!isAdded || hasNavigated) return@launch
+            if (!isAdded || hasNavigated) {
+                userReturnInProgress = false
+                return@launch
+            }
             _binding?.pauseOverlay?.visibility = View.GONE
-            isPausedForUserAway = false
-            viewModel.resumeFromUserAway()
-            ttsManager?.speak("다시 시작합니다.")
+            ttsManager?.speak("다시 자세를 잡아주세요")
+            resumeWithCountdown(PauseKind.USER_AWAY)
         }
     }
 
     private fun onOcclusionCleared() {
         if (!isPausedForOcclusion || userReturnInProgress) return
+        Log.d(TAG, "▶ onOcclusionCleared — 재개 시퀀스 시작")
         userReturnInProgress = true
         pauseAnnounceJob?.cancel()
         viewLifecycleOwner.lifecycleScope.launch {
             delay(PAUSE_RESUME_BUFFER_MS)
-            userReturnInProgress = false
-            if (!isAdded || hasNavigated) return@launch
+            if (!isAdded || hasNavigated) {
+                userReturnInProgress = false
+                return@launch
+            }
             _binding?.pauseOverlay?.visibility = View.GONE
-            isPausedForOcclusion = false
-            viewModel.resumeFromUserAway()
-            ttsManager?.speak("전신이 잘 보입니다. 다시 시작합니다.")
+            ttsManager?.speak("전신이 잘 보입니다. 자세를 다시 잡아주세요")
+            resumeWithCountdown(PauseKind.OCCLUSION)
         }
     }
 
     private fun onSideViewReturned() {
         if (!isPausedForFrontFacing || userReturnInProgress) return
+        Log.d(TAG, "▶ onSideViewReturned — 재개 시퀀스 시작")
         userReturnInProgress = true
         pauseAnnounceJob?.cancel()
         viewLifecycleOwner.lifecycleScope.launch {
             delay(PAUSE_RESUME_BUFFER_MS)
-            userReturnInProgress = false
-            if (!isAdded || hasNavigated) return@launch
+            if (!isAdded || hasNavigated) {
+                userReturnInProgress = false
+                return@launch
+            }
             _binding?.pauseOverlay?.visibility = View.GONE
-            isPausedForFrontFacing = false
+            ttsManager?.speak("좋아요. 자세를 다시 잡아주세요")
+            resumeWithCountdown(PauseKind.FRONT_FACING)
+        }
+    }
+
+    private enum class PauseKind { USER_AWAY, OCCLUSION, FRONT_FACING }
+
+    /**
+     * 재개 공통 시퀀스 — 3-2-1 카운트다운 후 ViewModel resume 호출.
+     * 검사(ExamFragment)와 동일한 UX. 사용자가 자세 다시 잡을 시간 확보 + 재개 명확히 시각화.
+     */
+    private fun resumeWithCountdown(kind: PauseKind) {
+        startCountdown321(insideOverlay = false) {
+            if (_binding == null || hasNavigated) {
+                userReturnInProgress = false
+                return@startCountdown321
+            }
+            Log.d(TAG, "▶ resume countdown 종료 — viewModel.resumeFromUserAway() 호출")
+            when (kind) {
+                PauseKind.USER_AWAY -> isPausedForUserAway = false
+                PauseKind.OCCLUSION -> isPausedForOcclusion = false
+                PauseKind.FRONT_FACING -> isPausedForFrontFacing = false
+            }
             viewModel.resumeFromUserAway()
-            ttsManager?.speak("좋아요. 다시 시작합니다.")
+            // 재이탈 false-positive 방지 — 타임스탬프 즉시 갱신
+            val now = System.currentTimeMillis()
+            lastValidFrameMs = now
+            lastFullBodyMs = now
+            lastSideViewMs = now
+            userReturnInProgress = false
         }
     }
 
