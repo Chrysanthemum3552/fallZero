@@ -7,8 +7,6 @@
     android:layout_height="match_parent"
     android:background="@android:color/black">
 
-    <!-- 사용자 명시: 하단 큰 숫자/검은 영역 완전 제거. 카메라 영역이 화면 거의 전체 차지.
-         카운트/타이머 = 우상단 layout_corner_count, 균형 fail 버튼 = 카메라 영역 안 하단 floating. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -20,39 +18,30 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:background="#CC000000"
-            android:paddingLeft="16dp"
-            android:paddingRight="16dp"
-            android:paddingTop="12dp"
-            android:paddingBottom="12dp">
+            android:paddingLeft="16dp" android:paddingRight="16dp"
+            android:paddingTop="12dp" android:paddingBottom="12dp">
 
             <TextView
                 android:id="@+id/tv_exam_phase"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="@string/exam_title"
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
-                android:textSize="32sp"
-                android:textStyle="bold"
-                android:textColor="#FFFF00"
-                android:gravity="center"
+                android:breakStrategy="simple" android:hyphenationFrequency="none"
+                android:textSize="32sp" android:textStyle="bold"
+                android:textColor="#FFFF00" android:gravity="center"
                 tools:text="균형 검사 1단계" />
 
             <ProgressBar
                 android:id="@+id/progress_timer"
                 style="?android:attr/progressBarStyleHorizontal"
-                android:layout_width="match_parent"
-                android:layout_height="8dp"
+                android:layout_width="match_parent" android:layout_height="8dp"
                 android:layout_marginTop="10dp"
-                android:max="30"
-                android:progress="30"
-                android:progressTint="#FFFF00"
-                android:progressBackgroundTint="#444400"
+                android:max="30" android:progress="30"
+                android:progressTint="#FFFF00" android:progressBackgroundTint="#444400"
                 android:visibility="gone" />
 
         </LinearLayout>
 
-        <!-- 카메라 영역 (100%) — 사용자 명시: 하단 검은 영역 완전 제거 -->
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
@@ -68,319 +57,198 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
-            <!-- 검사 가이드 bar (의자 일어서기 검사 — 수직 bar).
-                 카메라 영역 상하 margin으로 카메라 flip 버튼 안 가리게. -->
             <com.fallzero.app.ui.overlay.GuideBarView
                 android:id="@+id/guide_bar"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_marginTop="80dp"
-                android:layout_marginBottom="40dp"
+                android:layout_width="match_parent" android:layout_height="match_parent"
+                android:layout_marginTop="80dp" android:layout_marginBottom="40dp"
                 android:visibility="gone" />
 
-            <!-- 검사 가이드 ring (균형 검사 4단계) — 사용자 명시: 거대한 원형 링.
-                 카메라 영역을 거의 채우도록 320dp + center 정렬. -->
             <com.fallzero.app.ui.overlay.BalanceBubbleView
                 android:id="@+id/guide_bubble"
-                android:layout_width="320dp"
-                android:layout_height="320dp"
+                android:layout_width="320dp" android:layout_height="320dp"
                 android:layout_gravity="center"
                 android:visibility="gone" />
 
             <ImageButton
                 android:id="@+id/btn_camera_flip"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:layout_gravity="top|end"
-                android:layout_margin="12dp"
-                android:background="#80000000"
-                android:contentDescription="카메라 전환"
-                android:padding="8dp"
-                android:src="@android:drawable/ic_menu_camera" />
+                android:layout_width="56dp" android:layout_height="56dp"
+                android:layout_gravity="top|end" android:layout_margin="12dp"
+                android:background="#80000000" android:contentDescription="카메라 전환"
+                android:padding="8dp" android:src="@android:drawable/ic_menu_camera" />
 
-            <!-- 우상단 카운트/타이머 (운동세션 패턴) — 사용자 명시: 하단 큰 숫자 대신 여기로.
-                 ChairStand 검사 중에만 표시. 균형 검사는 ring 안에 숫자 있어서 GONE. -->
             <LinearLayout
                 android:id="@+id/layout_corner_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_gravity="top|end"
-                android:layout_marginTop="80dp"
-                android:layout_marginEnd="12dp"
-                android:orientation="vertical"
-                android:gravity="end"
+                android:layout_marginTop="80dp" android:layout_marginEnd="12dp"
+                android:orientation="vertical" android:gravity="end"
                 android:background="#CC000000"
-                android:paddingLeft="14dp"
-                android:paddingRight="14dp"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:paddingLeft="14dp" android:paddingRight="14dp"
+                android:paddingTop="8dp" android:paddingBottom="8dp"
                 android:visibility="gone">
 
                 <TextView
                     android:id="@+id/tv_corner_timer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="end"
-                    android:text=""
-                    android:textSize="28sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFF00"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="end" android:text=""
+                    android:textSize="28sp" android:textStyle="bold" android:textColor="#FFFF00"
                     tools:text="25초" />
 
                 <TextView
                     android:id="@+id/tv_corner_count"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="end"
-                    android:layout_marginTop="2dp"
-                    android:text=""
-                    android:textSize="22sp"
-                    android:textStyle="bold"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="end" android:layout_marginTop="2dp"
+                    android:text="" android:textSize="22sp" android:textStyle="bold"
                     android:textColor="#FFE066"
                     tools:text="5회" />
             </LinearLayout>
 
-            <!-- 우하단 안내 영상 (의자 일어서기 검사 중에만 표시, 무한 반복) -->
             <VideoView
                 android:id="@+id/video_chair_guide"
-                android:layout_width="160dp"
-                android:layout_height="90dp"
+                android:layout_width="160dp" android:layout_height="90dp"
                 android:layout_gravity="bottom|end"
-                android:layout_marginEnd="12dp"
-                android:layout_marginBottom="12dp"
+                android:layout_marginEnd="12dp" android:layout_marginBottom="12dp"
                 android:visibility="gone" />
 
-            <!-- 자세 피드백 floating — 카메라 영역 안 하단 중앙 (검사+운동 공용).
-                 사용자 명시: 잘 하면 초록 ✓ "잘 하고 있어요!", 잘못된 자세는 노란색 메시지.
-                 반투명 검정 배경(#CC000000)으로 가독성 확보.
-                 chairPrepareMode "의자 앞에 가만히 서주세요" 안내도 같은 위치에 노출. -->
             <TextView
                 android:id="@+id/tv_floating_feedback"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_gravity="bottom|center_horizontal"
                 android:layout_marginBottom="96dp"
                 android:background="#CC000000"
-                android:paddingLeft="20dp"
-                android:paddingRight="20dp"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF"
-                android:gravity="center"
-                android:lineSpacingMultiplier="1.2"
+                android:paddingLeft="20dp" android:paddingRight="20dp"
+                android:paddingTop="10dp" android:paddingBottom="10dp"
+                android:textSize="22sp" android:textStyle="bold" android:textColor="#FFFFFF"
+                android:gravity="center" android:lineSpacingMultiplier="1.2"
                 android:visibility="gone"
-                tools:text="✓ 잘 하고 있어요!" />
+                tools:text="잘 하고 있어요!" />
 
-            <!-- 사용자 명시 5번 + 2번: 시작 전까지 카메라 화면 어둡게 (alpha 0.80 검정 — 더 진하게).
-                 '시작!' 끝나면 즉시 dim 제거 + bar 등장으로 운동 시작 명확히 인지. -->
             <View
                 android:id="@+id/v_countdown_dim"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_width="match_parent" android:layout_height="match_parent"
                 android:background="#CC000000"
                 android:visibility="gone" />
 
             <TextView
                 android:id="@+id/tv_big_countdown"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
-                android:textSize="160sp"
-                android:textStyle="bold"
-                android:textColor="#FFFFFF00"
-                android:gravity="center"
+                android:breakStrategy="simple" android:hyphenationFrequency="none"
+                android:textSize="160sp" android:textStyle="bold"
+                android:textColor="#FFFFFF00" android:gravity="center"
                 android:visibility="gone"
                 tools:text="3" />
 
         </FrameLayout>
 
-        <!-- 하단 정보 영역 — 사용자 명시: 화면에서 안 보이게 weight=0.
-             ExamFragment 코드의 tvTimer/tvCount.text 호출은 그대로 유지 (binding 보존).
-             btn_balance_fail은 아래 카메라 영역 안 floating으로 별도 배치됨. -->
         <LinearLayout
             android:id="@+id/layout_center_info"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="0"
-            android:visibility="gone"
-            android:orientation="vertical"
-            android:gravity="center"
+            android:layout_width="match_parent" android:layout_height="0dp"
+            android:layout_weight="0" android:visibility="gone"
+            android:orientation="vertical" android:gravity="center"
             android:background="#EE000000"
-            android:paddingLeft="24dp"
-            android:paddingRight="24dp"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp">
+            android:paddingLeft="24dp" android:paddingRight="24dp"
+            android:paddingTop="8dp" android:paddingBottom="8dp">
 
-            <!-- 타이머 행: ChairStand 검사 시 안내멘트 보조용. 큰 숫자는 우상단 layout_corner_count로 이동 -->
             <LinearLayout
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:gravity="center_vertical">
 
                 <TextView
                     android:id="@+id/tv_timer"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text=""
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
-                    android:textSize="24sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFF00"
-                    android:gravity="center"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="" android:breakStrategy="simple" android:hyphenationFrequency="none"
+                    android:textSize="24sp" android:textStyle="bold"
+                    android:textColor="#FFFF00" android:gravity="center"
                     tools:text="의자 앞에 가만히 서주세요" />
 
                 <TextView
                     android:id="@+id/tv_timer_label"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginLeft="8dp"
-                    android:text=""
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
-                    android:textSize="18sp"
-                    android:textColor="#FFE066" />
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginLeft="8dp" android:text=""
+                    android:breakStrategy="simple" android:hyphenationFrequency="none"
+                    android:textSize="18sp" android:textColor="#FFE066" />
 
             </LinearLayout>
 
-            <!-- 상태/안내 메시지 — "의자 가져와주세요", "잘하고 있어요!" 등 -->
             <TextView
                 android:id="@+id/tv_count"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text=""
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="#FFFF00"
-                android:gravity="center"
-                android:layout_marginTop="4dp"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="" android:breakStrategy="simple" android:hyphenationFrequency="none"
+                android:textSize="24sp" android:textStyle="bold" android:textColor="#FFFF00"
+                android:gravity="center" android:layout_marginTop="4dp"
                 android:lineSpacingMultiplier="1.2"
                 android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="16sp"
-                android:autoSizeMaxTextSize="24sp"
-                android:autoSizeStepGranularity="2sp"
-                android:maxLines="3"
+                android:autoSizeMinTextSize="16sp" android:autoSizeMaxTextSize="24sp"
+                android:autoSizeStepGranularity="2sp" android:maxLines="3"
                 tools:text="잘하고 있어요!" />
 
             <TextView
                 android:id="@+id/tv_count_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="회"
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
-                android:textSize="32sp"
-                android:textColor="#FFE066"
-                android:gravity="center"
-                android:visibility="gone" />
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="회" android:breakStrategy="simple" android:hyphenationFrequency="none"
+                android:textSize="32sp" android:textColor="#FFE066"
+                android:gravity="center" android:visibility="gone" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_start_exam"
-                android:layout_width="match_parent"
-                android:layout_height="72dp"
-                android:text="@string/exam_start"
-                android:textSize="32sp"
-                android:textColor="#000000"
-                android:layout_marginTop="16dp"
+                android:layout_width="match_parent" android:layout_height="72dp"
+                android:text="@string/exam_start" android:textSize="32sp"
+                android:textColor="#000000" android:layout_marginTop="16dp"
                 android:visibility="gone"
-                app:backgroundTint="#FFFF00"
-                app:cornerRadius="16dp" />
+                app:backgroundTint="#FFFF00" app:cornerRadius="16dp" />
 
         </LinearLayout>
 
     </LinearLayout>
 
-    <!-- 균형 검사 fail 버튼 — 사용자 명시: 카메라 영역 안 하단 중앙 floating.
-         layout_center_info 가 GONE 되어도 보일 수 있도록 외부 FrameLayout 자식으로 배치. -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_balance_fail"
         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-        android:layout_width="280dp"
-        android:layout_height="56dp"
-        android:text="@string/exam_balance_fail"
-        android:textColor="#FFFF00"
-        android:textSize="20sp"
-        android:visibility="gone"
-        android:layout_gravity="bottom|center_horizontal"
-        android:layout_marginBottom="24dp"
+        android:layout_width="280dp" android:layout_height="56dp"
+        android:text="@string/exam_balance_fail" android:textColor="#FFFF00"
+        android:textSize="20sp" android:visibility="gone"
+        android:layout_gravity="bottom|center_horizontal" android:layout_marginBottom="24dp"
         android:backgroundTint="#CC000000"
-        app:strokeColor="#FFFF00"
-        app:strokeWidth="2dp"
-        app:cornerRadius="16dp" />
+        app:strokeColor="#FFFF00" app:strokeWidth="2dp" app:cornerRadius="16dp" />
 
     <!-- 일시정지 오버레이 -->
     <FrameLayout
         android:id="@+id/pause_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#A0000000"
-        android:clickable="true"
-        android:focusable="true"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="#A0000000" android:clickable="true" android:focusable="true"
         android:visibility="gone">
 
         <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:orientation="vertical"
-            android:gravity="center"
+            android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:layout_gravity="center" android:orientation="vertical" android:gravity="center"
             android:background="#EE000000"
-            android:paddingLeft="48dp"
-            android:paddingRight="48dp"
-            android:paddingTop="40dp"
-            android:paddingBottom="40dp">
+            android:paddingLeft="48dp" android:paddingRight="48dp"
+            android:paddingTop="40dp" android:paddingBottom="40dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="||"
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
-                android:textSize="64sp"
-                android:gravity="center" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="||" android:textSize="64sp" android:gravity="center" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="잠시 멈춤"
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
-                android:textSize="40sp"
-                android:textStyle="bold"
-                android:textColor="#FFFF00"
-                android:gravity="center" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="16dp" android:text="잠시 멈춤"
+                android:textSize="40sp" android:textStyle="bold"
+                android:textColor="#FFFF00" android:gravity="center" />
 
             <TextView
                 android:id="@+id/tv_pause_message"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="카메라 앞으로 와주세요"
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
-                android:textSize="32sp"
-                android:textColor="#FFE066"
-                android:gravity="center" />
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="12dp" android:text="카메라 앞으로 와주세요"
+                android:breakStrategy="simple" android:hyphenationFrequency="none"
+                android:textSize="32sp" android:textColor="#FFE066" android:gravity="center" />
 
         </LinearLayout>
     </FrameLayout>
 
-    <!-- 단계 안내 오버레이 — 사용자 명시: 완전 검정 배경. VideoView setZOrderOnTop으로 SurfaceView 충돌 회피. -->
+    <!-- 단계 안내 오버레이 -->
     <FrameLayout
         android:id="@+id/guidance_overlay"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:background="#FF000000"
-        android:clickable="true"
-        android:focusable="true"
+        android:layout_width="match_parent" android:layout_height="match_parent"
+        android:background="#FF000000" android:clickable="true" android:focusable="true"
         android:visibility="gone">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -389,26 +257,17 @@
 
             <TextView
                 android:id="@+id/tv_guidance_title"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_width="0dp" android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:layout_marginLeft="20dp"
-                android:layout_marginRight="20dp"
-                android:breakStrategy="simple"
-                android:hyphenationFrequency="none"
+                android:layout_marginLeft="20dp" android:layout_marginRight="20dp"
+                android:breakStrategy="simple" android:hyphenationFrequency="none"
                 android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="16sp"
-                android:autoSizeMaxTextSize="32sp"
+                android:autoSizeMinTextSize="16sp" android:autoSizeMaxTextSize="32sp"
                 android:autoSizeStepGranularity="2sp"
-                android:textSize="32sp"
-                android:textStyle="bold"
-                android:textColor="#FFFF00"
-                android:gravity="center"
-                android:background="#EE000000"
-                android:paddingLeft="16dp"
-                android:paddingRight="16dp"
-                android:paddingTop="10dp"
-                android:paddingBottom="10dp"
+                android:textSize="32sp" android:textStyle="bold" android:textColor="#FFFF00"
+                android:gravity="center" android:background="#EE000000"
+                android:paddingLeft="16dp" android:paddingRight="16dp"
+                android:paddingTop="10dp" android:paddingBottom="10dp"
                 app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -416,11 +275,9 @@
 
             <FrameLayout
                 android:id="@+id/video_placeholder"
-                android:layout_width="0dp"
-                android:layout_height="0dp"
+                android:layout_width="0dp" android:layout_height="0dp"
                 android:layout_marginTop="6dp"
-                android:layout_marginLeft="16dp"
-                android:layout_marginRight="20dp"
+                android:layout_marginLeft="16dp" android:layout_marginRight="20dp"
                 app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
                 app:layout_constraintBottom_toTopOf="@id/layout_guidance_text"
                 app:layout_constraintStart_toStartOf="parent"
@@ -428,52 +285,36 @@
 
                 <TextView
                     android:id="@+id/tv_video_placeholder"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:gravity="center"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="center" android:gravity="center"
                     android:text="@string/guidance_video_placeholder"
-                    android:textColor="#CCCC00"
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
-                    android:textSize="28sp" />
+                    android:textColor="#CCCC00" android:breakStrategy="simple"
+                    android:hyphenationFrequency="none" android:textSize="28sp" />
 
                 <TextView
                     android:id="@+id/tv_guidance_countdown"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
-                    android:textSize="120sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFF00"
-                    android:gravity="center"
-                    android:visibility="gone"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_gravity="center" android:breakStrategy="simple"
+                    android:hyphenationFrequency="none" android:textSize="120sp"
+                    android:textStyle="bold" android:textColor="#FFFF00"
+                    android:gravity="center" android:visibility="gone"
                     tools:text="3" />
             </FrameLayout>
 
-            <!-- 의자 안내 영상 — 화면 가운데, 좌우 끝까지, 상하 가능한 한 크게 (사용자 명시).
-                 ConstraintLayout 0dp + top/bottom constraint로 tv_guidance_title과 LinearLayout 사이 공간을 모두 채움. -->
-            <VideoView
+            <TextureView
                 android:id="@+id/video_chair_guidance"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_marginTop="12dp"
-                android:visibility="gone"
+                android:layout_width="match_parent" android:layout_height="0dp"
+                android:layout_marginTop="12dp" android:visibility="gone"
                 app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
                 app:layout_constraintBottom_toTopOf="@id/layout_guidance_text"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintEnd_toEndOf="parent" />
+                app:layout_constraintEnd_toEndOf="parent" ></TextureView>
 
-            <!-- 의자 앞 정면 자세 이미지 — 영상과 동일 위치, 좌우 깎인 centerCrop -->
             <ImageView
                 android:id="@+id/iv_chair_front_pose"
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
+                android:layout_width="match_parent" android:layout_height="0dp"
                 android:layout_marginTop="12dp"
-                android:scaleType="centerCrop"
-                android:visibility="gone"
+                android:scaleType="centerCrop" android:visibility="gone"
                 android:contentDescription="의자 앞에 정면을 바라보고 서주세요"
                 app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
                 app:layout_constraintBottom_toTopOf="@id/layout_guidance_text"
@@ -482,54 +323,95 @@
 
             <LinearLayout
                 android:id="@+id/layout_guidance_text"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:background="#EE000000"
-                android:paddingLeft="24dp"
-                android:paddingRight="24dp"
-                android:paddingTop="12dp"
-                android:paddingBottom="16dp"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:orientation="vertical" android:background="#EE000000"
+                android:paddingLeft="24dp" android:paddingRight="24dp"
+                android:paddingTop="12dp" android:paddingBottom="16dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent">
 
-                <!-- 의자 영상 자막 — 사용자 명시: 영상 아래 검은 배경 + 노란 글자, 자막 타이밍 동기 -->
                 <TextView
                     android:id="@+id/tv_chair_subtitle"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text=""
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    android:textColor="#FFFF00"
-                    android:background="#FF000000"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="" android:textSize="32sp" android:textStyle="bold"
+                    android:textColor="#FFFF00" android:background="#FF000000"
                     android:gravity="center"
-                    android:paddingTop="12dp"
-                    android:paddingBottom="12dp"
+                    android:paddingTop="12dp" android:paddingBottom="12dp"
                     android:layout_marginBottom="8dp"
                     android:visibility="gone"
                     tools:text="이제 천천히 앉았다 일어서세요" />
 
                 <TextView
                     android:id="@+id/tv_guidance_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:breakStrategy="simple"
-                    android:hyphenationFrequency="none"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:breakStrategy="simple" android:hyphenationFrequency="none"
                     android:autoSizeTextType="uniform"
-                    android:autoSizeMinTextSize="14sp"
-                    android:autoSizeMaxTextSize="22sp"
+                    android:autoSizeMinTextSize="14sp" android:autoSizeMaxTextSize="22sp"
                     android:autoSizeStepGranularity="2sp"
-                    android:textSize="22sp"
-                    android:lineSpacingMultiplier="1.3"
-                    android:textColor="#FFFF00"
-                    android:gravity="center"
+                    android:textSize="22sp" android:lineSpacingMultiplier="1.3"
+                    android:textColor="#FFFF00" android:gravity="center"
                     tools:text="양쪽 발을 나란히 모아 붙이고 10초 동안 그대로 서 있으면 됩니다." />
 
             </LinearLayout>
 
         </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!--
+            [추가] 발 이미지 전환 안내 오버레이 (반일렬서기 / 일렬서기 전용)
+            - 영상 5초 시점에 코드로 VISIBLE, 약 2.5초 후 GONE
+            - 텍스트 크기/내용: tv_foot_guide_text 속성에서 수정
+        -->
+        <FrameLayout
+            android:id="@+id/foot_guide_overlay"
+            android:layout_width="match_parent" android:layout_height="match_parent"
+            android:background="#BB000000"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_foot_guide_text"
+                android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginStart="40dp" android:layout_marginEnd="40dp"
+                android:text="다음 화면은\n위에서 봤을 때\n발 모양입니다.\n참고하세요"
+                android:textSize="44sp" android:textStyle="bold" android:textColor="#FFFF00"
+                android:gravity="center" android:lineSpacingMultiplier="1.3"
+                tools:text="다음 화면은\n위에서 봤을 때\n발 모양입니다.\n참고하세요" />
+
+        </FrameLayout>
+
+        <!--
+            [추가] 검사 안내 영상 자막 오버레이 (exercise와 동일 스타일)
+            VideoView를 담은 ConstraintLayout 다음에 선언 -> z-order 상 위에 렌더링
+            TTS 발화 중 해당 구간 영상 위에 큰 노란 텍스트 표시
+        -->
+        <FrameLayout
+            android:id="@+id/exam_guide_text_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#55000000"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/tv_exam_guide_line_text"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginStart="28dp"
+                android:layout_marginEnd="28dp"
+                android:textSize="72sp"
+                android:textStyle="bold"
+                android:textColor="#FFFF00"
+                android:gravity="center"
+                android:lineSpacingMultiplier="1.25"
+                android:shadowColor="#000000"
+                android:shadowDx="4"
+                android:shadowDy="4"
+                android:shadowRadius="8"
+                tools:text="팔을 가슴 앞에\n교차하세요" />
+
+        </FrameLayout>
+
     </FrameLayout>
 
 </FrameLayout>
