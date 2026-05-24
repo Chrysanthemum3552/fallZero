@@ -173,7 +173,7 @@ object ProgressionEvaluator {
                 r.achievedCount >= r.targetCount
             ),
             Gate(
-                "자세 오류 없음",
+                "자세 오류",
                 "${r.errorCount} 회",
                 "0 회 필요",
                 r.errorCount == 0
@@ -218,7 +218,7 @@ object ProgressionEvaluator {
                 r.achievedCount >= r.targetCount
             ),
             Gate(
-                "자세 오류 없음",
+                "자세 오류",
                 "${r.errorCount} 회",
                 "0 회 필요",
                 r.errorCount == 0

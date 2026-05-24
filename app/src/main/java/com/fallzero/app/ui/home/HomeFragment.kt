@@ -168,12 +168,13 @@ class HomeFragment : Fragment() {
             if (doneCount >= 8) {
                 binding.tvStartExerciseMain.text = "오늘 운동 다 했어요"
                 binding.tvStartExerciseMeta.text = "한 번 더 하시려면 누르세요"
+            } else if (doneCount > 0) {
+                // 중간 중단 상태 — 남은 운동 이어서하기
+                binding.tvStartExerciseMain.text = "▶ 남은 운동 이어서하기"
+                binding.tvStartExerciseMeta.text = "남은 운동 ${8 - doneCount}가지"
             } else {
                 binding.tvStartExerciseMain.text = "▶ 운동 시작하기"
-                binding.tvStartExerciseMeta.text = if (doneCount > 0)
-                    "남은 운동 ${8 - doneCount}가지"
-                else
-                    "총 8가지 동작 · 약 15분"
+                binding.tvStartExerciseMeta.text = "총 8가지 동작 · 약 15분"
             }
 
             renderChecklist(completedIds)
@@ -314,9 +315,43 @@ class HomeFragment : Fragment() {
                 todayTotal = 8
             )
 
-            val bitmap = com.fallzero.app.util.GuardianReportRenderer.render(header, evals)
-            val filename = "fallzero_report_${System.currentTimeMillis()}.png"
-            ShareHelper.shareBitmap(requireActivity(), bitmap, filename)
+            // 운동 이행 현황 — 캘린더(히트맵)용. 최근 4주를 덮도록 충분히 가져와 로컬 날짜로 변환.
+            val calSessions = db.sessionDao().getRecentCompletedSessions(userId, 60)
+            val weekStart = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000L
+            val weekCount = calSessions.count { it.startedAt >= weekStart }
+            val dayKeyFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
+            val exercisedDays = calSessions
+                .map { dayKeyFormat.format(java.util.Date(it.startedAt)) }
+                .toSet()
+            val adherence = com.fallzero.app.util.GuardianReportRenderer.AdherenceInfo(
+                streakDays = streak,
+                weekCount = weekCount,
+                todayCompleted = todayCompletedIds.size,
+                todayTotal = 8,
+                exercisedDays = exercisedDays
+            )
+
+            // 훈련 진급 단계 — 운동별 현재 단계를 구체적으로 나열 (전체 루틴 순서)
+            val progressionLines = SessionFlow.EXERCISE_DISPLAY_ORDER.map { id ->
+                if (id == 8) {
+                    val stage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
+                    val lvl = BalanceProgressionManager.getLevel(stage)
+                    "${SessionFlow.exerciseName(id)} — ${lvl.description} ${lvl.targetTimeSec.toInt()}초 (${stage}/5단계)"
+                } else {
+                    val set = prefs.getInt("set_level_ex_$id", 1).coerceIn(1, 2)
+                    "${SessionFlow.exerciseName(id)} — ${set}세트 / 최종 2세트"
+                }
+            }
+
+            // 1페이지: 이행 현황 + 진급 단계 + 최근 5회 추이 / 2페이지: 운동별 능력·진급 현황
+            val page1 = com.fallzero.app.util.GuardianReportRenderer.renderPage1(
+                header, adherence, progressionLines, evals
+            )
+            val page2 = com.fallzero.app.util.GuardianReportRenderer.renderPage2(header, evals)
+            ShareHelper.shareBitmaps(
+                requireActivity(), listOf(page1, page2),
+                "fallzero_report_${System.currentTimeMillis()}"
+            )
         }
     }
 

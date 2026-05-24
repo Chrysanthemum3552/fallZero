@@ -219,14 +219,22 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 val uri = android.net.Uri.parse("android.resource://${requireContext().packageName}/${guideVideoRes(exerciseId)}")
                 mp.setDataSource(requireContext(), uri)
                 mp.setSurface(android.view.Surface(st))
-                mp.isLooping = false; mp.setVolume(0f, 0f)
+                // #8 균형: 음성(자막) 완료 기준으로 진행하므로 영상은 루프시켜 끝나지 않게 함(나레이션 중간 컷 방지)
+                mp.isLooping = (exerciseId == 8); mp.setVolume(0f, 0f)
                 mp.setOnPreparedListener { player ->
-                    val extDur = player.duration.toLong()
-                    val segDur = if (lines.isNotEmpty()) extDur / lines.size else SUBTITLE_ZONE_MS + 2000L
-                    subtitleZones = lines.mapIndexed { i, text ->
-                        SubtitleZone(i.toLong() * segDur, i.toLong() * segDur + SUBTITLE_ZONE_MS, text)
+                    if (exerciseId == 8) {
+                        // 영상 길이÷줄수 타이밍 + QUEUE_FLUSH는 안내문이 길면 음성이 잘리고 영상과 어긋남.
+                        // → 균형 운동은 자막 한 줄을 표시·발화하고, 발화가 끝나면 다음 줄로 넘어가 동기화 보장.
+                        player.start()
+                        playBalanceGuidanceByTts(lines)
+                    } else {
+                        val extDur = player.duration.toLong()
+                        val segDur = if (lines.isNotEmpty()) extDur / lines.size else SUBTITLE_ZONE_MS + 2000L
+                        subtitleZones = lines.mapIndexed { i, text ->
+                            SubtitleZone(i.toLong() * segDur, i.toLong() * segDur + SUBTITLE_ZONE_MS, text)
+                        }
+                        player.start(); startSubtitlePolling()
                     }
-                    player.start(); startSubtitlePolling()
                 }
                 mp.setOnCompletionListener {
                     stopSubtitlePolling(); releaseGuidancePlayer()
@@ -258,6 +266,25 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun releaseGuidancePlayer() { guidancePlayer?.release(); guidancePlayer = null }
+
+    /** #8 균형 운동 안내: 자막 한 줄을 표시하고 TTS로 읽어준 뒤 발화 완료 콜백에서 다음 줄로 진행.
+     *  영상 위치가 아니라 발화 완료를 기준으로 하므로 음성이 중간에 잘리거나 영상과 어긋나지 않음. */
+    private fun playBalanceGuidanceByTts(lines: List<String>) {
+        fun speakLine(i: Int) {
+            val b = _binding ?: return
+            if (hasNavigated || !isInGuidancePhase) return
+            if (i >= lines.size) {
+                releaseGuidancePlayer()
+                _binding?.guidanceOverlay?.visibility = View.GONE
+                if (_binding != null && !hasNavigated) startExerciseAfterGuidance()
+                return
+            }
+            b.tvGuideLineText.text = lines[i]
+            b.guideTextOverlay.visibility = View.VISIBLE
+            ttsManager?.speak(lines[i]) { speakLine(i + 1) }
+        }
+        speakLine(0)
+    }
 
     /** 안내 완료 후 운동 시작 */
     private fun startExerciseAfterGuidance() {
@@ -301,19 +328,6 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // 텍스트 리소스 헬퍼
     // -----------------------------------------------
 
-    private fun getExerciseTitle(exerciseId: Int): String {
-        if (exerciseId == 8) {
-            val setLevel = requireActivity()
-                .getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-                .getInt("current_set_level", 1)
-            return when (setLevel) {
-                1 -> "두 발 나란히 서기"; 2 -> "반일렬 서기"
-                3 -> "일렬 서기"; else -> getString(R.string.ex_guide_8_title)
-            }
-        }
-        return getString(guidanceTitleRes(exerciseId))
-    }
-
     /** 안내 문자열을 줄(\n)로 나눠 반환 */
     private fun getInstructionLines(exerciseId: Int): List<String> {
         val script = if (exerciseId == 8) {
@@ -338,22 +352,10 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         5 -> R.raw.toe_raise_guide
         6 -> R.raw.knee_bend_guide
         7 -> R.raw.chair_stand_guide
-        8 -> {
-            val setLevel = requireActivity()
-                .getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-                .getInt("current_set_level", 1)
-            when (setLevel) { 1 -> R.raw.balance_guide_1; 2 -> R.raw.balance_guide_2
-                3 -> R.raw.balance_guide_3; else -> R.raw.balance_guide_4 }
-        }
-        else -> R.raw.balance_guide_1
-    }
-
-    private fun guidanceTitleRes(id: Int): Int = when (id) {
-        1 -> R.string.ex_guide_1_title; 2 -> R.string.ex_guide_2_title
-        3 -> R.string.ex_guide_3_title; 4 -> R.string.ex_guide_4_title
-        5 -> R.string.ex_guide_5_title; 6 -> R.string.ex_guide_6_title
-        7 -> R.string.ex_guide_7_title; 8 -> R.string.ex_guide_8_title
-        else -> R.string.ex_guide_2_title
+        // #8은 한 발 서기로 통일 → 손 지지/시간만 다르므로 한 발 시범 영상(balance_guide_4)을 공용으로 사용.
+        // (단계별 손 지지 차이는 음성·자막으로 안내. 손 지지별 한 발 영상이 준비되면 여기서 분기)
+        8 -> R.raw.balance_guide_4
+        else -> R.raw.balance_guide_4
     }
 
     private fun guidanceScriptRes(id: Int): Int = when (id) {
@@ -393,27 +395,30 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             5 -> ToeRaiseEngine(targetCount); 6 -> KneeBendEngine(targetCount)
             7 -> ChairStandEngine(targetCount, examMode = false)
             8 -> {
-                val balanceStage = when (setLevel) { 1->1; 2->2; 3->3; else->4 }
-                BalanceEngine(targetCount = 1, stage = balanceStage,
+                // 운동 #8은 한 발 서기로 통일 — 단계(setLevel)는 손 지지/지속시간으로만 난이도 조절.
+                // 따라서 감지는 항상 한 발 서기(stage=4)로 하고, 목표 시간만 단계별로 적용한다.
+                // (검사(exam)는 별도로 STEADI 발 자세 단계 1~4를 그대로 사용 — ExamViewModel에서 생성)
+                BalanceEngine(targetCount = 1, stage = 4,
                     overrideTargetTimeSec = com.fallzero.app.data.algorithm.BalanceProgressionManager.getTargetTime(setLevel))
             }
             else -> KneeExtensionEngine(targetCount)
         }
     }
 
+    /** #8은 한 발 서기로 통일 — 단계별로 손 지지(양손→한손→없음)와 목표 시간만 달라진다. */
     private fun balanceGuidanceText(setLevel: Int): String {
         val stage = setLevel.coerceIn(1, 5)
         val level = com.fallzero.app.data.algorithm.BalanceProgressionManager.getLevel(stage)
         val timeSec = level.targetTimeSec.toInt()
-        return when (stage) {
-            1 -> "두 발 나란히 서기 균형 운동입니다.\n양손으로 의자나 벽을 잡고 서주세요.\n두 발을 모아 ${timeSec}초 동안 서주세요."
-            2 -> "반일렬 서기 균형 운동입니다.\n한 손으로 잡고 한쪽 발 뒤꿈치를\n엄지발가락 옆에 놓고 ${timeSec}초 유지해주세요."
-            3 -> "일렬 서기 균형 운동입니다.\n한쪽 발 뒤꿈치를 다른 발 발끝 앞에\n일렬로 놓고 ${timeSec}초 유지해주세요."
-            else -> {
-                val support = if (stage == 4) "한 손으로 잡고" else "손 지지 없이"
-                "한 발로 서서 균형 잡기 운동입니다.\n$support 서주세요.\n한쪽 발을 들어 ${timeSec}초 유지하세요."
-            }
+        val support = when (level.handSupport) {
+            com.fallzero.app.data.algorithm.BalanceProgressionManager.HandSupport.BOTH_HANDS ->
+                "양손으로 의자나 벽을 잡고"
+            com.fallzero.app.data.algorithm.BalanceProgressionManager.HandSupport.ONE_HAND ->
+                "한 손으로 의자나 벽을 가볍게 잡고"
+            com.fallzero.app.data.algorithm.BalanceProgressionManager.HandSupport.NO_SUPPORT ->
+                "손 지지 없이"
         }
+        return "한 발로 서서 균형 잡기 운동입니다.\n$support 서주세요.\n한쪽 발을 들어 ${timeSec}초 동안 균형을 유지하세요."
     }
 
     // -----------------------------------------------
@@ -465,7 +470,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     when (state) {
                         ExerciseViewModel.ExerciseUiState.Idle -> {}
                         is ExerciseViewModel.ExerciseUiState.Ready -> {
-                            b.tvExerciseName.text = state.exerciseName + (state.bilateralSide?.let { " — $it" } ?: "")
+                            b.tvExerciseName.text = SessionFlow.exerciseName(getCurrentExerciseId()) + (state.bilateralSide?.let { " — $it" } ?: "")
                             b.tvCount.text = if (getCurrentExerciseId() == 8) "0초"
                             else getString(R.string.exercise_count_format, 0, state.targetCount)
                             b.tvErrorMessage.visibility = View.GONE

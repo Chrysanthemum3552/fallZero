@@ -113,10 +113,26 @@ class SettingsFragment : Fragment() {
             Toast.makeText(requireContext(), msg, Toast.LENGTH_SHORT).show()
         }
 
-        // 온보딩 초기화
+        // 온보딩 초기화 — 진급현황(세트 레벨)도 함께 초기화.
+        // 세트 레벨은 userId가 아닌 전역 prefs에 저장되므로 온보딩만 다시 하면 이전 진급현황이 남아
+        // 새 유저의 비어 있는 PRB/기록과 불일치한다. 따라서 여기서 명시적으로 삭제한다.
         binding.btnResetOnboarding.setOnClickListener {
-            prefs.edit().putBoolean("onboarding_complete", false).apply()
-            Toast.makeText(requireContext(), "앱을 다시 시작하면 온보딩이 표시됩니다", Toast.LENGTH_LONG).show()
+            androidx.appcompat.app.AlertDialog.Builder(requireContext(), R.style.ThemeOverlay_FallZero_Dialog)
+                .setTitle("온보딩 다시하기")
+                .setMessage("설문을 처음부터 다시 하고, 모든 운동의 진급현황(세트 단계)이 초기화됩니다.")
+                .setPositiveButton("확인") { _, _ ->
+                    prefs.edit().apply {
+                        putBoolean("onboarding_complete", false)
+                        remove("current_set_level")
+                        for (exId in 1..7) remove("set_level_ex_$exId")
+                        apply()
+                    }
+                    Toast.makeText(requireContext(),
+                        "진급현황이 초기화되었습니다. 앱을 다시 시작하면 온보딩이 표시됩니다",
+                        Toast.LENGTH_LONG).show()
+                }
+                .setNegativeButton("취소", null)
+                .show()
         }
 
         // 연습(캘리브레이션) 초기화 — PRB 전체 삭제로 다음 운동 시 연습 모드 자동 재진입

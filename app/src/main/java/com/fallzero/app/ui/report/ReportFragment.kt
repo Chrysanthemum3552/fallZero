@@ -23,7 +23,6 @@ import com.fallzero.app.data.db.entity.ExerciseRecord
 import com.fallzero.app.data.repository.PRBRepository
 import com.fallzero.app.databinding.FragmentReportBinding
 import com.fallzero.app.ui.exam.SimpleChartView
-import com.fallzero.app.util.ShareHelper
 import com.fallzero.app.viewmodel.ReportViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -55,10 +54,6 @@ class ReportFragment : Fragment() {
 
         binding.btnBack.setOnClickListener {
             findNavController().navigateUp()
-        }
-
-        binding.btnShareGuardianReport.setOnClickListener {
-            shareGuardianReport()
         }
 
         loadProgressionStatus()
@@ -272,141 +267,6 @@ class ReportFragment : Fragment() {
             val names = advanced.joinToString(", ") { SessionFlow.exerciseName(it) }
             "💪 2세트 진급: $names\n그 외 운동: 1세트"
         }
-    }
-
-    private fun shareGuardianReport() {
-        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-        val userId = prefs.getInt("user_id", 0)
-        val db = FallZeroDatabase.getInstance(requireContext())
-        viewLifecycleOwner.lifecycleScope.launch {
-            // ── 데이터 수집 ──
-            val latestExam = db.examResultDao().getLatestResult(userId)
-            val firstExam = db.examResultDao().getFirstResult(userId)
-            val recentSessions = db.sessionDao().getRecentCompletedSessions(userId, 28)
-            val dayEpochs = db.sessionDao().getCompletedDayEpochs(userId)
-            val streak = calculateStreak(dayEpochs)
-            val weekStart = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000L
-            val weekCount = recentSessions.count { it.startedAt >= weekStart }
-            val balanceStage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
-            val balanceLevel = BalanceProgressionManager.getLevel(balanceStage)
-            val advanced = (1..7).filter { prefs.getInt("set_level_ex_$it", 1) >= 2 }
-
-            // 운동별 PRB
-            val prbRepo = PRBRepository(db.prbDao())
-            val prbList = (1..8).mapNotNull { id ->
-                val prb = prbRepo.getLatestPRB(userId, id) ?: return@mapNotNull null
-                val unit = when (id) { in 1..6 -> "°"; 7 -> "%"; else -> "초" }
-                Triple(exerciseNames[id] ?: "운동 $id", prb.prbValue, unit)
-            }
-
-            // 마지막 세션 점수·오류
-            val latestSession = recentSessions.firstOrNull()
-            val latestRecords = latestSession?.let { db.sessionDao().getRecordsBySession(it.id) }
-                ?: emptyList()
-            val avgScore = if (latestRecords.isNotEmpty())
-                latestRecords.map { it.qualityScore }.average().toInt() else null
-            val errorTotal = latestRecords.sumOf { it.errorCount }
-            val achievedTotal = latestRecords.sumOf { it.achievedCount }
-
-            // 검사 비교
-            val examChange = when {
-                latestExam == null -> "-"
-                firstExam == null || firstExam.id == latestExam.id -> "첫 검사"
-                latestExam.finalRiskLevel == "low" && firstExam.finalRiskLevel == "high" -> "위험군 → 안전군으로 개선"
-                latestExam.finalRiskLevel == "high" && firstExam.finalRiskLevel == "low" -> "안전군 → 위험군으로 악화"
-                else -> "동일 등급 유지"
-            }
-            val dateLong = SimpleDateFormat("yyyy-MM-dd", Locale.KOREAN)
-            val dateShort = SimpleDateFormat("M/d (E)", Locale.KOREAN)
-
-            // ── 보고서 생성 ──
-            val report = buildString {
-                appendLine("[낙상제로] 어르신 운동 종합 현황")
-                appendLine("━━━━━━━━━━━━━━━━━━━━")
-                appendLine()
-
-                appendLine("📋 낙상 위험 검사 결과")
-                if (latestExam != null) {
-                    appendLine("  · 검사일: ${dateLong.format(Date(latestExam.performedAt))}")
-                    appendLine("  · 위험 등급: ${if (latestExam.finalRiskLevel == "high") "낙상 위험군" else "낙상 안전군"}")
-                    appendLine("  · 의자 일어서기: ${latestExam.chairStandCount}회 (기준 ${latestExam.chairStandNorm}회 이상)")
-                    appendLine("  · 균형 검사: ${latestExam.balanceStageReached}단계 도달")
-                    appendLine("  · 일렬 자세 유지: ${latestExam.tandemTimeSec.toInt()}초")
-                    if (latestExam.oneLegTimeSec > 0f) {
-                        appendLine("  · 한 발 서기 유지: ${latestExam.oneLegTimeSec.toInt()}초")
-                    }
-                    appendLine("  · 이전 검사 대비: $examChange")
-                } else {
-                    appendLine("  · 아직 검사를 받지 않으셨습니다")
-                }
-                appendLine()
-
-                appendLine("📅 운동 이행 현황")
-                appendLine("  · 연속 운동: ${streak}일")
-                appendLine("  · 이번 주: ${weekCount}회 (권장 3회 이상)")
-                appendLine("  · 최근 28일 누적: ${recentSessions.size}회")
-                if (latestSession != null) {
-                    appendLine("  · 마지막 운동: ${dateShort.format(Date(latestSession.startedAt))}")
-                } else {
-                    appendLine("  · 아직 운동을 시작하지 않으셨습니다")
-                }
-                appendLine()
-
-                appendLine("📈 훈련 진급 단계")
-                appendLine("  · 한 발로 서기: ${balanceLevel.description} ${balanceLevel.targetTimeSec.toInt()}초 (${balanceStage}/5단계)")
-                if (advanced.isEmpty()) {
-                    appendLine("  · 근력 운동: 모두 1세트")
-                } else {
-                    val advancedNames = advanced.joinToString(", ") { SessionFlow.exerciseName(it) }
-                    appendLine("  · 2세트 진급: $advancedNames")
-                    appendLine("  · 그 외 근력 운동: 1세트")
-                }
-                appendLine()
-
-                if (prbList.isNotEmpty()) {
-                    appendLine("💪 운동 능력 (개인 기준값)")
-                    prbList.forEach { (name, value, unit) ->
-                        // unit이 "%"일 수 있으니 format() 분리 — UnknownFormatConversionException 회피.
-                        appendLine("  · $name: ${"%.1f".format(value)}$unit")
-                    }
-                    appendLine()
-                }
-
-                if (avgScore != null && latestSession != null) {
-                    appendLine("🎯 최근 운동 평가 (${dateShort.format(Date(latestSession.startedAt))})")
-                    appendLine("  · 평균 품질 점수: ${avgScore}점 / 100점")
-                    appendLine("  · 수행: ${achievedTotal}회 중 자세 오류 ${errorTotal}회")
-                    val errorRate = if (achievedTotal > 0) (errorTotal * 100f / achievedTotal).toInt() else 0
-                    when {
-                        errorRate == 0 -> appendLine("  · 자세 평가: 매우 정확")
-                        errorRate <= 10 -> appendLine("  · 자세 평가: 양호")
-                        errorRate <= 20 -> appendLine("  · 자세 평가: 주의 필요")
-                        else -> appendLine("  · 자세 평가: 자세 교정 권장")
-                    }
-                    appendLine()
-                }
-
-                appendLine("━━━━━━━━━━━━━━━━━━━━")
-                appendLine("작성일: ${dateLong.format(Date())}")
-                appendLine("낙상제로 앱에서 전송됨")
-            }
-            ShareHelper.shareText(requireActivity(), "낙상제로 어르신 운동 현황", report)
-        }
-    }
-
-    /** 연속 운동 일수 계산 — 오늘 또는 어제 운동했으면 그날부터 거꾸로 연속된 날 카운트 */
-    private fun calculateStreak(dayEpochs: List<Long>): Int {
-        if (dayEpochs.isEmpty()) return 0
-        val todayEpoch = System.currentTimeMillis() / 86400000L
-        val mostRecentDay = dayEpochs.first()
-        if (mostRecentDay < todayEpoch - 1) return 0
-        var streak = 1
-        for (i in 1 until dayEpochs.size) {
-            if (dayEpochs[i] == dayEpochs[i - 1] - 1) streak++
-            else if (dayEpochs[i] == dayEpochs[i - 1]) continue
-            else break
-        }
-        return streak
     }
 
     /**

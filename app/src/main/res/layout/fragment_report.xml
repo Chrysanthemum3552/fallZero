@@ -301,17 +301,5 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_share_guardian_report"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:text="보호자에게 공유하기"
-            android:textSize="16sp"
-            android:textColor="@color/text_primary"
-            app:strokeColor="@color/primary"
-            android:layout_marginBottom="32dp"
-            app:cornerRadius="12dp" />
-
     </LinearLayout>
 </ScrollView>

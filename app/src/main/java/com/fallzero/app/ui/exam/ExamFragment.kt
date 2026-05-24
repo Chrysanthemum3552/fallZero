@@ -135,30 +135,6 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
         binding.btnCameraFlip.setOnClickListener { toggleCameraFacing() }
 
-        // [추가] 타이머 패널을 좌측으로 이동 (우측 가이드 바와 겹침 방지)
-        binding.layoutCornerCount.post {
-            val lp = binding.layoutCornerCount.layoutParams
-            when (lp) {
-                is androidx.constraintlayout.widget.ConstraintLayout.LayoutParams -> {
-                    lp.startToStart =
-                        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.PARENT_ID
-                    lp.endToEnd =
-                        androidx.constraintlayout.widget.ConstraintLayout.LayoutParams.UNSET
-                    lp.horizontalBias = 0f
-                    binding.layoutCornerCount.layoutParams = lp
-                }
-                is android.widget.FrameLayout.LayoutParams -> {
-                    lp.gravity = android.view.Gravity.TOP or android.view.Gravity.START
-                    binding.layoutCornerCount.layoutParams = lp
-                }
-                is android.widget.RelativeLayout.LayoutParams -> {
-                    lp.removeRule(android.widget.RelativeLayout.ALIGN_PARENT_END)
-                    lp.addRule(android.widget.RelativeLayout.ALIGN_PARENT_START)
-                    binding.layoutCornerCount.layoutParams = lp
-                }
-            }
-        }
-
         observeViewModel()
     }
 
@@ -654,7 +630,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             b.tvTimer.text = ""; b.tvCount.text = ""
                             if (phase.isRunning) {
                                 b.layoutCornerCount.visibility = View.VISIBLE
-                                b.tvCornerTimer.text = "${phase.remainingSec}초"
+                                b.tvCornerCount.visibility = View.VISIBLE
+                                b.tvCornerTimer.text = "${phase.remainingSec}"
+                                b.progressCornerTimer.setProgressCompat(phase.remainingSec, true)
                                 b.tvCornerCount.text = "${phase.count}회"
                                 when {
                                     phase.errorHint != null -> showFloatingFeedback(phase.errorHint, 0xFFFFEB3B.toInt())
@@ -675,7 +653,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         }
 
                         is ExamViewModel.ExamPhase.ChairStandComplete -> {
-                            stopChairGuideVideo(); b.layoutCornerCount.visibility = View.GONE; hideFloatingFeedback()
+                            stopChairGuideVideo(); b.layoutCornerCount.visibility = View.GONE
+                            b.tvCornerCount.visibility = View.GONE; hideFloatingFeedback()
                             ttsManager?.speak("의자 일어서기 검사가 끝났어요.") {
                                 if (_binding != null && !hasNavigated) navigateNext()
                             }
@@ -687,6 +666,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
                         is ExamViewModel.ExamPhase.BalancePrepare -> {
                             b.layoutCornerCount.visibility = View.GONE
+                            b.tvCornerCount.visibility = View.GONE
                             hideFloatingFeedback(); stopChairGuideVideo()
                             b.tvExamPhase.text = "${phase.stage}단계: ${phase.stageName}"
                             b.tvTimer.text = ""; b.tvCount.text = ""

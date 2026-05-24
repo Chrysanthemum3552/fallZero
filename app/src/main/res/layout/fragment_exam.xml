@@ -76,32 +76,60 @@
                 android:background="#80000000" android:contentDescription="카메라 전환"
                 android:padding="8dp" android:src="@android:drawable/ic_menu_camera" />
 
-            <LinearLayout
+            <!-- 좌상단: 남은시간 원형 게이지 (게이지가 30초→0초로 줄어듦) -->
+            <FrameLayout
                 android:id="@+id/layout_corner_count"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_gravity="top|end"
-                android:layout_marginTop="80dp" android:layout_marginEnd="12dp"
-                android:orientation="vertical" android:gravity="end"
-                android:background="#CC000000"
-                android:paddingLeft="14dp" android:paddingRight="14dp"
-                android:paddingTop="8dp" android:paddingBottom="8dp"
+                android:layout_gravity="top|start"
+                android:layout_marginTop="80dp" android:layout_marginStart="12dp"
                 android:visibility="gone">
 
-                <TextView
-                    android:id="@+id/tv_corner_timer"
+                <com.google.android.material.progressindicator.CircularProgressIndicator
+                    android:id="@+id/progress_corner_timer"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:layout_gravity="end" android:text=""
-                    android:textSize="28sp" android:textStyle="bold" android:textColor="#FFFF00"
-                    tools:text="25초" />
+                    android:layout_gravity="center"
+                    android:max="30" android:progress="30"
+                    app:indicatorSize="120dp"
+                    app:trackThickness="12dp"
+                    app:trackCornerRadius="6dp"
+                    app:indicatorColor="#FFFF00"
+                    app:trackColor="#44FFFF00" />
 
-                <TextView
-                    android:id="@+id/tv_corner_count"
+                <LinearLayout
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:layout_gravity="end" android:layout_marginTop="2dp"
-                    android:text="" android:textSize="22sp" android:textStyle="bold"
-                    android:textColor="#FFE066"
-                    tools:text="5회" />
-            </LinearLayout>
+                    android:layout_gravity="center"
+                    android:orientation="vertical" android:gravity="center">
+
+                    <TextView
+                        android:id="@+id/tv_corner_timer"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_gravity="center" android:text=""
+                        android:textSize="40sp" android:textStyle="bold" android:textColor="#FFFF00"
+                        android:shadowColor="#000000" android:shadowDx="2" android:shadowDy="2"
+                        android:shadowRadius="4"
+                        tools:text="25" />
+
+                    <TextView
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:layout_gravity="center" android:text="남은시간"
+                        android:textSize="14sp" android:textColor="#FFE066"
+                        android:shadowColor="#000000" android:shadowDx="2" android:shadowDy="2"
+                        android:shadowRadius="4" />
+                </LinearLayout>
+            </FrameLayout>
+
+            <!-- 좌하단: 현재 일어선 횟수 -->
+            <TextView
+                android:id="@+id/tv_corner_count"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="bottom|start"
+                android:layout_marginStart="12dp" android:layout_marginBottom="24dp"
+                android:text="" android:textSize="40sp" android:textStyle="bold"
+                android:textColor="#FFFF00" android:background="#CC000000"
+                android:paddingLeft="20dp" android:paddingRight="20dp"
+                android:paddingTop="10dp" android:paddingBottom="10dp"
+                android:visibility="gone"
+                tools:text="5회" />
 
             <VideoView
                 android:id="@+id/video_chair_guide"

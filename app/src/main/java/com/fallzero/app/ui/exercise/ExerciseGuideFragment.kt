@@ -68,6 +68,12 @@ class ExerciseGuideFragment : Fragment() {
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
         val userId = prefs.getInt("user_id", 0)
 
+        // 기본 동작: 전체 루틴 시작 (완료 운동 로드 전 빠르게 눌러도 안전하도록 우선 설정)
+        binding.btnStartAll.setOnClickListener {
+            SessionFlow.startExerciseSession()
+            findNavController().navigate(R.id.action_guide_to_preflight)
+        }
+
         // 비동기로 오늘 완료 운동 로드 후 어댑터에 주입 (홈 체크리스트와 동일 패턴)
         viewLifecycleOwner.lifecycleScope.launch {
             val todayStart = getTodayStartMillis()
@@ -81,12 +87,27 @@ class ExerciseGuideFragment : Fragment() {
             ) { exercise ->
                 handleExerciseClick(exercise, prefs, userId)
             }
+            updateStartAllButton(completedIds)
         }
+    }
 
-        binding.btnStartAll.setOnClickListener {
-            // 전체 운동 루틴 — 미리보기 건너뛰고 사전 점검부터 자동 진행
-            SessionFlow.startExerciseSession()
-            findNavController().navigate(R.id.action_guide_to_preflight)
+    /** 오늘 완료한 운동이 일부 있으면(=중간 중단) "전체 운동 시작" → "남은 운동 이어서하기"로 전환하고
+     *  남은 운동만 큐로 시작한다. 완료가 없거나 8개 모두 끝났으면 전체 루틴을 시작한다. */
+    private fun updateStartAllButton(completedIds: Set<Int>) {
+        val b = _binding ?: return
+        val remaining = SessionFlow.EXERCISE_DISPLAY_ORDER.filter { it !in completedIds }
+        if (completedIds.isNotEmpty() && remaining.isNotEmpty()) {
+            b.btnStartAll.text = "남은 운동 이어서하기"
+            b.btnStartAll.setOnClickListener {
+                SessionFlow.startExerciseSessionFrom(remaining)
+                findNavController().navigate(R.id.action_guide_to_preflight)
+            }
+        } else {
+            b.btnStartAll.text = "전체 운동 시작"
+            b.btnStartAll.setOnClickListener {
+                SessionFlow.startExerciseSession()
+                findNavController().navigate(R.id.action_guide_to_preflight)
+            }
         }
     }
 

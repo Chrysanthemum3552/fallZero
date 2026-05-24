@@ -3,7 +3,6 @@ package com.fallzero.app.ui.onboarding
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -68,7 +67,10 @@ class AgeFragment : Fragment() {
 
         binding.tvVoiceStatus.visibility = View.INVISIBLE
         binding.btnBack.setOnClickListener { findNavController().popBackStack() }
-        binding.btnManualInput.setOnClickListener { showManualInputDialog() }
+        // 숫자 칸을 터치하면 키패드로 직접 입력 (값만 채움, 진행은 "입력" 버튼)
+        binding.tvAgeDisplay.setOnClickListener { showManualInputDialog() }
+        // 최종 확정 버튼 — 현재 표시된 나이로 다음 화면 진행
+        binding.btnManualInput.setOnClickListener { confirmCurrentAge() }
 
         viewLifecycleOwner.lifecycleScope.launch {
             delay(600)
@@ -174,22 +176,21 @@ class AgeFragment : Fragment() {
         return null
     }
 
+    /** 숫자 칸 터치 시 키패드 입력 — 값만 채우고 진행은 "입력" 버튼에서 한다. */
     private fun showManualInputDialog() {
         voiceHelper?.stop()
-        val edit = EditText(requireContext()).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER
-            hint = "예: 70"
-            textSize = 32f
+        stopBlinking()
+        val dialogView = layoutInflater.inflate(R.layout.dialog_age_input, null)
+        val edit = dialogView.findViewById<EditText>(R.id.et_age).apply {
             setText(currentAge?.toString() ?: "")
+            setSelection(text.length)
         }
-        AlertDialog.Builder(requireContext())
-            .setTitle("나이 입력")
-            .setMessage("연령을 입력하세요 (1~${MAX_AGE})")
-            .setView(edit)
+        AlertDialog.Builder(requireContext(), R.style.ThemeOverlay_FallZero_Dialog)
+            .setView(dialogView)
             .setPositiveButton("확인") { _, _ ->
                 val age = edit.text.toString().toIntOrNull()
                 if (age != null && age in MIN_AGE..MAX_AGE) {
-                    confirmAge(age)
+                    setAge(age)  // 화면에 표시만 — 확정은 "입력" 버튼
                 } else {
                     Toast.makeText(requireContext(),
                         "1세에서 ${MAX_AGE}세 사이로 입력해주세요",
@@ -201,6 +202,25 @@ class AgeFragment : Fragment() {
                 if (_binding != null) startVoiceListening()
             }
             .show()
+    }
+
+    /** 입력된 나이를 화면에 표시만 (진행 X). 음성/터치 입력 공통. */
+    private fun setAge(age: Int) {
+        currentAge = age
+        viewModel.tempAge = age
+        _binding?.tvAgeDisplay?.text = "$age"
+    }
+
+    /** "입력" 버튼 — 현재 표시된 나이로 최종 확정 후 다음 화면. */
+    private fun confirmCurrentAge() {
+        val age = currentAge
+        if (age != null && age in MIN_AGE..MAX_AGE) {
+            confirmAge(age)
+        } else {
+            Toast.makeText(requireContext(),
+                "나이를 먼저 입력해주세요",
+                Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun confirmAge(age: Int) {

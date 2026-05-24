@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@color/background"
+    android:paddingLeft="28dp"
+    android:paddingRight="28dp"
+    android:paddingTop="28dp"
+    android:paddingBottom="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="나이 입력"
+        android:textSize="34sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="연령을 입력하세요"
+        android:textSize="22sp"
+        android:textColor="@color/text_secondary"
+        android:layout_marginBottom="20dp" />
+
+    <EditText
+        android:id="@+id/et_age"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:inputType="number"
+        android:maxLength="3"
+        android:gravity="center"
+        android:hint="예: 70"
+        android:textColorHint="@color/text_hint"
+        android:textColor="@color/text_primary"
+        android:textSize="56sp"
+        android:textStyle="bold"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        android:background="@drawable/bg_dialog_input" />
+
+</LinearLayout>
