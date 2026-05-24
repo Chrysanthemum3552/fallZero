@@ -305,45 +305,10 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         )
 
         val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_guide}")
-        fun initChairPlayer(st: android.graphics.SurfaceTexture) {
-            val mp = MediaPlayer()
-            examGuidancePlayer = mp
-            try {
-                mp.setDataSource(requireContext(), uri)
-                mp.setSurface(android.view.Surface(st))
-                mp.isLooping = true
-                mp.setVolume(0f, 0f)
-                mp.setOnPreparedListener { player ->
-                    val raw = player.duration.toLong()
-                    val videoDurationMs = if (raw > 0) raw else 8000L
-                    player.start()
-                    b.root.postDelayed({
-                        if (_binding == null || hasNavigated) return@postDelayed
-                        player.pause()
-                        speakExamWithMatchingVideo(lines, 0, videoDurationMs) {
-                            if (_binding == null || hasNavigated) return@speakExamWithMatchingVideo
-                            releaseExamGuidancePlayer()
-                            _binding?.guidanceOverlay?.visibility = View.GONE
-                            _binding?.vCountdownDim?.visibility = View.VISIBLE
-                            startBarSimulation(onAfterScript)
-                        }
-                    }, 100L)
-                }
-                mp.prepareAsync()
-            } catch (e: Exception) { Log.e(TAG, "의자 안내 영상 오류", e) }
-        }
-
-        b.videoChairGuidance.visibility = View.VISIBLE
-        b.guidanceOverlay.visibility = View.VISIBLE
-        if (b.videoChairGuidance.isAvailable) {
-            initChairPlayer(b.videoChairGuidance.surfaceTexture!!)
-        } else {
-            b.videoChairGuidance.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { initChairPlayer(st) }
-                override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
-            }
+        startExamGuidanceVideo(uri, lines) {
+            _binding?.guidanceOverlay?.visibility = View.GONE
+            _binding?.vCountdownDim?.visibility = View.VISIBLE
+            startBarSimulation(onAfterScript)
         }
     }
 
@@ -486,43 +451,89 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val uri = Uri.parse("android.resource://${requireContext().packageName}/${videoRes}")
         val lines = getBalanceGuidanceLines(stage)
 
-        fun initBalancePlayer(st: android.graphics.SurfaceTexture) {
+        startExamGuidanceVideo(uri, lines) {
+            _binding?.footGuideOverlay?.visibility = View.GONE
+            _binding?.examGuideTextOverlay?.visibility = View.GONE
+            _binding?.guidanceOverlay?.visibility = View.GONE
+            _binding?.vCountdownDim?.visibility = View.VISIBLE
+            if (stage == 1) startRingExplanation(stage, stageName, onAfter)
+            else showBalanceHoldCallout(stage, stageName, onAfter)
+        }
+    }
+
+    // 검사 안내 자막 폴링 시스템
+    private var examSubtitleEntries: List<Triple<Long, Long, String>> = emptyList()
+    private var lastExamSubtitleIndex = -1
+    private val examSubtitleHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val examSubtitleRunnable = object : Runnable {
+        override fun run() {
+            val player = examGuidancePlayer ?: return
+            if (!player.isPlaying) { examSubtitleHandler.postDelayed(this, 100L); return }
+            val pos = player.currentPosition.toLong()
+            val idx = examSubtitleEntries.indexOfFirst { pos >= it.first && pos < it.second }
+            if (idx >= 0) {
+                _binding?.tvExamGuideLineText?.text = examSubtitleEntries[idx].third
+                _binding?.examGuideTextOverlay?.visibility = View.VISIBLE
+                if (idx != lastExamSubtitleIndex) {
+                    lastExamSubtitleIndex = idx
+                    ttsManager?.speak(examSubtitleEntries[idx].third.replace("\n", " "))
+                }
+            } else {
+                _binding?.examGuideTextOverlay?.visibility = View.GONE
+            }
+            if (examGuidancePlayer != null) examSubtitleHandler.postDelayed(this, 80L)
+        }
+    }
+
+    private fun buildExamSubtitleTimings(totalMs: Long, lines: List<String>): List<Triple<Long, Long, String>> {
+        val subtitleMs = 4000L
+        val actionMs = (totalMs - lines.size * subtitleMs) / lines.size
+        return lines.mapIndexed { i, text ->
+            val start = i.toLong() * (subtitleMs + actionMs)
+            Triple(start, start + subtitleMs, text)
+        }
+    }
+
+    private fun startExamGuidanceVideo(uri: android.net.Uri, lines: List<String>, onComplete: () -> Unit) {
+        val b = _binding ?: return
+        b.videoChairGuidance.visibility = View.VISIBLE
+        b.guidanceOverlay.visibility = View.VISIBLE
+
+        fun initPlayer(st: android.graphics.SurfaceTexture) {
             val mp = MediaPlayer()
             examGuidancePlayer = mp
             try {
                 mp.setDataSource(requireContext(), uri)
                 mp.setSurface(android.view.Surface(st))
-                mp.isLooping = true
-                mp.setVolume(0f, 0f)
+                mp.isLooping = false; mp.setVolume(0f, 0f)
                 mp.setOnPreparedListener { player ->
-                    val raw = player.duration.toLong()
-                    val videoDurationMs = if (raw > 0) raw else 8000L
+                    val totalMs = if (player.duration > 0) player.duration.toLong() else 8000L
+                    examSubtitleEntries = buildExamSubtitleTimings(totalMs, lines)
+                    lastExamSubtitleIndex = -1
                     player.start()
-                    b.root.postDelayed({
-                        if (_binding == null || hasNavigated) return@postDelayed
-                        player.pause()
-                        speakExamWithMatchingVideo(lines, 0, videoDurationMs) {
-                            if (_binding == null || hasNavigated) return@speakExamWithMatchingVideo
-                            _binding?.footGuideOverlay?.visibility = View.GONE
-                            _binding?.examGuideTextOverlay?.visibility = View.GONE
-                            releaseExamGuidancePlayer()
-                            _binding?.guidanceOverlay?.visibility = View.GONE
-                            _binding?.vCountdownDim?.visibility = View.VISIBLE
-                            if (stage == 1) startRingExplanation(stage, stageName, onAfter)
-                            else showBalanceHoldCallout(stage, stageName, onAfter)
-                        }
-                    }, 100L)
+                    examSubtitleHandler.post(examSubtitleRunnable)
+                }
+                mp.setOnCompletionListener {
+                    examSubtitleHandler.removeCallbacks(examSubtitleRunnable)
+                    _binding?.examGuideTextOverlay?.visibility = View.GONE
+                    releaseExamGuidancePlayer()
+                    if (_binding != null && !hasNavigated) onComplete()
+                }
+                mp.setOnErrorListener { _, _, _ ->
+                    examSubtitleHandler.removeCallbacks(examSubtitleRunnable)
+                    releaseExamGuidancePlayer()
+                    if (_binding != null && !hasNavigated) onComplete()
+                    true
                 }
                 mp.prepareAsync()
-            } catch (e: Exception) { Log.e(TAG, "균형 안내 영상 오류", e) }
+            } catch (e: Exception) { Log.e(TAG, "검사 안내 영상 오류", e); onComplete() }
         }
 
-        b.videoChairGuidance.visibility = View.VISIBLE
         if (b.videoChairGuidance.isAvailable) {
-            initBalancePlayer(b.videoChairGuidance.surfaceTexture!!)
+            initPlayer(b.videoChairGuidance.surfaceTexture!!)
         } else {
             b.videoChairGuidance.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { initBalancePlayer(st) }
+                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { initPlayer(st) }
                 override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
                 override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
                 override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
@@ -530,45 +541,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
-    /**
-     * TextureView + MediaPlayer 방식
-     * Phase A: pause + 자막 (z-order 문제 없음)
-     * Phase B: seekTo + start
-     */
-    private fun speakExamWithMatchingVideo(
-        lines: List<String>, index: Int, videoDurationMs: Long, onComplete: () -> Unit
-    ) {
-        if (_binding == null || hasNavigated) return
-        if (index >= lines.size) {
-            _binding?.examGuideTextOverlay?.visibility = View.GONE
-            onComplete()
-            return
-        }
-
-        val b = _binding ?: return
-        val segmentMs = videoDurationMs / lines.size
-        val seekMs = (index.toLong() * segmentMs).toInt()
-
-        // Phase A: MediaPlayer 일시정지 + 자막 표시
-        examGuidancePlayer?.pause()
-        b.tvExamGuideLineText.text = lines[index]
-        b.examGuideTextOverlay.visibility = View.VISIBLE
-
-        ttsManager?.speak(lines[index].replace("\n", " ")) {
-            if (_binding == null || hasNavigated) return@speak
-
-            // Phase B: 자막 숨기고 영상 재개 (현재 위치부터 자연스럽게 진행)
-            _binding?.examGuideTextOverlay?.visibility = View.GONE
-            examGuidancePlayer?.start()
-
-            _binding?.root?.postDelayed({
-                if (_binding == null || hasNavigated) return@postDelayed
-                speakExamWithMatchingVideo(lines, index + 1, videoDurationMs, onComplete)
-            }, segmentMs)
-        }
-    }
-
     private fun releaseExamGuidancePlayer() {
+        examSubtitleHandler.removeCallbacks(examSubtitleRunnable)
         examGuidancePlayer?.release()
         examGuidancePlayer = null
     }

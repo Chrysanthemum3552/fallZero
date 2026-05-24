@@ -162,7 +162,48 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
      * Phase B: 자막 GONE + seekTo + start
      */
 
+    // 자막 엔트리 데이터 클래스
+    private data class SubtitleEntry(val startMs: Long, val endMs: Long, val text: String)
+    // ── 안내 영상 자막 폴링 시스템 ──────────────────────────────────────
+    // 영상 currentPosition 으로 자막 타이밍 제어 (TTS 콜백 의존 없음)
+    // freeze frame 구간(SUBTITLE_ZONE_MS): 자막+TTS / action 구간: 자막 숨김
+
+    private data class SubtitleZone(val startMs: Long, val endMs: Long, val text: String)
+
     private var guidancePlayer: MediaPlayer? = null
+    private var subtitleZones: List<SubtitleZone> = emptyList()
+    private var lastZoneIdx = -1
+    private val subHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val SUBTITLE_ZONE_MS = 4000L
+
+    private val subtitlePollRunnable = object : Runnable {
+        override fun run() {
+            val b = _binding ?: return
+            val pos = guidancePlayer?.currentPosition?.toLong() ?: 0L
+            val idx = subtitleZones.indexOfFirst { pos >= it.startMs && pos < it.endMs }
+            if (idx >= 0) {
+                if (idx != lastZoneIdx) {
+                    lastZoneIdx = idx
+                    b.tvGuideLineText.text = subtitleZones[idx].text
+                    b.guideTextOverlay.visibility = View.VISIBLE
+                    ttsManager?.speak(subtitleZones[idx].text)
+                }
+            } else {
+                if (b.guideTextOverlay.visibility == View.VISIBLE)
+                    b.guideTextOverlay.visibility = View.GONE
+            }
+            subHandler.postDelayed(this, 80L)
+        }
+    }
+
+    private fun startSubtitlePolling() {
+        lastZoneIdx = -1; subHandler.removeCallbacks(subtitlePollRunnable); subHandler.post(subtitlePollRunnable)
+    }
+
+    private fun stopSubtitlePolling() {
+        subHandler.removeCallbacks(subtitlePollRunnable)
+        _binding?.guideTextOverlay?.visibility = View.GONE; lastZoneIdx = -1
+    }
 
     private fun showStartGuidance(exerciseId: Int) {
         val b = _binding ?: return
@@ -170,99 +211,54 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.guidanceOverlay.visibility = View.VISIBLE
         b.guideTextOverlay.visibility = View.GONE
         b.videoExerciseGuide.visibility = View.VISIBLE
-
-        // 1. 자막+TTS 즉시 시작 (영상 로딩과 분리)
-        //    - guidancePlayer가 null이면 Phase B에서 영상 없이 진행
         val lines = getInstructionLines(exerciseId)
-        // 영상 길이는 로딩 완료 후 업데이트; 기본값 8000ms로 시작
-        speakWithMatchingVideo(lines, 0, 8000L)
 
-        // 2. 영상 백그라운드 로딩 (준비되면 Phase B에서 재생)
         fun initPlayer(st: android.graphics.SurfaceTexture) {
-            val mp = MediaPlayer()
-            guidancePlayer = mp
+            val mp = MediaPlayer(); guidancePlayer = mp
             try {
-                val uri = android.net.Uri.parse(
-                    "android.resource://${requireContext().packageName}/${guideVideoRes(exerciseId)}"
-                )
+                val uri = android.net.Uri.parse("android.resource://${requireContext().packageName}/${guideVideoRes(exerciseId)}")
                 mp.setDataSource(requireContext(), uri)
                 mp.setSurface(android.view.Surface(st))
-                mp.isLooping = true
-                mp.setVolume(0f, 0f)
-                mp.setOnPreparedListener { }  // Phase B에서 seekTo+start로 제어
-                mp.setOnErrorListener { _, _, _ -> releaseGuidancePlayer(); true }
-                mp.prepareAsync()
-            } catch (e: Exception) {
-                Log.e(TAG, "안내 영상 로딩 실패", e)
-                releaseGuidancePlayer()
-            }
-        }
-
-        if (b.videoExerciseGuide.isAvailable) {
-            initPlayer(b.videoExerciseGuide.surfaceTexture!!)
-        } else {
-            b.videoExerciseGuide.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
-                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) {
-                    initPlayer(st)
+                mp.isLooping = false; mp.setVolume(0f, 0f)
+                mp.setOnPreparedListener { player ->
+                    val extDur = player.duration.toLong()
+                    val segDur = if (lines.isNotEmpty()) extDur / lines.size else SUBTITLE_ZONE_MS + 2000L
+                    subtitleZones = lines.mapIndexed { i, text ->
+                        SubtitleZone(i.toLong() * segDur, i.toLong() * segDur + SUBTITLE_ZONE_MS, text)
+                    }
+                    player.start(); startSubtitlePolling()
                 }
-                override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
-                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
-                override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
-            }
+                mp.setOnCompletionListener {
+                    stopSubtitlePolling(); releaseGuidancePlayer()
+                    _binding?.guidanceOverlay?.visibility = View.GONE
+                    if (_binding != null && !hasNavigated) startExerciseAfterGuidance()
+                }
+                mp.setOnErrorListener { _, _, _ ->
+                    stopSubtitlePolling(); releaseGuidancePlayer()
+                    _binding?.guidanceOverlay?.visibility = View.GONE
+                    if (_binding != null && !hasNavigated) startExerciseAfterGuidance(); true
+                }
+                mp.prepareAsync()
+            } catch (e: Exception) { Log.e(TAG, "안내 영상 오류", e); releaseGuidancePlayer(); startExerciseAfterGuidance() }
         }
 
-        // 30초 안전장치
+        if (b.videoExerciseGuide.isAvailable) initPlayer(b.videoExerciseGuide.surfaceTexture!!)
+        else b.videoExerciseGuide.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) = initPlayer(st)
+            override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
+        }
         b.root.postDelayed({
             if (_binding != null && !hasNavigated && isInGuidancePhase) {
-                Log.w(TAG, "안내 타임아웃 - 강제 운동 시작")
-                releaseGuidancePlayer()
-                _binding?.guidanceOverlay?.visibility = View.GONE
-                startExerciseAfterGuidance()
+                stopSubtitlePolling(); releaseGuidancePlayer()
+                _binding?.guidanceOverlay?.visibility = View.GONE; startExerciseAfterGuidance()
             }
-        }, 30_000L)
+        }, 60_000L)
     }
 
-    private fun releaseGuidancePlayer() {
-        guidancePlayer?.release()
-        guidancePlayer = null
-    }
+    private fun releaseGuidancePlayer() { guidancePlayer?.release(); guidancePlayer = null }
 
-    /**
-     * Phase A: 영상 일시정지 + 자막 표시 + TTS
-     * Phase B: TTS 완료 -> 영상 재개 (seekTo 없이 자연스럽게 진행)
-     *          segmentMs 후 다시 일시정지 -> 다음 Phase A
-     */
-    private fun speakWithMatchingVideo(lines: List<String>, index: Int, videoDurationMs: Long) {
-        if (_binding == null || hasNavigated) return
-        if (index >= lines.size) {
-            _binding?.guideTextOverlay?.visibility = View.GONE
-            releaseGuidancePlayer()
-            _binding?.guidanceOverlay?.visibility = View.GONE
-            startExerciseAfterGuidance()
-            return
-        }
-
-        val b = _binding ?: return
-        val segmentMs = videoDurationMs / lines.size
-
-        // Phase A: 영상 일시정지 + 자막 표시
-        guidancePlayer?.pause()
-        b.tvGuideLineText.text = lines[index]
-        b.guideTextOverlay.visibility = View.VISIBLE
-
-        ttsManager?.speak(lines[index]) {
-            if (_binding == null || hasNavigated) return@speak
-
-            // Phase B: 자막 숨기고 영상 재개 (현재 위치부터 자연스럽게 진행)
-            _binding?.guideTextOverlay?.visibility = View.GONE
-            guidancePlayer?.start()
-
-            _binding?.root?.postDelayed({
-                if (_binding == null || hasNavigated) return@postDelayed
-                speakWithMatchingVideo(lines, index + 1, videoDurationMs)
-            }, segmentMs)
-        }
-    }
     /** 안내 완료 후 운동 시작 */
     private fun startExerciseAfterGuidance() {
         lastSpokenCount = -1
