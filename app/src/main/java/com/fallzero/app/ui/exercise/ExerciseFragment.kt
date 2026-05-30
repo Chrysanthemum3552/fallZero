@@ -148,145 +148,170 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     // -----------------------------------------------
-    // 안내 흐름
+    // 안내 영상 시스템
     // -----------------------------------------------
 
-    /**
-     * 1단계: 안내 영상 전체화면 + 영상 위에 텍스트 오버레이 순차 표시
-     * TextureView + MediaPlayer 방식
-     * Phase A: pause + 자막 (z-order 이슈 없음) / Phase B: seekTo + start
-     */
-    /**
-     * TextureView + MediaPlayer 방식
-     * Phase A: MediaPlayer pause + 자막 표시 + TTS (Surface 관리 이슈 없음)
-     * Phase B: 자막 GONE + seekTo + start
-     */
-
-    // 자막 엔트리 데이터 클래스
-    private data class SubtitleEntry(val startMs: Long, val endMs: Long, val text: String)
-    // ── 안내 영상 자막 폴링 시스템 ──────────────────────────────────────
-    // 영상 currentPosition 으로 자막 타이밍 제어 (TTS 콜백 의존 없음)
-    // freeze frame 구간(SUBTITLE_ZONE_MS): 자막+TTS / action 구간: 자막 숨김
-
-    private data class SubtitleZone(val startMs: Long, val endMs: Long, val text: String)
-
     private var guidancePlayer: MediaPlayer? = null
-    private var subtitleZones: List<SubtitleZone> = emptyList()
-    private var lastZoneIdx = -1
-    private val subHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val SUBTITLE_ZONE_MS = 4000L
+    private var guidanceLines: List<String> = emptyList()
+    private var guidancePausePoints: List<Long> = emptyList()
+    private var guidanceLineIndex = 0
+    private var isGuidancePaused = false
+    private val pauseCheckHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
-    private val subtitlePollRunnable = object : Runnable {
+    // pause 지점 정의 (수정된 영상 기준)
+    // 각 freeze 구간 시작점 = pause 지점
+    // freeze 길이 = TTS 발화 시간에 맞게 조정됨
+    // TTS 완료 -> resume -> 즉시 동작 시작
+    private fun getPausePoints(exerciseId: Int): List<Long> = when (exerciseId) {
+        1 -> listOf(0L, 5057L, 15523L)
+        2 -> listOf(0L, 8567L, 21267L)
+        3 -> listOf(0L, 4600L, 21495L)
+        4 -> listOf(0L, 5500L)
+        5 -> listOf(0L, 5167L)
+        6 -> listOf(0L, 8285L)
+        7 -> listOf(0L, 10275L)
+        else -> listOf(0L)
+    }
+
+    // pause 지점 폴링 (50ms 간격)
+    private val pauseCheckRunnable = object : Runnable {
         override fun run() {
-            val b = _binding ?: return
-            val pos = guidancePlayer?.currentPosition?.toLong() ?: 0L
-            val idx = subtitleZones.indexOfFirst { pos >= it.startMs && pos < it.endMs }
-            if (idx >= 0) {
-                if (idx != lastZoneIdx) {
-                    lastZoneIdx = idx
-                    b.tvGuideLineText.text = subtitleZones[idx].text
-                    b.guideTextOverlay.visibility = View.VISIBLE
-                    ttsManager?.speak(subtitleZones[idx].text)
-                }
-            } else {
-                if (b.guideTextOverlay.visibility == View.VISIBLE)
-                    b.guideTextOverlay.visibility = View.GONE
+            val player = guidancePlayer ?: return
+            if (isGuidancePaused) return
+            if (!player.isPlaying) { pauseCheckHandler.postDelayed(this, 50L); return }
+            val pos = player.currentPosition.toLong()
+            val idx = guidanceLineIndex
+            if (idx < guidancePausePoints.size && pos >= guidancePausePoints[idx]) {
+                player.pause()
+                isGuidancePaused = true
+                showSubtitleAndSpeak(idx)
+                return
             }
-            subHandler.postDelayed(this, 80L)
+            pauseCheckHandler.postDelayed(this, 50L)
         }
     }
 
-    private fun startSubtitlePolling() {
-        lastZoneIdx = -1; subHandler.removeCallbacks(subtitlePollRunnable); subHandler.post(subtitlePollRunnable)
+    private fun showSubtitleAndSpeak(idx: Int) {
+        if (idx >= guidanceLines.size) { resumeGuidanceVideo(); return }
+        val text = guidanceLines[idx]
+        _binding?.tvGuideLineText?.text = text
+        _binding?.guideTextOverlay?.visibility = View.VISIBLE
+        ttsManager?.speak(text.replace("\n", " ")) {
+            if (_binding == null || hasNavigated) return@speak
+            _binding?.guideTextOverlay?.visibility = View.GONE
+            guidanceLineIndex++
+            resumeGuidanceVideo()
+        }
     }
 
-    private fun stopSubtitlePolling() {
-        subHandler.removeCallbacks(subtitlePollRunnable)
-        _binding?.guideTextOverlay?.visibility = View.GONE; lastZoneIdx = -1
+    private fun resumeGuidanceVideo() {
+        val player = guidancePlayer ?: return
+        isGuidancePaused = false
+        if (!player.isPlaying) player.start()
+        if (guidanceLineIndex < guidancePausePoints.size) {
+            pauseCheckHandler.post(pauseCheckRunnable)
+        }
     }
 
+    // [수정] ExamFragment의 showBalanceGuidance 패턴과 동일하게:
+    //        TTS("안내 영상을 보여드릴게요") 완료 후 영상 시작
+    //        -> 나레이션이 끝난 뒤 영상이 시작되므로 동시 재생 문제 없음
     private fun showStartGuidance(exerciseId: Int) {
         val b = _binding ?: return
         isInGuidancePhase = true
         b.guidanceOverlay.visibility = View.VISIBLE
         b.guideTextOverlay.visibility = View.GONE
-        b.videoExerciseGuide.visibility = View.VISIBLE
-        val lines = getInstructionLines(exerciseId)
+        b.videoExerciseGuide.visibility = View.GONE  // 줄1 TTS 중에는 영상 숨김
+
+        val allLines = getInstructionLines(exerciseId)
+        guidanceLines = if (allLines.size > 1) allLines.subList(1, allLines.size) else emptyList()
+        guidancePausePoints = getPausePoints(exerciseId)
+        guidanceLineIndex = 0
+        isGuidancePaused = false
+
+        // 줄1: 영상 없이 TTS만 먼저 발화
+        val firstLine = allLines.getOrNull(0) ?: ""
+        ttsManager?.speak(firstLine.replace("\n", " ")) {
+            if (_binding == null || hasNavigated) return@speak
+            _binding?.videoExerciseGuide?.visibility = View.VISIBLE
+            startGuidanceVideo(exerciseId, guidanceLines)
+        }
+    }
+
+    private fun startGuidanceVideo(exerciseId: Int, lines: List<String>) {
+        val b = _binding ?: return
 
         fun initPlayer(st: android.graphics.SurfaceTexture) {
             val mp = MediaPlayer(); guidancePlayer = mp
             try {
-                val uri = android.net.Uri.parse("android.resource://${requireContext().packageName}/${guideVideoRes(exerciseId)}")
+                val uri = android.net.Uri.parse(
+                    "android.resource://${requireContext().packageName}/${guideVideoRes(exerciseId)}"
+                )
                 mp.setDataSource(requireContext(), uri)
                 mp.setSurface(android.view.Surface(st))
-                // #8 균형: 음성(자막) 완료 기준으로 진행하므로 영상은 루프시켜 끝나지 않게 함(나레이션 중간 컷 방지)
-                mp.isLooping = (exerciseId == 8); mp.setVolume(0f, 0f)
+                mp.isLooping = false; mp.setVolume(0f, 0f)
                 mp.setOnPreparedListener { player ->
-                    if (exerciseId == 8) {
-                        // 영상 길이÷줄수 타이밍 + QUEUE_FLUSH는 안내문이 길면 음성이 잘리고 영상과 어긋남.
-                        // → 균형 운동은 자막 한 줄을 표시·발화하고, 발화가 끝나면 다음 줄로 넘어가 동기화 보장.
-                        player.start()
-                        playBalanceGuidanceByTts(lines)
-                    } else {
-                        val extDur = player.duration.toLong()
-                        val segDur = if (lines.isNotEmpty()) extDur / lines.size else SUBTITLE_ZONE_MS + 2000L
-                        subtitleZones = lines.mapIndexed { i, text ->
-                            SubtitleZone(i.toLong() * segDur, i.toLong() * segDur + SUBTITLE_ZONE_MS, text)
-                        }
-                        player.start(); startSubtitlePolling()
-                    }
+                    player.start()
+                    pauseCheckHandler.post(pauseCheckRunnable)
                 }
                 mp.setOnCompletionListener {
-                    stopSubtitlePolling(); releaseGuidancePlayer()
+                    pauseCheckHandler.removeCallbacks(pauseCheckRunnable)
+                    _binding?.guideTextOverlay?.visibility = View.GONE
                     _binding?.guidanceOverlay?.visibility = View.GONE
+                    releaseGuidancePlayer()
                     if (_binding != null && !hasNavigated) startExerciseAfterGuidance()
                 }
                 mp.setOnErrorListener { _, _, _ ->
-                    stopSubtitlePolling(); releaseGuidancePlayer()
+                    pauseCheckHandler.removeCallbacks(pauseCheckRunnable)
                     _binding?.guidanceOverlay?.visibility = View.GONE
-                    if (_binding != null && !hasNavigated) startExerciseAfterGuidance(); true
+                    releaseGuidancePlayer()
+                    if (_binding != null && !hasNavigated) startExerciseAfterGuidance()
+                    true
                 }
                 mp.prepareAsync()
-            } catch (e: Exception) { Log.e(TAG, "안내 영상 오류", e); releaseGuidancePlayer(); startExerciseAfterGuidance() }
+            } catch (e: Exception) {
+                Log.e(TAG, "안내 영상 오류", e)
+                releaseGuidancePlayer(); startExerciseAfterGuidance()
+            }
         }
 
-        if (b.videoExerciseGuide.isAvailable) initPlayer(b.videoExerciseGuide.surfaceTexture!!)
-        else b.videoExerciseGuide.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
-            override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) = initPlayer(st)
-            override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
-            override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
-            override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
+        if (b.videoExerciseGuide.isAvailable) {
+            initPlayer(b.videoExerciseGuide.surfaceTexture!!)
+        } else {
+            b.videoExerciseGuide.surfaceTextureListener =
+                object : android.view.TextureView.SurfaceTextureListener {
+                    override fun onSurfaceTextureAvailable(
+                        st: android.graphics.SurfaceTexture, w: Int, h: Int
+                    ) = initPlayer(st)
+                    override fun onSurfaceTextureSizeChanged(
+                        st: android.graphics.SurfaceTexture, w: Int, h: Int
+                    ) {}
+                    override fun onSurfaceTextureDestroyed(
+                        st: android.graphics.SurfaceTexture
+                    ): Boolean = true
+                    override fun onSurfaceTextureUpdated(
+                        st: android.graphics.SurfaceTexture
+                    ) {}
+                }
         }
+
+        // 안전장치: 120초 후에도 안내 중이면 강제 진행
         b.root.postDelayed({
             if (_binding != null && !hasNavigated && isInGuidancePhase) {
-                stopSubtitlePolling(); releaseGuidancePlayer()
-                _binding?.guidanceOverlay?.visibility = View.GONE; startExerciseAfterGuidance()
-            }
-        }, 60_000L)
-    }
-
-    private fun releaseGuidancePlayer() { guidancePlayer?.release(); guidancePlayer = null }
-
-    /** #8 균형 운동 안내: 자막 한 줄을 표시하고 TTS로 읽어준 뒤 발화 완료 콜백에서 다음 줄로 진행.
-     *  영상 위치가 아니라 발화 완료를 기준으로 하므로 음성이 중간에 잘리거나 영상과 어긋나지 않음. */
-    private fun playBalanceGuidanceByTts(lines: List<String>) {
-        fun speakLine(i: Int) {
-            val b = _binding ?: return
-            if (hasNavigated || !isInGuidancePhase) return
-            if (i >= lines.size) {
+                pauseCheckHandler.removeCallbacks(pauseCheckRunnable)
                 releaseGuidancePlayer()
+                _binding?.guideTextOverlay?.visibility = View.GONE
                 _binding?.guidanceOverlay?.visibility = View.GONE
-                if (_binding != null && !hasNavigated) startExerciseAfterGuidance()
-                return
+                startExerciseAfterGuidance()
             }
-            b.tvGuideLineText.text = lines[i]
-            b.guideTextOverlay.visibility = View.VISIBLE
-            ttsManager?.speak(lines[i]) { speakLine(i + 1) }
-        }
-        speakLine(0)
+        }, 120_000L)
     }
 
-    /** 안내 완료 후 운동 시작 */
+    private fun releaseGuidancePlayer() {
+        pauseCheckHandler.removeCallbacks(pauseCheckRunnable)
+        guidancePlayer?.release(); guidancePlayer = null
+    }
+
     private fun startExerciseAfterGuidance() {
         lastSpokenCount = -1
         if (viewModel.isCalibrationRequired()) {
@@ -310,7 +335,6 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     // -----------------------------------------------
     // 동작 전환 오버레이 (양측 운동 전환)
-    // 카메라 프리뷰가 배경으로 보임 -> 이미지 형식과 유사
     // -----------------------------------------------
 
     private fun showSwitchOverlay(text: String, onDone: () -> Unit) {
@@ -328,7 +352,6 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // 텍스트 리소스 헬퍼
     // -----------------------------------------------
 
-    /** 안내 문자열을 줄(\n)로 나눠 반환 */
     private fun getInstructionLines(exerciseId: Int): List<String> {
         val script = if (exerciseId == 8) {
             val prefs = requireActivity()
@@ -351,9 +374,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         4 -> R.raw.calf_raise_guide
         5 -> R.raw.toe_raise_guide
         6 -> R.raw.knee_bend_guide
-        7 -> R.raw.chair_stand_guide
-        // #8은 한 발 서기로 통일 → 손 지지/시간만 다르므로 한 발 시범 영상(balance_guide_4)을 공용으로 사용.
-        // (단계별 손 지지 차이는 음성·자막으로 안내. 손 지지별 한 발 영상이 준비되면 여기서 분기)
+        7 -> R.raw.chair_stand_ex_guide
         8 -> R.raw.balance_guide_4
         else -> R.raw.balance_guide_4
     }
@@ -395,9 +416,6 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             5 -> ToeRaiseEngine(targetCount); 6 -> KneeBendEngine(targetCount)
             7 -> ChairStandEngine(targetCount, examMode = false)
             8 -> {
-                // 운동 #8은 한 발 서기로 통일 — 단계(setLevel)는 손 지지/지속시간으로만 난이도 조절.
-                // 따라서 감지는 항상 한 발 서기(stage=4)로 하고, 목표 시간만 단계별로 적용한다.
-                // (검사(exam)는 별도로 STEADI 발 자세 단계 1~4를 그대로 사용 — ExamViewModel에서 생성)
                 BalanceEngine(targetCount = 1, stage = 4,
                     overrideTargetTimeSec = com.fallzero.app.data.algorithm.BalanceProgressionManager.getTargetTime(setLevel))
             }
@@ -405,7 +423,6 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
-    /** #8은 한 발 서기로 통일 — 단계별로 손 지지(양손→한손→없음)와 목표 시간만 달라진다. */
     private fun balanceGuidanceText(setLevel: Int): String {
         val stage = setLevel.coerceIn(1, 5)
         val level = com.fallzero.app.data.algorithm.BalanceProgressionManager.getLevel(stage)
@@ -561,7 +578,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     // -----------------------------------------------
-    // 양측 운동 전환 - 카메라 배경 + 이미지 형식 오버레이
+    // 양측 운동 전환
     // -----------------------------------------------
 
     private fun handleSideSwitch() {
@@ -858,9 +875,11 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         userAwayCheckJob?.cancel(); userAwayCheckJob = null
         pauseAnnounceJob?.cancel(); pauseAnnounceJob = null
         cleanupCamera()
+        releaseGuidancePlayer()
         try { ttsManager?.shutdown() } catch (_: Exception) {}
         ttsManager = null; cameraExecutor?.shutdown(); cameraExecutor = null; _binding = null
     }
+
 
     companion object { private const val TAG = "ExerciseFragment" }
 }

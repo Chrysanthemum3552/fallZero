@@ -154,10 +154,7 @@
         </LinearLayout>
     </FrameLayout>
 
-    <!--
-        안내 영상 오버레이 - 검은 배경 (영상 로딩 전 빈 화면 방지)
-        VideoView는 setZOrderOnTop + SCALE_TO_FIT_WITH_CROPPING으로 꽉 채움
-    -->
+    <!-- 안내 영상 오버레이 -->
     <FrameLayout
         android:id="@+id/guidance_overlay"
         android:layout_width="0dp" android:layout_height="0dp"
@@ -167,13 +164,13 @@
         app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 전체화면 안내 영상 (TextureView: z-order 문제 없음) -->
+        <!-- 전체화면 안내 영상 (TextureView) -->
         <TextureView
             android:id="@+id/video_exercise_guide"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <!-- "안내 영상 준비 중" 텍스트 -->
+        <!-- 안내 영상 준비 중 텍스트 -->
         <TextView
             android:id="@+id/tv_video_placeholder"
             android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -183,16 +180,19 @@
             android:visibility="gone" />
 
         <!--
-            자막 오버레이 - 이미지 형식 (balance_guide 스타일과 동일)
-            VideoView 다음에 선언 -> FrameLayout z-order 상 위에 렌더링
-            배경: 반투명 어두운 오버레이로 영상 살짝 어둡게
-            텍스트: 크고 노란색, 검은 테두리 (이미지와 동일 스타일)
+            자막 오버레이 (수정됨)
+            - background 제거: 배경 박스 없음
+            - layout_height: wrap_content (텍스트 높이만큼만)
+            - layout_gravity: center (화면 세로 중앙)
+            - 텍스트 외곽선(shadow)으로 가독성 확보
         -->
         <FrameLayout
             android:id="@+id/guide_text_overlay"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="#55000000"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:paddingTop="16dp"
+            android:paddingBottom="16dp"
             android:visibility="gone">
 
             <TextView
@@ -217,11 +217,7 @@
 
     </FrameLayout>
 
-    <!--
-        동작 전환 오버레이 (양측 운동 전환 시)
-        카메라 프리뷰가 반투명 배경 너머로 보임 -> 사용자 본인이 배경
-        guidance_overlay 보다 뒤에 선언 -> 항상 최상위
-    -->
+    <!-- 동작 전환 오버레이 (양측 운동 전환 시) -->
     <FrameLayout
         android:id="@+id/exercise_instruction_overlay"
         android:layout_width="0dp" android:layout_height="0dp"
