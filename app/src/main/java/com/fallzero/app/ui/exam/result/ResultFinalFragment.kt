@@ -178,37 +178,6 @@ class ResultFinalFragment : Fragment() {
     }
 
 
-    private fun buildShareText(r: com.fallzero.app.data.db.entity.ExamResult, riskCount: Int): String {
-        val dateStr = java.text.SimpleDateFormat("yyyy년 MM월 dd일", java.util.Locale.KOREAN)
-            .format(java.util.Date(r.performedAt))
-        val riskText = if (r.finalRiskLevel == "high") "낙상 위험군" else "낙상 안전군"
-        val chairStatus = if (r.isHighRiskChairStand) "주의 필요" else "정상"
-        val balanceStatus = if (r.isHighRiskBalance) "주의 필요" else "정상"
-        val surveyStatus = if (r.isHighRiskSurvey) "1개 이상 해당 (주의)" else "해당 없음 (정상)"
-        val recommendation = if (r.finalRiskLevel == "high")
-            "낙상 위험이 감지되었습니다. 꾸준한 OEP 운동과 의사 상담을 권장합니다."
-        else
-            "현재 낙상 위험이 낮습니다. 예방 운동을 꾸준히 이어나가세요."
-        return buildString {
-            appendLine("[낙상제로] 보호자 알림")
-            appendLine("━━━━━━━━━━━━━━━━━━")
-            appendLine()
-            appendLine("검사일: $dateStr")
-            appendLine("최종 판정: $riskText")
-            appendLine()
-            appendLine("[세부 검사 결과]")
-            appendLine("의자 일어서기: ${r.chairStandCount}회 (기준 ${r.chairStandNorm}회 이상) - $chairStatus")
-            appendLine("균형 검사: ${r.balanceStageReached}단계 통과 / 일렬 서기(10초 유지) ${r.tandemTimeSec.toInt()}초 - $balanceStatus")
-            appendLine("낙상 위험 설문: $surveyStatus")
-            appendLine()
-            appendLine("[안내]")
-            appendLine(recommendation)
-            appendLine()
-            appendLine("━━━━━━━━━━━━━━━━━━")
-            append("낙상제로 앱에서 전송됨")
-        }
-    }
-
     override fun onDestroyView() {
         super.onDestroyView()
         try { ttsManager?.shutdown() } catch (_: Exception) {}

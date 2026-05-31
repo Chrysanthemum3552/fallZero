@@ -3,8 +3,11 @@
 
     <!-- 카메라 -->
     <uses-permission android:name="android.permission.CAMERA" />
-    <uses-feature android:name="android.hardware.camera" android:required="true" />
-    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="true" />
+    <!-- 키오스크는 외장 USB 웹캠을 쓰므로 내장 카메라를 필수로 두지 않음 (스토어 필터링/미설치 방지) -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <!-- 키오스크 거치대는 가속도 센서가 없을 수 있음 — 앱은 센서 없으면 수직 안내를 건너뜀 -->
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
     <!--음성 인식 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 

@@ -1042,6 +1042,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         super.onDestroyView()
         userAwayCheckJob?.cancel(); userAwayCheckJob = null
         pauseAnnounceJob?.cancel(); pauseAnnounceJob = null
+        // 안내 영상 도중 화면 이탈 시 MediaPlayer/Surface 누수 + 백그라운드 자막 TTS 재생 방지
+        // (ExerciseFragment.onDestroyView의 releaseGuidancePlayer()와 동일 처리)
+        releaseExamGuidancePlayer()
         cleanupCamera()
         try { _binding?.videoChairGuide?.stopPlayback() } catch (_: Exception) {}
         try { ttsManager?.shutdown() } catch (_: Exception) {}
