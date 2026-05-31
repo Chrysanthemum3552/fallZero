@@ -28,3 +28,7 @@ CLAUDE.md
 /docs/
 /asset/
 /report/
+
+# build outputs & compiler sessions
+/app/release/
+/.kotlin/

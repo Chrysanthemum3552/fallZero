@@ -452,11 +452,13 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             if (_binding == null) return@addListener
             try {
                 val provider = cameraProviderFuture.get(); cameraProvider = provider
-                val preview = Preview.Builder().build().also {
-                    it.setSurfaceProvider(binding.previewView.surfaceProvider) }
                 val resolutionSelector = ResolutionSelector.Builder()
                     .setResolutionStrategy(ResolutionStrategy(Size(640, 480),
                         ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)).build()
+                val preview = Preview.Builder()
+                    .setTargetRotation(android.view.Surface.ROTATION_0)
+                    .build().also {
+                    it.setSurfaceProvider(binding.previewView.surfaceProvider) }
                 val imageAnalyzer = ImageAnalysis.Builder()
                     .setResolutionSelector(resolutionSelector)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -794,11 +796,16 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // -----------------------------------------------
 
     private fun bindCameraToSelector(provider: ProcessCameraProvider) {
-        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        val selector = com.fallzero.app.util.KioskCameraSelector.select(isFrontCamera)
         try {
             provider.unbindAll()
             val preview = cameraPreview ?: return; val analyzer = cameraAnalyzer ?: return
             provider.bindToLifecycle(viewLifecycleOwner, selector, preview, analyzer)
+            // AVD/키오스크 환경의 webcam은 sensor orientation 0이라 portrait view에 가로 영상이
+            // 그대로 들어감 → PreviewView 자체 회전으로 영상을 portrait 방향으로 맞춤
+            if (com.fallzero.app.BuildConfig.IS_KIOSK) {
+                _binding?.previewView?.rotation = 90f
+            }
         } catch (e: Exception) { Log.e(TAG, "bindCameraToSelector failed", e) }
     }
 

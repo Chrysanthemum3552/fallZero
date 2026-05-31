@@ -182,8 +182,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun bindCameraToSelector(provider: ProcessCameraProvider) {
-        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA
-        else CameraSelector.DEFAULT_BACK_CAMERA
+        val selector = com.fallzero.app.util.KioskCameraSelector.select(isFrontCamera)
         try {
             provider.unbindAll()
             val preview = cameraPreview ?: return

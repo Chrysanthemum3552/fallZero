@@ -7,6 +7,9 @@ import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.navigation.fragment.NavHostFragment
 import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -35,6 +38,9 @@ class MainActivity : AppCompatActivity() {
         // 사용자 명시: 앱 실행 중 화면이 timeout으로 꺼지지 않게.
         // FLAG_KEEP_SCREEN_ON은 Window 단위라 앱이 foreground일 때만 적용됨 (background로 가면 자동 해제).
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        // 키오스크 빌드: Status bar + Navigation bar 영구 숨김 (Immersive Sticky)
+        if (com.fallzero.app.BuildConfig.IS_KIOSK) applyKioskImmersive()
 
         // 앱 시작 시 SessionFlow 초기화 (이전 세션 잔여 상태 제거)
         SessionFlow.reset()
@@ -94,5 +100,22 @@ class MainActivity : AppCompatActivity() {
             if (before(now)) add(Calendar.DAY_OF_YEAR, 1)
         }
         return target.timeInMillis - now.timeInMillis
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // 다이얼로그 등 잠시 포커스 벗어났다 돌아올 때 다시 immersive 강제
+        if (hasFocus && com.fallzero.app.BuildConfig.IS_KIOSK) applyKioskImmersive()
+    }
+
+    private fun applyKioskImmersive() {
+        // 상단 노란 ActionBar(앱 타이틀 바) 제거 — 화면이 위까지 꽉 차고 콘텐츠 가림 방지
+        supportActionBar?.hide()
+        // Status bar + Navigation bar 영구 숨김 (swipe로 일시 노출 가능)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.hide(WindowInsetsCompat.Type.systemBars())
+        controller.systemBarsBehavior =
+            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
     }
 }

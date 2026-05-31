@@ -17,6 +17,22 @@ android {
         versionName = "0.1.0-mvp"
     }
 
+    // ── Product Flavors ──
+    // standard: 일반 앱(핸드폰). IS_KIOSK=false → 기존 동작과 완전히 동일.
+    // kiosk:    키오스크 환경(고정 거치 + USB 웹캠). IS_KIOSK=true → 키오스크 적응 활성.
+    flavorDimensions += "mode"
+    productFlavors {
+        create("standard") {
+            dimension = "mode"
+            buildConfigField("boolean", "IS_KIOSK", "false")
+        }
+        create("kiosk") {
+            dimension = "mode"
+            buildConfigField("boolean", "IS_KIOSK", "true")
+            versionNameSuffix = "-kiosk"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -35,6 +51,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     packaging {

@@ -68,6 +68,19 @@ class KneeExtensionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override fun getMotionThreshold() = if (isInCalibration) 130f else maxOf(prb * 0.85f, 130f)
     override fun getReturnThreshold() = if (isInCalibration) 100f else 110f
 
+    /** 막대기 시각화(읽기 전용) — lastMetric을 progress로 변환. 좌표 판정 로직과 무관. */
+    override fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {
+        if (isInCalibration) return null
+        val motThr = getMotionThreshold(); val retThr = getReturnThreshold()
+        val gap = motThr - retThr
+        val progress = if (gap > 0f) ((lastMetric - retThr) / gap).coerceIn(0f, 1f) else 0f
+        return com.fallzero.app.ui.overlay.ExerciseGuide.Bar(
+            progress = progress, vertical = true,
+            fillDirection = com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.UP,
+            label = "$exerciseName 진행도", justReached = progress >= 1f
+        )
+    }
+
     override fun reset() {
         super.reset()
         hipYBaseline = Float.NaN

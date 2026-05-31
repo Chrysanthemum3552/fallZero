@@ -145,7 +145,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         val targetSec = BALANCE_TARGET_SECS[stageNo] ?: 10f
         Log.d(TAG, "▶ actuallyStartBalanceStage(stage=$stageNo, target=${targetSec}s) — 새 BalanceEngine 생성")
         // 검사 모드: CDC STEADI 목표(10초)를 직접 전달 (훈련용 BalanceProgressionManager 사용 안 함)
-        balanceEngine = BalanceEngine(targetCount = 1, stage = stageNo, overrideTargetTimeSec = targetSec)
+        // isExamSession=true → stage4 한 발 서기에서 발 잠금 안 함 (어느 발이든 인정)
+        balanceEngine = BalanceEngine(targetCount = 1, stage = stageNo, overrideTargetTimeSec = targetSec, isExamSession = true)
         balanceEngine.setPRB(0f)
         _phase.value = ExamPhase.Balance(
             stage = stageNo,

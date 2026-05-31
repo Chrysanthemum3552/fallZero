@@ -137,4 +137,22 @@ class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     // 외전 각도: 직립 시 ~5°, 옆으로 들면 ~25~40°.
     override fun getMotionThreshold() = if (isInCalibration) 18f else maxOf(prb * 0.70f, 15f)
     override fun getReturnThreshold() = if (isInCalibration) 8f else 10f
+
+    /** 막대기 시각화(읽기 전용) — 옆으로 다리 들기: 중앙 시작 + 들어올리는 다리 방향으로 채움.
+     *  좌표 판정 로직(extractMetric/count)과 무관 — lastMetric·lockedSide를 읽기만. */
+    override fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {
+        if (isInCalibration) return null
+        val motThr = getMotionThreshold(); val retThr = getReturnThreshold()
+        val gap = motThr - retThr
+        val progress = if (gap > 0f) ((lastMetric - retThr) / gap).coerceIn(0f, 1f) else 0f
+        val dir = if (lockedSide == Side.RIGHT)
+            com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.FROM_CENTER_RIGHT
+        else
+            com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.FROM_CENTER_LEFT
+        return com.fallzero.app.ui.overlay.ExerciseGuide.Bar(
+            progress = progress, vertical = false,
+            fillDirection = dir,
+            label = "$exerciseName 진행도", justReached = progress >= 1f
+        )
+    }
 }

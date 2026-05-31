@@ -3,6 +3,7 @@ package com.fallzero.app.pose
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Matrix
+import android.os.Build
 import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.VisibleForTesting
@@ -48,11 +49,19 @@ class PoseLandmarkerHelper(
     private fun setupPoseLandmarker() {
         // GPU 시도 → 실패 시 CPU fallback. 검증 결과 ChairStand 카운트 문제는 GPU 영향 X였음.
         // GPU 호환성 문제로 일부 기기(저가 칩셋, 일부 GPU 드라이버)에서 init 실패할 수 있음.
-        if (tryInitWithDelegate(Delegate.GPU)) {
+        //
+        // 에뮬레이터 예외: 에뮬의 가상 GPU(EGL emulation)는 MediaPipe GPU delegate 추론을
+        // 감당 못 해(프레임당 수십 초) 감지가 멎는다. 에뮬에서는 GPU를 건너뛰고 CPU로 추론한다.
+        // 실기기(isEmulator=false)는 기존 GPU 경로 그대로 → 동작·감지 정확도 무변경.
+        val isEmulator = Build.PRODUCT.contains("sdk_gphone") ||
+            Build.HARDWARE.contains("ranchu") ||
+            Build.HARDWARE.contains("goldfish") ||
+            Build.FINGERPRINT.contains("generic")
+        if (!isEmulator && tryInitWithDelegate(Delegate.GPU)) {
             Log.d(TAG, "PoseLandmarker initialized with GPU delegate")
             return
         }
-        Log.w(TAG, "GPU delegate 실패 → CPU fallback")
+        Log.w(TAG, if (isEmulator) "에뮬레이터 감지 → CPU delegate 사용" else "GPU delegate 실패 → CPU fallback")
         if (tryInitWithDelegate(Delegate.CPU)) {
             Log.d(TAG, "PoseLandmarker initialized with CPU delegate")
             return

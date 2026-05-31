@@ -26,7 +26,11 @@ import kotlin.math.max
 class BalanceEngine(
     override val targetCount: Int = 1,
     private val stage: Int = 1,
-    private val overrideTargetTimeSec: Float? = null
+    private val overrideTargetTimeSec: Float? = null,
+    // 검사 세션 여부. true면 stage4(한 발 서기)에서 들린 발을 잠그지 않고
+    // 어느 발이든 들기만 하면 인정 — 검사 도중 발을 바꿔도 카운트 이어짐.
+    // 운동 세션(#8)은 false로 두어 좌→우 흐름의 발 잠금 유지.
+    private val isExamSession: Boolean = false
 ) : ExerciseEngine {
 
     override val exerciseName = "균형 훈련"
@@ -138,22 +142,26 @@ class BalanceEngine(
                 }
             }
             2 -> {
-                // 반탠덤: 한 발이 다른 발보다 앞에 있어야 (footY > 4%)
-                if (footYNorm < 0.04f) {
+                // 반탠덤(반일렬): 한 발이 반보 앞 + 두 발이 어느 정도 모여 있어야.
+                // 실측 반탠덤: footX≈0.03~0.10, footY≈0.15~0.25.
+                if (footYNorm < 0.10f) {
                     poseValid = false
                     poseHint = "한쪽 발을 반보 앞에 놓아주세요"
+                } else if (footXNorm > 0.32f) {
+                    poseValid = false
+                    poseHint = "두 발을 더 모아주세요"
                 }
             }
             3 -> {
-                // 탠덤 (일렬): 한 발이 다른 발 바로 앞에 + 발이 일렬
-                // 실측: 실제 탠덤 footX≈0.01~0.10, footY≈0.20~0.40
-                //        그냥 한 발 앞으로 footX≈0.49~0.75, footY≈0.23~0.31
-                if (footYNorm < 0.10f) {
+                // 탠덤(일렬): 한 발 뒤꿈치를 다른 발 엄지발가락 바로 앞에 — 발이 한 줄로 정렬.
+                // 실측 탠덤: footX≈0.01~0.10, footY≈0.20~0.40.
+                // '옆에 적당히 둔' 자세(footX 큼)는 거부해야 함 → footX 기준을 좁게.
+                if (footYNorm < 0.15f) {
                     poseValid = false
-                    poseHint = "한쪽 발을 다른 발 앞에 놓아주세요"
-                } else if (footXNorm > 0.35f) {
+                    poseHint = "한쪽 발을 다른 발 바로 앞에 놓아주세요"
+                } else if (footXNorm > 0.22f) {
                     poseValid = false
-                    poseHint = "발을 일렬로 맞춰주세요"
+                    poseHint = "두 발을 한 줄로 맞춰주세요"
                 }
             }
             4 -> {
@@ -162,7 +170,12 @@ class BalanceEngine(
                     poseValid = false
                     poseHint = "한쪽 발을 들어주세요"
                     wrongFootSinceMs = 0L  // 발 안 들면 잘못된 발 추적 리셋
+                } else if (isExamSession) {
+                    // 검사 세션: 어느 발이든 들기만 하면 인정 — 발 잠금/경고 없음.
+                    // 검사 도중 발을 바꿔 들어도 그대로 valid 유지 → 카운트(유지 시간) 이어짐.
+                    wrongFootSinceMs = 0L
                 } else {
+                    // 운동 세션(#8): 들린 발 잠금 (좌→우 흐름)
                     // 들린 발 = ankleY가 작은 쪽 (이미지 좌표 기준 위쪽)
                     val liftedSide = if (leftAnkleY < rightAnkleY) Side.LEFT else Side.RIGHT
                     when (lockedLiftSide) {

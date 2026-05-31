@@ -9,12 +9,25 @@
 
     <androidx.camera.view.PreviewView
         android:id="@+id/preview_view"
+        android:scaleX="-1"
+        app:implementationMode="compatible"
+        android:layout_width="0dp" android:layout_height="0dp"
+        app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Bliss VM SW 우회용. AVD 등 GPU 가속 환경에서는 사용 안 함 (GONE) -->
+    <ImageView
+        android:id="@+id/iv_camera_frame"
+        android:visibility="gone"
+        android:scaleType="centerCrop"
+        android:contentDescription="@null"
         android:layout_width="0dp" android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
     <com.fallzero.app.ui.overlay.PoseOverlayView
         android:id="@+id/pose_overlay"
+        android:scaleX="-1"
         android:layout_width="0dp" android:layout_height="0dp"
         app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />

@@ -87,11 +87,14 @@
 
         <androidx.camera.view.PreviewView
             android:id="@+id/preview_view"
+            android:scaleX="-1"
+            app:implementationMode="compatible"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
         <com.fallzero.app.ui.overlay.PoseOverlayView
             android:id="@+id/pose_overlay"
+            android:scaleX="-1"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 

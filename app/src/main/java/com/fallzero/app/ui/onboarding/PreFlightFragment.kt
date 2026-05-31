@@ -77,9 +77,10 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         hasAdvanced = false
         phase = Phase.PHONE_LEVEL
 
-        // 설정의 "안내 스킵" ON이면 사전 점검 건너뛰고 즉시 다음 단계로 (테스트용)
+        // 설정의 "안내 스킵" ON이거나 키오스크 모드면 사전 점검 건너뛰고 즉시 다음 단계로.
+        // (키오스크: 고정 거치라 수직 안내 불필요 + 가속도 센서 없음 + TTS 게이트 회피)
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", android.content.Context.MODE_PRIVATE)
-        if (prefs.getBoolean("skip_guidance", false)) {
+        if (prefs.getBoolean("skip_guidance", false) || com.fallzero.app.BuildConfig.IS_KIOSK) {
             view.postDelayed({ if (_binding != null && !hasAdvanced) advanceToNextStep() }, 100L)
             return
         }
@@ -322,8 +323,7 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun bindCameraToSelector(provider: ProcessCameraProvider) {
-        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA
-                       else CameraSelector.DEFAULT_BACK_CAMERA
+        val selector = com.fallzero.app.util.KioskCameraSelector.select(isFrontCamera)
         try {
             provider.unbindAll()
             val preview = cameraPreview ?: return

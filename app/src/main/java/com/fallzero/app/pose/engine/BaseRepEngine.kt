@@ -47,6 +47,10 @@ abstract class BaseRepEngine(
     protected var state = EngineState.IDLE
     protected var hasErrorThisRep = false
 
+    /** 시각화(getGuide 막대기) 전용 — 마지막 processLandmarks의 smoothed metric 값 복사본.
+     *  좌표 판정 로직(count/threshold/state)과 무관한 읽기 전용 값. 막대기 progress 계산에만 사용. */
+    protected var lastMetric: Float = 0f
+
     // 캘리브레이션
     private var calibrationReps = 0
     // 첫 capture를 위한 sentinel (NaN). selectPeak이 NaN이면 candidate를 그대로 채택.
@@ -136,6 +140,7 @@ abstract class BaseRepEngine(
             ?: return FrameResult(currentCount, false, false, null, state = state)
 
         val metric = smoother.smooth(rawMetric)
+        lastMetric = metric  // 시각화용 값 복사 (좌표 판정 로직 무변경 — 단순 보관)
         val errorMsg = detectError(landmarks)
         val hasError = errorMsg != null
         val nowMs = System.currentTimeMillis()
