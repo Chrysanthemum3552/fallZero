@@ -15,7 +15,6 @@
         app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Bliss VM SW 우회용. AVD 등 GPU 가속 환경에서는 사용 안 함 (GONE) -->
     <ImageView
         android:id="@+id/iv_camera_frame"
         android:visibility="gone"
@@ -177,35 +176,64 @@
         app:layout_constraintTop_toTopOf="parent" app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- 전체화면 안내 영상 (TextureView) -->
-        <TextureView
-            android:id="@+id/video_exercise_guide"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent" />
+            android:layout_height="match_parent">
 
-        <!-- 안내 영상 준비 중 텍스트 -->
-        <TextView
-            android:id="@+id/tv_video_placeholder"
-            android:layout_width="wrap_content" android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="@string/guidance_video_placeholder"
-            android:textColor="#CCCC00" android:textSize="28sp"
-            android:visibility="gone" />
+            <!-- 상단 운동 이름 (검사 세션의 tv_guidance_title과 동일 스타일) -->
+            <TextView
+                android:id="@+id/tv_guidance_title"
+                android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginLeft="20dp" android:layout_marginRight="20dp"
+                android:breakStrategy="simple" android:hyphenationFrequency="none"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="16sp" android:autoSizeMaxTextSize="32sp"
+                android:autoSizeStepGranularity="2sp"
+                android:textSize="32sp" android:textStyle="bold" android:textColor="#FFFF00"
+                android:gravity="center" android:background="#EE000000"
+                android:paddingLeft="16dp" android:paddingRight="16dp"
+                android:paddingTop="10dp" android:paddingBottom="10dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                tools:text="앉아서 무릎 펴기" />
 
-        <!--
-            자막 오버레이 (수정됨)
-            - background 제거: 배경 박스 없음
-            - layout_height: wrap_content (텍스트 높이만큼만)
-            - layout_gravity: center (화면 세로 중앙)
-            - 텍스트 외곽선(shadow)으로 가독성 확보
-        -->
+            <!-- 중앙 "안내 영상" 텍스트 (검사 세션의 tv_video_placeholder와 동일 스타일) -->
+            <TextView
+                android:id="@+id/tv_video_placeholder"
+                android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center"
+                android:text="@string/guidance_video_placeholder"
+                android:textColor="#CCCC00"
+                android:textSize="28sp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- 전체화면 안내 영상 -->
+            <TextureView
+                android:id="@+id/video_exercise_guide"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+        <!-- 자막 오버레이: 전체 반투명 배경 + 하단 자막 -->
         <FrameLayout
             android:id="@+id/guide_text_overlay"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:paddingTop="16dp"
-            android:paddingBottom="16dp"
+            android:layout_height="match_parent"
+            android:background="#B3000000"
             android:visibility="gone">
 
             <TextView
@@ -213,13 +241,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:layout_marginStart="28dp"
-                android:layout_marginEnd="28dp"
-                android:textSize="72sp"
+                android:layout_marginStart="32dp"
+                android:layout_marginEnd="32dp"
+                android:textSize="48sp"
                 android:textStyle="bold"
                 android:textColor="#FFFF00"
                 android:gravity="center"
                 android:lineSpacingMultiplier="1.25"
+                android:maxLines="4"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="20sp"
+                android:autoSizeMaxTextSize="48sp"
+                android:autoSizeStepGranularity="2sp"
                 android:shadowColor="#000000"
                 android:shadowDx="4"
                 android:shadowDy="4"
@@ -230,7 +263,7 @@
 
     </FrameLayout>
 
-    <!-- 동작 전환 오버레이 (양측 운동 전환 시) -->
+    <!-- 동작 전환 오버레이 -->
     <FrameLayout
         android:id="@+id/exercise_instruction_overlay"
         android:layout_width="0dp" android:layout_height="0dp"

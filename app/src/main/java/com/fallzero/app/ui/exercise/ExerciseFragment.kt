@@ -158,18 +158,19 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var isGuidancePaused = false
     private val pauseCheckHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
-    // pause 지점 정의 (수정된 영상 기준)
-    // 각 freeze 구간 시작점 = pause 지점
-    // freeze 길이 = TTS 발화 시간에 맞게 조정됨
-    // TTS 완료 -> resume -> 즉시 동작 시작
+    // pause 지점 정의
+    // pause[0] = 0L (영상 시작 즉시 pause, 줄2 TTS 발화)
+    // pause[1] = 동작1 끝 (freeze 시작점, 줄3 TTS 발화)
+    // pause[2] = 동작2 끝 (freeze 시작점, 줄4 TTS 발화) - 4줄 운동만
     private fun getPausePoints(exerciseId: Int): List<Long> = when (exerciseId) {
-        1 -> listOf(0L, 5057L, 15523L)
-        2 -> listOf(0L, 8567L, 21267L)
-        3 -> listOf(0L, 4600L, 21495L)
-        4 -> listOf(0L, 5500L)
-        5 -> listOf(0L, 5167L)
-        6 -> listOf(0L, 8285L)
-        7 -> listOf(0L, 10275L)
+        1 -> listOf(0L, 5890L, 19513L)
+        2 -> listOf(0L, 7000L, 19763L)
+        3 -> listOf(0L, 6000L, 21733L)
+        4 -> listOf(0L, 6000L)
+        5 -> listOf(0L, 6000L)
+        6 -> listOf(0L, 7000L)
+        7 -> listOf(0L, 9533L)
+        8 -> listOf(0L, 6500L, 15423L)
         else -> listOf(0L)
     }
 
@@ -220,8 +221,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val b = _binding ?: return
         isInGuidancePhase = true
         b.guidanceOverlay.visibility = View.VISIBLE
+        b.videoExerciseGuide.visibility = View.GONE
         b.guideTextOverlay.visibility = View.GONE
-        b.videoExerciseGuide.visibility = View.GONE  // 줄1 TTS 중에는 영상 숨김
 
         val allLines = getInstructionLines(exerciseId)
         guidanceLines = if (allLines.size > 1) allLines.subList(1, allLines.size) else emptyList()
@@ -229,10 +230,16 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         guidanceLineIndex = 0
         isGuidancePaused = false
 
-        // 줄1: 영상 없이 TTS만 먼저 발화
+        // 줄1: 검사 세션과 동일하게 상단 운동 이름 + 중앙 "안내 영상" 표시
+        b.tvGuidanceTitle.text = SessionFlow.exerciseName(exerciseId)
+        b.tvGuidanceTitle.visibility = View.VISIBLE
+        b.tvVideoPlaceholder.visibility = View.VISIBLE
+
         val firstLine = allLines.getOrNull(0) ?: ""
         ttsManager?.speak(firstLine.replace("\n", " ")) {
             if (_binding == null || hasNavigated) return@speak
+            _binding?.tvGuidanceTitle?.visibility = View.GONE
+            _binding?.tvVideoPlaceholder?.visibility = View.GONE
             _binding?.videoExerciseGuide?.visibility = View.VISIBLE
             startGuidanceVideo(exerciseId, guidanceLines)
         }
@@ -252,7 +259,14 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 mp.isLooping = false; mp.setVolume(0f, 0f)
                 mp.setOnPreparedListener { player ->
                     player.start()
-                    pauseCheckHandler.post(pauseCheckRunnable)
+                    // 첫 pause 지점이 0ms면 즉시 pause (타이밍 오차 방지)
+                    if (guidancePausePoints.isNotEmpty() && guidancePausePoints[0] == 0L) {
+                        player.pause()
+                        isGuidancePaused = true
+                        showSubtitleAndSpeak(0)
+                    } else {
+                        pauseCheckHandler.post(pauseCheckRunnable)
+                    }
                 }
                 mp.setOnCompletionListener {
                     pauseCheckHandler.removeCallbacks(pauseCheckRunnable)
@@ -353,13 +367,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // -----------------------------------------------
 
     private fun getInstructionLines(exerciseId: Int): List<String> {
-        val script = if (exerciseId == 8) {
-            val prefs = requireActivity()
-                .getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-            balanceGuidanceText(prefs.getInt("current_set_level", 1))
-        } else {
-            getString(guidanceScriptRes(exerciseId))
-        }
+        val script = getString(guidanceScriptRes(exerciseId))
         return script.split("\n").filter { it.isNotBlank() }
     }
 
@@ -375,7 +383,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         5 -> R.raw.toe_raise_guide
         6 -> R.raw.knee_bend_guide
         7 -> R.raw.chair_stand_ex_guide
-        8 -> R.raw.balance_guide_4
+        8 -> R.raw.balance_guide_exercise
         else -> R.raw.balance_guide_4
     }
 
@@ -452,13 +460,11 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             if (_binding == null) return@addListener
             try {
                 val provider = cameraProviderFuture.get(); cameraProvider = provider
+                val preview = Preview.Builder().build().also {
+                    it.setSurfaceProvider(binding.previewView.surfaceProvider) }
                 val resolutionSelector = ResolutionSelector.Builder()
                     .setResolutionStrategy(ResolutionStrategy(Size(640, 480),
                         ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)).build()
-                val preview = Preview.Builder()
-                    .setTargetRotation(android.view.Surface.ROTATION_0)
-                    .build().also {
-                    it.setSurfaceProvider(binding.previewView.surfaceProvider) }
                 val imageAnalyzer = ImageAnalysis.Builder()
                     .setResolutionSelector(resolutionSelector)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
@@ -796,16 +802,11 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // -----------------------------------------------
 
     private fun bindCameraToSelector(provider: ProcessCameraProvider) {
-        val selector = com.fallzero.app.util.KioskCameraSelector.select(isFrontCamera)
+        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
         try {
             provider.unbindAll()
             val preview = cameraPreview ?: return; val analyzer = cameraAnalyzer ?: return
             provider.bindToLifecycle(viewLifecycleOwner, selector, preview, analyzer)
-            // AVD/키오스크 환경의 webcam은 sensor orientation 0이라 portrait view에 가로 영상이
-            // 그대로 들어감 → PreviewView 자체 회전으로 영상을 portrait 방향으로 맞춤
-            if (com.fallzero.app.BuildConfig.IS_KIOSK) {
-                _binding?.previewView?.rotation = 90f
-            }
         } catch (e: Exception) { Log.e(TAG, "bindCameraToSelector failed", e) }
     }
 
