@@ -168,7 +168,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         3 -> listOf(0L, 6000L, 21733L)
         4 -> listOf(0L, 6000L)
         5 -> listOf(0L, 6000L)
-        6 -> listOf(0L, 7000L)
+        6 -> listOf(0L, 7390L)
         7 -> listOf(0L, 9533L)
         8 -> listOf(0L, 6500L, 15423L)
         else -> listOf(0L)
@@ -178,13 +178,12 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private val pauseCheckRunnable = object : Runnable {
         override fun run() {
             val player = guidancePlayer ?: return
-            if (isGuidancePaused) return
             if (!player.isPlaying) { pauseCheckHandler.postDelayed(this, 50L); return }
             val pos = player.currentPosition.toLong()
             val idx = guidanceLineIndex
             if (idx < guidancePausePoints.size && pos >= guidancePausePoints[idx]) {
-                player.pause()
-                isGuidancePaused = true
+                // pause 없이 TTS만 발화 (영상은 계속 재생)
+                guidanceLineIndex++
                 showSubtitleAndSpeak(idx)
                 return
             }
@@ -193,21 +192,22 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun showSubtitleAndSpeak(idx: Int) {
-        if (idx >= guidanceLines.size) { resumeGuidanceVideo(); return }
+        if (idx >= guidanceLines.size) return
         val text = guidanceLines[idx]
         _binding?.tvGuideLineText?.text = text
         _binding?.guideTextOverlay?.visibility = View.VISIBLE
         ttsManager?.speak(text.replace("\n", " ")) {
             if (_binding == null || hasNavigated) return@speak
             _binding?.guideTextOverlay?.visibility = View.GONE
-            guidanceLineIndex++
-            resumeGuidanceVideo()
+            // TTS 완료 후 다음 폴링 재개 (영상은 이미 재생 중)
+            if (guidanceLineIndex < guidancePausePoints.size) {
+                pauseCheckHandler.post(pauseCheckRunnable)
+            }
         }
     }
 
     private fun resumeGuidanceVideo() {
         val player = guidancePlayer ?: return
-        isGuidancePaused = false
         if (!player.isPlaying) player.start()
         if (guidanceLineIndex < guidancePausePoints.size) {
             pauseCheckHandler.post(pauseCheckRunnable)
@@ -238,10 +238,32 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val firstLine = allLines.getOrNull(0) ?: ""
         ttsManager?.speak(firstLine.replace("\n", " ")) {
             if (_binding == null || hasNavigated) return@speak
-            _binding?.tvGuidanceTitle?.visibility = View.GONE
-            _binding?.tvVideoPlaceholder?.visibility = View.GONE
-            _binding?.videoExerciseGuide?.visibility = View.VISIBLE
-            startGuidanceVideo(exerciseId, guidanceLines)
+            if (exerciseId == 6) {
+                // 운동6: 이미지 표시 + TTS 발화 -> TTS 완료 후 2초 이미지 유지 -> 영상 시작
+                val imgGuideText = "양발을 어깨 너비로 벌린 이미지입니다"
+                _binding?.ivExerciseGuideImage?.setImageResource(R.drawable.img_knee_bend_guide)
+                _binding?.ivExerciseGuideImage?.visibility = View.VISIBLE
+                _binding?.tvGuideLineText?.text = imgGuideText
+                _binding?.guideTextOverlay?.visibility = View.VISIBLE
+                _binding?.tvGuidanceTitle?.visibility = View.GONE
+                _binding?.tvVideoPlaceholder?.visibility = View.GONE
+                ttsManager?.speak(imgGuideText) {
+                    if (_binding == null || hasNavigated) return@speak
+                    // TTS 완료 후 자막만 숨기고 이미지 2초 유지
+                    _binding?.guideTextOverlay?.visibility = View.GONE
+                    _binding?.root?.postDelayed({
+                        if (_binding == null || hasNavigated) return@postDelayed
+                        _binding?.ivExerciseGuideImage?.visibility = View.GONE
+                        _binding?.videoExerciseGuide?.visibility = View.VISIBLE
+                        startGuidanceVideo(exerciseId, guidanceLines)
+                    }, 2000L)
+                }
+            } else {
+                _binding?.tvGuidanceTitle?.visibility = View.GONE
+                _binding?.tvVideoPlaceholder?.visibility = View.GONE
+                _binding?.videoExerciseGuide?.visibility = View.VISIBLE
+                startGuidanceVideo(exerciseId, guidanceLines)
+            }
         }
     }
 
@@ -259,10 +281,9 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 mp.isLooping = false; mp.setVolume(0f, 0f)
                 mp.setOnPreparedListener { player ->
                     player.start()
-                    // 첫 pause 지점이 0ms면 즉시 pause (타이밍 오차 방지)
+                    // 영상 시작과 동시에 첫 TTS 발화 (pause 없이)
                     if (guidancePausePoints.isNotEmpty() && guidancePausePoints[0] == 0L) {
-                        player.pause()
-                        isGuidancePaused = true
+                        guidanceLineIndex++
                         showSubtitleAndSpeak(0)
                     } else {
                         pauseCheckHandler.post(pauseCheckRunnable)

@@ -226,6 +226,19 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
+            <!-- 운동6 이미지 안내 (양발 어깨 너비) -->
+            <ImageView
+                android:id="@+id/iv_exercise_guide_image"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:scaleType="centerCrop"
+                android:contentDescription="운동 안내 이미지"
+                android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
         </androidx.constraintlayout.widget.ConstraintLayout>
 
         <!-- 자막 오버레이: 전체 반투명 배경 + 하단 자막 -->
