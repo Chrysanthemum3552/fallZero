@@ -469,6 +469,22 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
+    /** 안내 영상 원본 종횡비를 TextureView 안에 맞춰 letterbox 변환 (찌그러짐 방지). */
+    private fun applyExamVideoAspect(tv: android.view.TextureView, videoW: Int, videoH: Int) {
+        if (videoW <= 0 || videoH <= 0) return
+        val viewW = tv.width.toFloat(); val viewH = tv.height.toFloat()
+        if (viewW <= 0f || viewH <= 0f) return
+        val videoAspect = videoW.toFloat() / videoH.toFloat()
+        val viewAspect = viewW / viewH
+        val sx: Float; val sy: Float
+        if (videoAspect > viewAspect) { sx = 1f; sy = viewAspect / videoAspect }
+        else { sx = videoAspect / viewAspect; sy = 1f }
+        val m = android.graphics.Matrix()
+        m.setScale(sx, sy, viewW / 2f, viewH / 2f)
+        tv.setTransform(m)
+        tv.invalidate()
+    }
+
     private fun startExamGuidanceVideo(uri: android.net.Uri, lines: List<String>, onComplete: () -> Unit) {
         val b = _binding ?: return
         b.videoChairGuidance.visibility = View.VISIBLE
@@ -481,6 +497,10 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 mp.setDataSource(requireContext(), uri)
                 mp.setSurface(android.view.Surface(st))
                 mp.isLooping = false; mp.setVolume(0f, 0f)
+                // 영상 원본 종횡비 보존 — 키오스크 세로 화면에서 찌그러지지 않도록 letterbox 변환
+                mp.setOnVideoSizeChangedListener { _, vw, vh ->
+                    _binding?.videoChairGuidance?.let { applyExamVideoAspect(it, vw, vh) }
+                }
                 mp.setOnPreparedListener { player ->
                     val totalMs = if (player.duration > 0) player.duration.toLong() else 8000L
                     examSubtitleEntries = buildExamSubtitleTimings(totalMs, lines)

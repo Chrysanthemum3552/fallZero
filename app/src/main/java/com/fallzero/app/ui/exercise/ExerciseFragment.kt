@@ -69,6 +69,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     @Volatile private var isPausedForFrontFacing = false
     @Volatile private var userReturnInProgress = false
     @Volatile private var isInGuidancePhase = false
+    // 전신이 카메라에 최초로 잡혔는지. 잡히기 전(운동 본격 시작 전)에는 이탈/가림 경고를 발동하지 않음.
+    @Volatile private var bodyEverDetected = false
 
     private var userAwayCheckJob: Job? = null
     private var pauseAnnounceJob: Job? = null
@@ -267,6 +269,23 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
+    /** 안내 영상의 원본 종횡비를 TextureView 안에 맞춰 letterbox(fit-center) 변환.
+     *  기본 TextureView는 surface를 뷰 크기로 늘려 채워 찌그러지므로, 비율 보존을 위해 한 축을 축소. */
+    private fun applyVideoAspect(tv: android.view.TextureView, videoW: Int, videoH: Int) {
+        if (videoW <= 0 || videoH <= 0) return
+        val viewW = tv.width.toFloat(); val viewH = tv.height.toFloat()
+        if (viewW <= 0f || viewH <= 0f) return
+        val videoAspect = videoW.toFloat() / videoH.toFloat()
+        val viewAspect = viewW / viewH
+        val sx: Float; val sy: Float
+        if (videoAspect > viewAspect) { sx = 1f; sy = viewAspect / videoAspect }  // 영상이 더 넓음 → 위아래 여백
+        else { sx = videoAspect / viewAspect; sy = 1f }                            // 영상이 더 높음 → 좌우 여백
+        val m = android.graphics.Matrix()
+        m.setScale(sx, sy, viewW / 2f, viewH / 2f)
+        tv.setTransform(m)
+        tv.invalidate()
+    }
+
     private fun startGuidanceVideo(exerciseId: Int, lines: List<String>) {
         val b = _binding ?: return
 
@@ -279,6 +298,10 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 mp.setDataSource(requireContext(), uri)
                 mp.setSurface(android.view.Surface(st))
                 mp.isLooping = false; mp.setVolume(0f, 0f)
+                // 영상 원본 종횡비 보존 — 키오스크 세로 화면에 늘어나/찌그러지지 않도록 letterbox 변환
+                mp.setOnVideoSizeChangedListener { _, vw, vh ->
+                    _binding?.videoExerciseGuide?.let { applyVideoAspect(it, vw, vh) }
+                }
                 mp.setOnPreparedListener { player ->
                     player.start()
                     // 영상 시작과 동시에 첫 TTS 발화 (pause 없이)
@@ -731,12 +754,30 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         userAwayCheckJob?.cancel()
         val nowInit = System.currentTimeMillis()
         lastValidFrameMs = nowInit; lastFullBodyMs = nowInit; lastSideViewMs = nowInit
+        // 운동 본격 시작 전(전신 최초 감지 전)에는 이탈/가림 경고를 발동하지 않음.
+        // 그 동안에는 "카메라 앞에 서주세요" 준비 안내만 표시하고, 전신이 잡히면 정상 모니터링 시작.
+        bodyEverDetected = false
+        var readyPromptShown = false
         val occlusionCheckEnabled = getCurrentExerciseId() != 1
         val sideFacingCheckEnabled = getCurrentExerciseId() !in SessionFlow.FRONT_EXERCISES
         userAwayCheckJob = viewLifecycleOwner.lifecycleScope.launch {
             while (isAdded && !hasNavigated) {
                 delay(500)
                 if (isInGuidancePhase) continue
+                // 전신이 한 번도 안 잡힌 상태 — 경고 대신 준비 안내만 (요청: 운동 시작 전 오작동/멈춤 방지)
+                if (!bodyEverDetected) {
+                    if (!readyPromptShown && !isPausedForUserAway && !isPausedForOcclusion && !isPausedForFrontFacing) {
+                        readyPromptShown = true
+                        _binding?.pauseOverlay?.visibility = View.VISIBLE
+                        _binding?.tvPauseMessage?.text = "카메라 앞에 서주세요"
+                    }
+                    continue
+                }
+                // 전신이 처음 잡힘 → 준비 안내 제거 후 정상 모니터링
+                if (readyPromptShown) {
+                    readyPromptShown = false
+                    _binding?.pauseOverlay?.visibility = View.GONE
+                }
                 if (isPausedForUserAway || isPausedForOcclusion || isPausedForFrontFacing) continue
                 val now = System.currentTimeMillis()
                 if (lastValidFrameMs > 0L && now - lastValidFrameMs > USER_AWAY_TIMEOUT_MS) onUserAway()
@@ -850,7 +891,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val result = resultBundle.results.firstOrNull() ?: return
         val landmarks = result.landmarks().firstOrNull() ?: return
         val now = System.currentTimeMillis(); lastValidFrameMs = now
-        val fullBody = isFullBodyVisible(landmarks); if (fullBody) lastFullBodyMs = now
+        val fullBody = isFullBodyVisible(landmarks); if (fullBody) { lastFullBodyMs = now; bodyEverDetected = true }
         val isSideView = isSideFacing(landmarks); if (isSideView) lastSideViewMs = now
         if (isPausedForUserAway) onUserReturned()
         else if (isPausedForOcclusion && fullBody) onOcclusionCleared()
