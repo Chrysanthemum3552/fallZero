@@ -35,8 +35,11 @@ android {
 
     buildTypes {
         release {
-            // 시연용 릴리스: R8 minify + 로그 strip(proguard) + 디버그 키 서명(별도 릴리스 키스토어 없이 바로 설치).
-            isMinifyEnabled = true
+            // 시연용 릴리스: 디버그 키 서명(바로 설치) + debuggable=false(디버그 빌드보다 빠른 "진짜 릴리스").
+            //   minify는 끔 — R8 최적화(메서드 인라이닝)가 MediaPipe Graph의 스택 추적("no caller found on the
+            //   stack")을 깨뜨려 카메라/포즈 초기화가 크래시함(MediaPipe+R8 알려진 비호환). keep만으론 못 막음.
+            //   (로그 strip은 minify에 의존하므로 함께 보류 — 로그는 logcat에만 가서 화면엔 안 보임.)
+            isMinifyEnabled = false
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
