@@ -42,7 +42,7 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var kneeYBaseline: Float = Float.NaN
     private var kneeYBaselineFrameCount = 0
     private val KNEE_BASELINE_FRAMES = 30          // ~1초
-    private val THIGH_LIFT_THRESHOLD = 0.05f       // SBU의 5%
+    private val THIGH_LIFT_THRESHOLD = 0.12f       // SBU의 12% (사용자 요청 완화 0.05 → 0.12)
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         // 양쪽 다리 모두 계산 — 어느 쪽이든 굽혀지면 감지 (좌우 구별 X)

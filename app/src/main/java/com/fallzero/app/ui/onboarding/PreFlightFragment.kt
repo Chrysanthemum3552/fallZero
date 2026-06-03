@@ -77,11 +77,19 @@ class PreFlightFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         hasAdvanced = false
         phase = Phase.PHONE_LEVEL
 
-        // 설정의 "안내 스킵" ON이거나 키오스크 모드면 사전 점검 건너뛰고 즉시 다음 단계로.
-        // (키오스크: 고정 거치라 수직 안내 불필요 + 가속도 센서 없음 + TTS 게이트 회피)
+        // 설정의 "안내 스킵" ON이거나 키오스크 모드면 사전 점검(수평+전신감지)을 통째로 건너뛴다.
+        // (키오스크: 고정 거치라 수직 안내 불필요 + 가속도 센서 없음. 전신 위치 확인은
+        //  설명이 끝난 뒤 운동/검사 화면의 게이트에서 "한 번만" 수행한다.)
+        // ★ 깜빡임 방지: onViewCreated에서(첫 그리기 전) 모든 화면 요소를 숨겨, 수평 단계가
+        //   한 프레임도 그려지지 않게 한 뒤 다음 프레임에 곧바로 넘어간다.
         val prefs = requireActivity().getSharedPreferences("fallzero_prefs", android.content.Context.MODE_PRIVATE)
         if (prefs.getBoolean("skip_guidance", false) || com.fallzero.app.BuildConfig.IS_KIOSK) {
-            view.postDelayed({ if (_binding != null && !hasAdvanced) advanceToNextStep() }, 100L)
+            binding.sectionPhone.visibility = View.GONE
+            binding.sectionCamera.visibility = View.GONE
+            binding.tvTitle.visibility = View.GONE
+            binding.tvSubtitle.visibility = View.GONE
+            binding.tvStatus.visibility = View.GONE
+            view.postDelayed({ if (_binding != null && !hasAdvanced) advanceToNextStep() }, 60L)
             return
         }
 

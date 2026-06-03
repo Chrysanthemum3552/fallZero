@@ -52,6 +52,10 @@ object SessionFlow {
      */
     @Volatile var pendingAutoForward: Boolean = false
 
+    /** 운동 세션 동안 "카메라 앞 전신 확인"을 이미 1번 했는지. 세션 시작 시 false로 리셋되고,
+     *  첫 운동에서 전신확인을 마치면 true. 이후 운동들은 전신확인을 건너뛴다(사용자: 처음 1번만). */
+    @Volatile var exerciseBodyCheckDone: Boolean = false
+
     /** 운동 세션 큐 빌드 — 자세 그룹별 순서:
      *    정면-서서(2,8) → 정면-앉기(7) → 측면 회전 → 측면-서서(4,5,6,3) → 의자 재배치 → 측면-앉기(1) → DONE
      *  사이마다 REST. 그룹 경계는 SIDE_ROTATION/CHAIR_REPOSITION으로 대체.
@@ -65,6 +69,7 @@ object SessionFlow {
         sessionType = SessionType.EXERCISE
         isFullExerciseSession = true
         index = 0
+        exerciseBodyCheckDone = false
         val list = mutableListOf<Step>()
         list += Step(StepType.PRE_FLIGHT, title = "운동 준비",
             subtitle = "핸드폰을 수직으로 세우고 전신이 보이도록 서주세요.")
@@ -124,6 +129,7 @@ object SessionFlow {
         sessionType = SessionType.EXERCISE
         isFullExerciseSession = true  // 마지막 운동 완료 시 "오늘 운동 완료" 메시지 호환 동작.
         index = 0
+        exerciseBodyCheckDone = false
 
         val remaining = exerciseIds.toSet()
         val frontStanding = listOf(2, 8).filter { it in remaining }
@@ -179,6 +185,7 @@ object SessionFlow {
         sessionType = SessionType.EXERCISE
         isFullExerciseSession = false
         index = 0
+        exerciseBodyCheckDone = false
         val list = mutableListOf<Step>()
         list += Step(StepType.PRE_FLIGHT, title = "운동 준비",
             subtitle = "핸드폰을 수직으로 세우고 전신이 보이도록 서주세요.")

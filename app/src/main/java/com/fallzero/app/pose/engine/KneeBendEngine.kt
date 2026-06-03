@@ -30,7 +30,7 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var kneeAnkleDxBaseline: Float = Float.NaN
     private var kneeForwardBaselineFrameCount = 0
     private val KNEE_FORWARD_BASELINE_FRAMES = 30
-    private val KNEE_FORWARD_THRESHOLD = 0.25f  // standing baseline 대비 SBU의 25%까지 허용 (노인 대상 완화, 기존 0.15 → 0.25)
+    private val KNEE_FORWARD_THRESHOLD = 0.35f  // standing baseline 대비 SBU의 35%까지 허용 (사용자 요청 추가 완화 0.25 → 0.35)
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         // 양쪽 다리 모두 계산 후 더 큰 flexion 채택 (Q4 fix).
@@ -112,7 +112,8 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         val progress = if (gap > 0f) ((lastMetric - retThr) / gap).coerceIn(0f, 1f) else 0f
         return com.fallzero.app.ui.overlay.ExerciseGuide.Bar(
             progress = progress, vertical = true,
-            fillDirection = com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.UP,
+            // 아래로 굽히는 운동이므로 막대기도 위→아래로 채워지게 (사용자 요청, 직관성)
+            fillDirection = com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.DOWN,
             label = "$exerciseName 진행도", justReached = progress >= 1f
         )
     }

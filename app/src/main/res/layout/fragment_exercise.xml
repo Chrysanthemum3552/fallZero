@@ -97,8 +97,9 @@
         android:paddingLeft="20dp" android:paddingRight="20dp"
         android:paddingTop="10dp" android:paddingBottom="10dp"
         android:gravity="center" android:lineSpacingMultiplier="1.2"
-        android:visibility="gone" android:layout_marginBottom="120dp"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:visibility="gone" android:layout_marginTop="12dp"
+        android:layout_marginStart="16dp" android:layout_marginEnd="16dp"
+        app:layout_constraintTop_toBottomOf="@id/tv_count"
         app:layout_constraintStart_toStartOf="parent" app:layout_constraintEnd_toEndOf="parent" />
 
     <com.google.android.material.button.MaterialButton
@@ -215,13 +216,13 @@
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
-            <!-- 전체화면 안내 영상 -->
+            <!-- 전체화면 안내 영상 (여백 없이 화면 전체를 채움) -->
             <TextureView
                 android:id="@+id/video_exercise_guide"
                 android:layout_width="0dp"
                 android:layout_height="0dp"
                 android:visibility="gone"
-                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintTop_toTopOf="parent"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />

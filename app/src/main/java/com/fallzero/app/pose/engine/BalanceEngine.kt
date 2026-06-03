@@ -69,7 +69,9 @@ class BalanceEngine(
     // 단계별 sway 허용 마진 — baseline 차분 이후 절대 변동 허용량 (SBU 단위).
     // 한 발 서기는 자연 흔들림이 크므로 마진도 큼.
     private fun getSwayMargin(): Float = when (stage) {
-        1 -> 0.10f
+        // 1단계: 발을 딱 붙이면 다리가 안쪽으로 모여 발목-무릎-엉덩이 정렬값이 0.10~0.14까지 커짐(기하학적).
+        // logcat 실측(corr 최대 0.141)에 근거해 허용폭을 0.18로 — 발 붙여도 인정되게 (사용자 요청).
+        1 -> 0.18f
         2 -> 0.10f
         3 -> 0.12f
         4 -> 0.20f
@@ -135,8 +137,9 @@ class BalanceEngine(
         //   한 발 서기:        footY ≈ 0.55~0.92
         when (stage) {
             1 -> {
-                // 두 발 나란히: 발 좌우 간격이 SBU의 50% 이하
-                if (footXNorm > 0.50f) {
+                // 두 발 나란히: 발 좌우 간격이 SBU의 40% 이하 (정상 직립 0.28~0.33보다 살짝만 넓은 것까지만 인정).
+                // 0.50은 꽤 벌려도 통과돼서 0.40으로 약간 엄격하게 (사용자 요청).
+                if (footXNorm > 0.40f) {
                     poseValid = false
                     poseHint = "발을 더 모아주세요"
                 }

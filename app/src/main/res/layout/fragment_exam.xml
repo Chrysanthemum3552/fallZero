@@ -144,8 +144,8 @@
             <TextView
                 android:id="@+id/tv_floating_feedback"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_gravity="bottom|center_horizontal"
-                android:layout_marginBottom="96dp"
+                android:layout_gravity="top|center_horizontal"
+                android:layout_marginTop="16dp"
                 android:background="#CC000000"
                 android:paddingLeft="20dp" android:paddingRight="20dp"
                 android:paddingTop="10dp" android:paddingBottom="10dp"
@@ -334,21 +334,30 @@
 
             <TextureView
                 android:id="@+id/video_chair_guidance"
-                android:layout_width="match_parent" android:layout_height="0dp"
-                android:layout_marginTop="12dp" android:visibility="gone"
-                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
-                app:layout_constraintBottom_toTopOf="@id/layout_guidance_text"
+                android:layout_width="0dp" android:layout_height="0dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" ></TextureView>
 
             <ImageView
                 android:id="@+id/iv_chair_front_pose"
-                android:layout_width="match_parent" android:layout_height="0dp"
-                android:layout_marginTop="12dp"
+                android:layout_width="0dp" android:layout_height="0dp"
                 android:scaleType="centerCrop" android:visibility="gone"
                 android:contentDescription="의자 앞에 정면을 바라보고 서주세요"
-                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
-                app:layout_constraintBottom_toTopOf="@id/layout_guidance_text"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent" />
+
+            <!-- 막대기 설명용: 안내영상 위에 겹쳐 오른쪽에 막대기 표시 (검사 막대기 설명) -->
+            <com.fallzero.app.ui.overlay.GuideBarView
+                android:id="@+id/guide_bar_sim"
+                android:layout_width="0dp" android:layout_height="0dp"
+                android:visibility="gone"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
@@ -430,16 +439,23 @@
                 android:layout_gravity="center"
                 android:layout_marginStart="28dp"
                 android:layout_marginEnd="28dp"
-                android:textSize="72sp"
+                android:textSize="52sp"
+                android:maxLines="2"
+                android:breakStrategy="high_quality"
+                android:hyphenationFrequency="none"
+                android:autoSizeTextType="uniform"
+                android:autoSizeMinTextSize="24sp"
+                android:autoSizeMaxTextSize="56sp"
+                android:autoSizeStepGranularity="2sp"
                 android:textStyle="bold"
                 android:textColor="#FFFF00"
                 android:gravity="center"
-                android:lineSpacingMultiplier="1.25"
+                android:lineSpacingMultiplier="1.2"
                 android:shadowColor="#000000"
                 android:shadowDx="4"
                 android:shadowDy="4"
                 android:shadowRadius="8"
-                tools:text="팔을 가슴 앞에\n교차하세요" />
+                tools:text="팔 교차" />
 
         </FrameLayout>
 

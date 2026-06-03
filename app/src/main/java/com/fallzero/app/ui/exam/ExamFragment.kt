@@ -65,6 +65,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var bodyStillSinceMs = 0L
     private var lastShoulderY = 0f
     private val standingMSamples = mutableListOf<Float>()
+    private var chairDetectSpoken = false   // 의자 준비: "잘 감지됐어요" 1회 발화 여부
+    private var chairSitSpoken = false       // 의자 준비: "일어나 주세요" 1회 발화 여부
 
     private enum class Mode { BALANCE, CHAIR_STAND }
     private var mode: Mode = Mode.BALANCE
@@ -78,6 +80,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     @Volatile private var isPausedForUserAway = false
     @Volatile private var isPausedForOcclusion = false
     @Volatile private var userReturnInProgress = false
+    // 안내영상/단계 준비 구간 표시. true면 away/가림 일시정지 로직을 멈춘다(사용자: 안내영상 중 일시정지 금지).
+    @Volatile private var isExamGuidancePhase = false
 
     private var userAwayCheckJob: Job? = null
     private var pauseAnnounceJob: Job? = null
@@ -113,6 +117,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         binding.poseOverlay.setShowSkeleton(
             com.fallzero.app.util.DisplayPrefs.showSkeleton(requireContext())
         )
+        // 전면 카메라는 PoseLandmarkerHelper가 랜드마크를 이미 좌우반전(셀피 공간)하므로 오버레이는 반전하지 않음(+1).
+        // 후면은 반전해야 프리뷰와 일치(-1). 안 맞추면 스켈레톤이 몸과 반대로 움직임.
+        binding.poseOverlay.scaleX = if (isFrontCamera) 1f else -1f
         showGuide = com.fallzero.app.util.DisplayPrefs.showGuide(requireContext())
 
         val step = SessionFlow.current()
@@ -194,6 +201,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private fun toggleCameraFacing() {
         isFrontCamera = !isFrontCamera
         com.fallzero.app.util.CameraFacingPref.setFrontCamera(requireContext(), isFrontCamera)
+        _binding?.poseOverlay?.scaleX = if (isFrontCamera) 1f else -1f
         cameraProvider?.let { bindCameraToSelector(it) }
     }
 
@@ -222,6 +230,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             Mode.CHAIR_STAND -> {
                 chairPrepareMode = true; chairPreparePhase = 0
                 bodyStillSinceMs = 0L; lastShoulderY = 0f; standingMSamples.clear()
+                chairDetectSpoken = false; chairSitSpoken = false
                 val b = _binding ?: return
                 b.tvExamPhase.text = "의자 일어서기 검사"; b.tvTimer.text = ""; b.tvCount.text = ""
                 showChairPrepareImage()
@@ -235,6 +244,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun showChairPrepareImage() {
         val b = _binding ?: return
+        b.tvGuidanceTitle.visibility = View.VISIBLE; b.layoutGuidanceText.visibility = View.VISIBLE  // 영상에서 GONE 됐을 수 있어 복원
         b.tvGuidanceTitle.text = "의자 일어서기 검사"
         b.tvGuidanceText.text = "의자 앞에 정면을 바라보고 서주세요."
         b.tvGuidanceCountdown.visibility = View.GONE
@@ -243,14 +253,22 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.ivChairFrontPose.setImageResource(R.drawable.chair_front_pose)
         b.ivChairFrontPose.visibility = View.VISIBLE
         b.guidanceOverlay.visibility = View.VISIBLE
-        ttsManager?.speak("이번 검사는 의자가 필요합니다. 의자를 가져오셔서 의자 앞에 정면을 바라보고 서주세요.")
-        b.root.postDelayed({
-            if (_binding == null || hasNavigated) return@postDelayed
-            _binding?.ivChairFrontPose?.visibility = View.GONE
-            _binding?.guidanceOverlay?.visibility = View.GONE
-            chairPreparePhase = 1
-            showFloatingFeedback("의자 앞에 정면을 바라보고 가만히 서주세요", 0xFFFFEB3B.toInt())
-        }, 5000L)
+        // 가만히 서기 감지(phase 1) 진입 — 한 번만 실행 (TTS 콜백/안전장치 중복 방지)
+        val enterStillness = {
+            if (_binding != null && !hasNavigated && chairPreparePhase == 0) {
+                _binding?.ivChairFrontPose?.visibility = View.GONE
+                _binding?.guidanceOverlay?.visibility = View.GONE
+                chairPreparePhase = 1
+                showFloatingFeedback("의자 앞에 정면을 바라보고 가만히 서주세요", 0xFFFFEB3B.toInt())
+            }
+        }
+        // 안내 음성이 '끝까지' 나온 뒤(잘리지 않게), 의자 가져와 앞에 서는 여유 2초를 주고 감지 시작 (사용자 요청)
+        ttsManager?.speak("이번 검사는 의자가 필요합니다. 의자를 가져오셔서 의자 앞에 정면을 바라보고 서주세요.") {
+            if (_binding == null || hasNavigated) return@speak
+            _binding?.root?.postDelayed({ enterStillness() }, 2000L)
+        }
+        // 안전장치: TTS 콜백 누락 대비 (정상 시엔 콜백+2초가 먼저 호출됨)
+        b.root.postDelayed({ enterStillness() }, 12000L)
     }
 
     private fun showChairStandGuidance(onAfterScript: () -> Unit) {
@@ -258,9 +276,10 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.ivChairFrontPose.visibility = View.GONE; b.videoChairGuidance.visibility = View.GONE
         b.tvVideoPlaceholder.text = "안내 영상"; b.tvVideoPlaceholder.textSize = 64f
         b.tvVideoPlaceholder.setTextColor(0xFFFFFF00.toInt()); b.tvVideoPlaceholder.visibility = View.VISIBLE
+        b.tvGuidanceTitle.visibility = View.VISIBLE   // 인트로 제목 표시 (이전 영상에서 GONE 됐을 수 있음)
         b.tvGuidanceTitle.text = "의자 일어서기 검사"; b.tvGuidanceText.text = ""
         b.guidanceOverlay.visibility = View.VISIBLE
-        ttsManager?.speak("다음 운동은 의자 앉았다 일어서기 입니다. 우선 안내 영상을 시청하겠습니다.") {
+        ttsManager?.speak("좋아요, 시작할게요. 우선 안내 영상을 시청하겠습니다.") {
             if (_binding == null || hasNavigated) return@speak
             _binding?.tvVideoPlaceholder?.visibility = View.GONE
             playChairGuidanceVideo(onAfterScript)
@@ -275,8 +294,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.videoChairGuidance.visibility = View.VISIBLE
 
         val lines = listOf(
-            "팔을 가슴 앞에\n교차하세요",
-            "이제 천천히\n앉았다 일어서세요"
+            "팔 교차|팔을 가슴 앞에 교차하세요",
+            "앉았다 일어서기|이제 천천히 앉았다 일어서세요"
         )
 
         val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_guide}")
@@ -287,6 +306,10 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
     }
 
+    private var barSimPlayer: MediaPlayer? = null
+
+    /** 검사 막대기 설명 — chair_stand_ex_guide 영상의 앉기(6~10초)·일어서기(18~20초) 구간을 전체화면으로 틀고,
+     *  그 구간 속도에 맞춰 오른쪽 막대기를 내렸다(앉기) 올린다(일어서기). 사이 2초 대기. (사용자 요청 req2) */
     private fun startBarSimulation(onAfterScript: () -> Unit) {
         val b = _binding ?: return
         isBarSimulating = true
@@ -297,44 +320,134 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 label = "예시", justReached = p >= 0.99f
             )
         }
-        b.guideBar.visibility = View.VISIBLE; b.guideBar.setGuide(barGuide(1f)); b.guideBar.bringToFront()
-        ttsManager?.speak("화면 오른쪽에는 여러분의 자세를 감지하여 막대기가 올라가거나 내려갑니다") {
-            if (_binding == null || hasNavigated) return@speak
-            ttsManager?.speak("앉으면 막대기가 내려가고") {
+        // 안내영상 전체화면 + 막대기를 그 위 오른쪽에 겹침
+        b.tvGuidanceTitle.visibility = View.GONE
+        b.tvVideoPlaceholder.visibility = View.GONE
+        b.layoutGuidanceText.visibility = View.GONE
+        b.videoChairGuidance.visibility = View.VISIBLE
+        b.guideBarSim.visibility = View.VISIBLE; b.guideBarSim.setGuide(barGuide(1f)); b.guideBarSim.bringToFront()
+        b.guidanceOverlay.visibility = View.VISIBLE
+
+        val finish = {
+            releaseBarSimPlayer()
+            _binding?.guideBarSim?.visibility = View.GONE
+            _binding?.videoChairGuidance?.visibility = View.GONE
+            _binding?.guidanceOverlay?.visibility = View.GONE
+            onAfterScript()
+        }
+        val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_ex_guide}")
+        setupBarSimPlayer(uri) {
+            if (_binding == null || hasNavigated) { finish(); return@setupBarSimPlayer }
+            ttsManager?.speak("화면 오른쪽에는 여러분의 자세를 감지하여 막대기가 올라가거나 내려갑니다") {
                 if (_binding == null || hasNavigated) return@speak
-                animateBar(1f, 0.1f, 1500L, barGuide) {
-                    if (_binding == null || hasNavigated) return@animateBar
-                    _binding?.root?.postDelayed({
-                        if (_binding == null || hasNavigated) return@postDelayed
-                        ttsManager?.speak("일어서면 막대기가 올라갑니다") {
-                            if (_binding == null || hasNavigated) return@speak
-                            animateBar(0.1f, 1f, 1500L, barGuide) {
-                                if (_binding == null || hasNavigated) return@animateBar
-                                _binding?.root?.postDelayed({
-                                    if (_binding == null || hasNavigated) return@postDelayed
+                ttsManager?.speak("앉으면 막대기가 내려가고") {
+                    if (_binding == null || hasNavigated) return@speak
+                    playBarSegment(6000, 10000, 1f, 0.1f, barGuide, preSeeked = true) {  // 앉기 구간(미리 seek됨) + 막대기 내림
+                        if (_binding == null || hasNavigated) return@playBarSegment
+                        _binding?.root?.postDelayed({                        // 잠시 대기 1초 (사용자 요청: 2초→1초)
+                            if (_binding == null || hasNavigated) return@postDelayed
+                            ttsManager?.speak("일어서면 막대기가 올라갑니다") {
+                                if (_binding == null || hasNavigated) return@speak
+                                playBarSegment(18000, 20000, 0.1f, 1f, barGuide) {   // 일어서기 구간 + 막대기 올림
+                                    if (_binding == null || hasNavigated) return@playBarSegment
                                     ttsManager?.speak("이 막대기가 완전히 내려갔다가 완전히 올라가야 한 번으로 인정됩니다") {
                                         if (_binding == null || hasNavigated) return@speak
-                                        _binding?.guideBar?.visibility = View.GONE
-                                        onAfterScript()
+                                        finish()
                                     }
-                                }, 500L)
+                                }
                             }
-                        }
-                    }, 500L)
+                        }, 1000L)
+                    }
                 }
             }
         }
     }
 
-    private fun animateBar(from: Float, to: Float, durationMs: Long,
-                           barGuide: (Float) -> com.fallzero.app.ui.overlay.ExerciseGuide.Bar, onEnd: () -> Unit) {
+    private fun setupBarSimPlayer(uri: android.net.Uri, onReady: () -> Unit) {
+        val b = _binding ?: return
+        fun initPlayer(st: android.graphics.SurfaceTexture) {
+            val mp = MediaPlayer(); barSimPlayer = mp
+            try {
+                mp.setDataSource(requireContext(), uri)
+                mp.setSurface(android.view.Surface(st))
+                mp.isLooping = false; mp.setVolume(0f, 0f)
+                mp.setOnVideoSizeChangedListener { _, vw, vh ->
+                    _binding?.videoChairGuidance?.let { applyExamVideoAspect(it, vw, vh) }
+                }
+                mp.setOnPreparedListener {
+                    if (_binding != null && !hasNavigated) {
+                        // 디코더 워밍업: 첫 구간(앉기)에서 seek 후 정지화면이 되던 문제 방지.
+                        // 미리 start→pause로 디코더를 PREPARED→PAUSED로 만들어, 정상 재생되는 둘째 구간(서기)과 같은 상태에서 시작.
+                        try { mp.start(); mp.pause() } catch (_: Exception) {}
+                        // 앉기 구간(6초) 프레임을 미리 디코드 → 첫 재생 시 '약간의 딜레이' 최소화 (사용자 요청 확인).
+                        // 인트로 음성이 나오는 동안 seek가 완료되어, 앉기 구간이 바로 재생됨.
+                        try {
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
+                                mp.seekTo(6000L, MediaPlayer.SEEK_CLOSEST)
+                            else mp.seekTo(6000)
+                        } catch (_: Exception) {}
+                        onReady()
+                    }
+                }
+                mp.setOnErrorListener { _, _, _ -> if (_binding != null && !hasNavigated) onReady(); true }
+                mp.prepareAsync()
+            } catch (e: Exception) { Log.e(TAG, "막대기 설명 영상 오류", e); onReady() }
+        }
+        if (b.videoChairGuidance.isAvailable) initPlayer(b.videoChairGuidance.surfaceTexture!!)
+        else b.videoChairGuidance.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+            override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { initPlayer(st) }
+            override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) {}
+            override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean = true
+            override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) {}
+        }
+    }
+
+    /** [startMs,endMs] 구간을 재생하면서 막대기를 barFrom→barTo로 구간 길이만큼 애니메이션. 끝나면 일시정지 + onEnd.
+     *  preSeeked=true: 워밍업에서 이미 startMs로 seek 해둔 구간 → seek 대기 없이 즉시 재생+애니메이션 (앞 딜레이 제거, 사용자 요청). */
+    private fun playBarSegment(startMs: Int, endMs: Int, barFrom: Float, barTo: Float,
+                               barGuide: (Float) -> com.fallzero.app.ui.overlay.ExerciseGuide.Bar,
+                               preSeeked: Boolean = false, onEnd: () -> Unit) {
+        val mp = barSimPlayer ?: run { onEnd(); return }
+        val dur = (endMs - startMs).toLong()
+        val startAnim = {
+            try { if (!mp.isPlaying) mp.start() } catch (_: Exception) {}
+            animateBarSim(barFrom, barTo, dur, barGuide) {
+                try { if (mp.isPlaying) mp.pause() } catch (_: Exception) {}
+                onEnd()
+            }
+        }
+        try {
+            if (preSeeked) {
+                // 미리 seek 해둔 앉기 구간 — 음성이 끝나는 즉시 바로 재생되도록 추가 seek 없이 시작
+                startAnim()
+            } else {
+                mp.setOnSeekCompleteListener {
+                    mp.setOnSeekCompleteListener(null)
+                    if (_binding == null || hasNavigated) { onEnd(); return@setOnSeekCompleteListener }
+                    startAnim()
+                }
+                // 재생을 먼저 켠 뒤(Started 상태) 구간으로 seek — 에뮬레이터 'seek→start' 정지화면 방지.
+                try { if (!mp.isPlaying) mp.start() } catch (_: Exception) {}
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O)
+                    mp.seekTo(startMs.toLong(), MediaPlayer.SEEK_CLOSEST)
+                else mp.seekTo(startMs)
+            }
+        } catch (e: Exception) { onEnd() }
+    }
+
+    private fun animateBarSim(from: Float, to: Float, durationMs: Long,
+                              barGuide: (Float) -> com.fallzero.app.ui.overlay.ExerciseGuide.Bar, onEnd: () -> Unit) {
         android.animation.ValueAnimator.ofFloat(from, to).apply {
             duration = durationMs
-            addUpdateListener { _binding?.guideBar?.setGuide(barGuide(it.animatedValue as Float)) }
+            addUpdateListener { _binding?.guideBarSim?.setGuide(barGuide(it.animatedValue as Float)) }
             addListener(object : android.animation.AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: android.animation.Animator) { onEnd() }
             })
         }.start()
+    }
+
+    private fun releaseBarSimPlayer() {
+        try { barSimPlayer?.release() } catch (_: Exception) {}; barSimPlayer = null
     }
 
     private fun showThirtySecCallout(onAfter: () -> Unit) {
@@ -353,12 +466,8 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun startChairGuideVideo() {
-        val b = _binding ?: return
-        val uri = Uri.parse("android.resource://${requireContext().packageName}/${R.raw.chair_stand_guide}")
-        b.videoChairGuide.setZOrderOnTop(true)
-        b.videoChairGuide.setOnPreparedListener { mp -> mp.isLooping = true; mp.setVolume(0f, 0f); mp.start() }
-        b.videoChairGuide.setOnErrorListener { _, what, extra -> Log.e(TAG, "video error: what=$what extra=$extra"); true }
-        b.videoChairGuide.setVideoURI(uri); b.videoChairGuide.visibility = View.VISIBLE
+        // 오른쪽 아래 무한반복 미니 영상 제거 (사용자 요청) — 표시하지 않음.
+        _binding?.videoChairGuide?.visibility = View.GONE
     }
 
     private fun stopChairGuideVideo() {
@@ -373,6 +482,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun showBalanceGuidance(stage: Int, stageName: String, onAfter: () -> Unit) {
         val b = _binding ?: return
+        b.tvGuidanceTitle.visibility = View.VISIBLE   // 인트로에서 단계 제목 표시 (이전 영상에서 GONE 됐을 수 있음)
         b.tvGuidanceTitle.text = "${stage}단계 · $stageName 균형 검사"; b.tvGuidanceText.text = ""
         b.tvGuidanceCountdown.visibility = View.GONE; b.videoChairGuidance.visibility = View.GONE
         b.ivChairFrontPose.visibility = View.GONE; b.tvChairSubtitle.visibility = View.GONE
@@ -389,27 +499,27 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // stage별 안내 텍스트 줄 목록 (각 줄 = 해당 영상 구간 + TTS)
     private fun getBalanceGuidanceLines(stage: Int): List<String> = when (stage) {
         1 -> listOf(
-            "뒷꿈치를 모아주시고\n팔을 가슴 앞에 교차하세요",
-            "자세를 유지해주세요"
+            "발 모아 팔 교차|뒷꿈치를 모아주시고 팔을 가슴 앞에 교차하세요",
+            "자세 유지|자세를 유지해주세요"
         )
         2 -> listOf(
-            "두 팔은 가슴에 교차해주세요",
-            "한쪽 발 뒤꿈치를\n다른 발 엄지발가락 옆에 놓으세요",
-            "자세를 유지해주세요",
-            "다음 화면은 위에서 봤을 때\n발 모양입니다. 참고하세요"
+            "팔 교차|두 팔은 가슴에 교차해주세요",
+            "발 반일렬|한쪽 발 뒤꿈치를 다른 발 엄지발가락 옆에 놓으세요",
+            "자세 유지|자세를 유지해주세요",
+            "발 모양 참고|다음 화면은 위에서 봤을 때 발 모양입니다. 참고하세요"
         )
         3 -> listOf(
-            "두 팔은 가슴에 교차해주세요",
-            "한쪽 발 뒤꿈치를\n다른 발 발끝 바로 앞에 일렬로 놓으세요",
-            "자세를 유지해주세요",
-            "다음 화면은 위에서 봤을 때\n발 모양입니다. 참고하세요"
+            "팔 교차|두 팔은 가슴에 교차해주세요",
+            "발 일렬|한쪽 발 뒤꿈치를 다른 발 발끝 바로 앞에 일렬로 놓으세요",
+            "자세 유지|자세를 유지해주세요",
+            "발 모양 참고|다음 화면은 위에서 봤을 때 발 모양입니다. 참고하세요"
         )
         4 -> listOf(
-            "두 팔은 가슴에 교차해주세요",
-            "한쪽 발을 들어 올려\n한 발로만 서주세요",
-            "자세를 유지해주세요"
+            "팔 교차|두 팔은 가슴에 교차해주세요",
+            "한 발 서기|한쪽 발을 들어 올려 한 발로만 서주세요",
+            "자세 유지|자세를 유지해주세요"
         )
-        else -> listOf("자세를 유지해주세요")
+        else -> listOf("자세 유지|자세를 유지해주세요")
     }
 
     // [수정] seekTo 기반 동기화 - TTS 발화 중 해당 구간 영상 재생
@@ -447,11 +557,15 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             val pos = player.currentPosition.toLong()
             val idx = examSubtitleEntries.indexOfFirst { pos >= it.first && pos < it.second }
             if (idx >= 0) {
-                _binding?.tvExamGuideLineText?.text = examSubtitleEntries[idx].third
+                // "짧은자막|전체 나레이션" 형식 — 화면엔 짧은 자막, 음성은 전체 문장(없으면 동일)
+                val raw = examSubtitleEntries[idx].third
+                val subtitle = raw.substringBefore("|")
+                val speak = if (raw.contains("|")) raw.substringAfter("|") else raw
+                _binding?.tvExamGuideLineText?.text = subtitle
                 _binding?.examGuideTextOverlay?.visibility = View.VISIBLE
                 if (idx != lastExamSubtitleIndex) {
                     lastExamSubtitleIndex = idx
-                    ttsManager?.speak(examSubtitleEntries[idx].third.replace("\n", " "))
+                    ttsManager?.speak(speak.replace("\n", " "))
                 }
             } else {
                 _binding?.examGuideTextOverlay?.visibility = View.GONE
@@ -477,8 +591,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val videoAspect = videoW.toFloat() / videoH.toFloat()
         val viewAspect = viewW / viewH
         val sx: Float; val sy: Float
-        if (videoAspect > viewAspect) { sx = 1f; sy = viewAspect / videoAspect }
-        else { sx = videoAspect / viewAspect; sy = 1f }
+        // center-crop: 비율을 유지한 채 뷰를 꽉 채우고(여백 0) 넘치는 가장자리는 잘라낸다.
+        if (videoAspect > viewAspect) { sx = videoAspect / viewAspect; sy = 1f }  // 높이 채우고 좌우 크롭
+        else { sx = 1f; sy = viewAspect / videoAspect }                            // 너비 채우고 상하 크롭
         val m = android.graphics.Matrix()
         m.setScale(sx, sy, viewW / 2f, viewH / 2f)
         tv.setTransform(m)
@@ -489,6 +604,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val b = _binding ?: return
         b.videoChairGuidance.visibility = View.VISIBLE
         b.guidanceOverlay.visibility = View.VISIBLE
+        // 안내영상 중에는 상/하단 검은 패널 숨김 (자막은 중앙 examGuideTextOverlay에 나오므로 불필요) — req10
+        b.tvGuidanceTitle.visibility = View.GONE
+        b.layoutGuidanceText.visibility = View.GONE
 
         fun initPlayer(st: android.graphics.SurfaceTexture) {
             val mp = MediaPlayer()
@@ -644,7 +762,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     val b = _binding ?: return@collect
                     when (phase) {
                         is ExamViewModel.ExamPhase.ChairStand -> {
-                            b.tvExamPhase.text = getString(R.string.exam_phase_chair)
+                            b.tvExamPhase.text = stripParens(getString(R.string.exam_phase_chair))
                             b.tvExamPhase.setTextColor(0xFFFFFFFF.toInt())
                             b.tvTimer.text = ""; b.tvCount.text = ""
                             if (phase.isRunning) {
@@ -653,11 +771,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 b.tvCornerTimer.text = "${phase.remainingSec}"
                                 b.progressCornerTimer.setProgressCompat(phase.remainingSec, true)
                                 b.tvCornerCount.text = "${phase.count}회"
-                                when {
-                                    phase.errorHint != null -> showFloatingFeedback(phase.errorHint, 0xFFFFEB3B.toInt())
-                                    phase.count >= 1 -> showFloatingFeedback("잘 하고 있어요!", 0xFF4CAF50.toInt())
-                                    else -> hideFloatingFeedback()
-                                }
+                                // 지적(errorHint)할 때만 표시, 정상이면 숨김 — "잘 하고 있어요!" 제거 (사용자 요청)
+                                if (phase.errorHint != null) showFloatingFeedback(phase.errorHint, 0xFFFFEB3B.toInt())
+                                else hideFloatingFeedback()
                             }
                             if (phase.count > 0 && phase.count != lastSpokenSecond) {
                                 lastSpokenSecond = phase.count
@@ -684,31 +800,42 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         }
 
                         is ExamViewModel.ExamPhase.BalancePrepare -> {
+                            // 단계 전환 — 이전 단계 away-monitor 정지 + 일시정지 해제(안내영상 중 가림 일시정지 방지)
+                            isExamGuidancePhase = true
+                            userAwayCheckJob?.cancel()
+                            isPausedForUserAway = false; isPausedForOcclusion = false
+                            b.pauseOverlay.visibility = View.GONE
                             b.layoutCornerCount.visibility = View.GONE
                             b.tvCornerCount.visibility = View.GONE
                             hideFloatingFeedback(); stopChairGuideVideo()
-                            b.tvExamPhase.text = "${phase.stage}단계: ${phase.stageName}"
+                            b.tvExamPhase.text = "${phase.stage}단계: ${stripParens(phase.stageName)}"
                             b.tvTimer.text = ""; b.tvCount.text = ""
                             lastSpokenSecond = -1; lastHintText = null
                             // [추가] 단계 시작마다 hasStagePassed 초기화
                             hasStagePassed = false
                             showBalanceGuidance(phase.stage, phase.stageName) {
                                 if (_binding == null || hasNavigated) return@showBalanceGuidance
-                                startCountdown321 {
-                                    if (_binding != null && !hasNavigated) {
-                                        lastHintSpokenMs = 0L; lastSpokenSecond = -1
-                                        viewModel.startBalanceMeasurementNow()
-                                        startUserAwayMonitor()
+                                val startAfterCheck = {
+                                    startCountdown321 {
+                                        if (_binding != null && !hasNavigated) {
+                                            lastHintSpokenMs = 0L; lastSpokenSecond = -1
+                                            isExamGuidancePhase = false   // 측정 시작 → 모니터 재가동 허용
+                                            viewModel.startBalanceMeasurementNow()
+                                            startUserAwayMonitor()
+                                        }
                                     }
                                 }
+                                // 전신 확인은 1단계 시작 전 1번만 (사용자 요청) — 2~4단계는 바로 3,2,1
+                                if (phase.stage == 1) awaitPersonInFrontExam { startAfterCheck() }
+                                else startAfterCheck()
                             }
                         }
 
                         is ExamViewModel.ExamPhase.Balance -> {
-                            b.tvExamPhase.text = "${phase.stage}단계: ${viewModel.getBalanceStageName(phase.stage)}"
+                            b.tvExamPhase.text = "${phase.stage}단계: ${stripParens(viewModel.getBalanceStageName(phase.stage))}"
                             b.tvTimer.text = ""; b.tvTimerLabel.text = ""
                             if (phase.isStable) {
-                                showFloatingFeedback("잘 하고 있어요!", 0xFF4CAF50.toInt())
+                                hideFloatingFeedback()  // 정상이면 자막 숨김 — "잘 하고 있어요!" 제거 (지적할 때만 표시, 사용자 요청)
                                 b.tvCount.text = ""
                                 val elapsed = phase.elapsedSec.toInt()
                                 if (elapsed > 0 && elapsed != lastSpokenSecond) {
@@ -782,6 +909,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val b = _binding ?: return
         when (val guide = viewModel.getGuide(landmarks)) {
             is com.fallzero.app.ui.overlay.ExerciseGuide.Bar -> {
+                // 검사 의자 일어서기: 엔진이 주는 세로 막대(오른쪽, 앉으면↓·서면↑) 그대로 — 사용자 요청으로 가로 변환 취소
                 b.guideBar.visibility = View.VISIBLE; b.guideBubble.visibility = View.GONE; b.guideBar.setGuide(guide)
             }
             is com.fallzero.app.ui.overlay.ExerciseGuide.Bubble -> {
@@ -792,6 +920,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     }
 
     private fun hideExamGuides() { _binding?.guideBar?.visibility = View.GONE; _binding?.guideBubble?.visibility = View.GONE }
+
+    /** 상단 표시용 — 이름의 괄호 보조설명 제거 (공간 절약, 위 가림 방지, 사용자 요청). 원본 문자열은 안내·결과에서 그대로 사용. */
+    private fun stripParens(s: String): String = s.replace(Regex("\\s*\\([^)]*\\)"), "").trim()
 
     private fun showFloatingFeedback(msg: String, colorArgb: Int) {
         val b = _binding ?: return
@@ -845,6 +976,52 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }, 1000L)
     }
 
+    /**
+     * 균형 검사: 설명이 끝난 뒤, 카메라 앞에 전신이 제대로 잡힐 때까지 대기(건너뛰지 않음).
+     * 전신이 0.5초 연속 잡히면 통과 → 호출부에서 3,2,1 카운트다운. (측정은 카운트다운 이후)
+     * 60초 안전장치(정상적으로는 사람이 서면 1~2초 내 통과).
+     */
+    private fun awaitPersonInFrontExam(onReady: () -> Unit) {
+        val b = _binding ?: return
+        // 전신 확인 단계: 사용자가 카메라 프리뷰로 자기 모습을 직접 보며 전신이 다 나오는지 확인해야 한다.
+        // 따라서 화면을 가리는 일시정지 오버레이를 쓰지 않고(=화면 이탈 일시정지 로직과 다름) 상단 안내 문구만 띄운다. (사용자 요청)
+        showFloatingFeedback("카메라 앞에 전신이 잘 보이게 서주세요", 0xFFFFEB3B.toInt())
+        viewLifecycleOwner.lifecycleScope.launch {
+            val startMs = System.currentTimeMillis()
+            var detectedSinceMs = 0L
+            var confirmed = false
+            while (isAdded && !hasNavigated) {
+                delay(120)
+                val now = System.currentTimeMillis()
+                val fullBodyFresh = lastFullBodyMs > 0L && now - lastFullBodyMs < 400L
+                if (fullBodyFresh) {
+                    if (detectedSinceMs == 0L) {
+                        detectedSinceMs = now
+                        showFloatingFeedback("잘 보입니다. 잠시만요…", 0xFF4CAF50.toInt())
+                    }
+                    // 전신이 2초간 연속으로 잘 보이면 확인 완료 (사용자 요청)
+                    if (now - detectedSinceMs >= 2000L) { confirmed = true; break }
+                } else {
+                    detectedSinceMs = 0L
+                    showFloatingFeedback("카메라 앞에 전신이 잘 보이게 서주세요", 0xFFFFEB3B.toInt())
+                }
+                if (now - startMs > 60_000L) break
+            }
+            if (!isAdded || hasNavigated) return@launch
+            hideFloatingFeedback()
+            if (!confirmed) { onReady(); return@launch }
+            // 전신 확인됨 → "좋아요 전신이 잘 보입니다" 한 뒤 '바로' 다음으로.
+            // 폴링 대기 없이 TTS 완료 콜백에서 즉시 진행 — 불필요한 delay로 "왜 안 돼?" 느낌 주지 않게 (사용자 요청).
+            var proceeded = false
+            val proceed = {
+                if (!proceeded) { proceeded = true; if (isAdded && !hasNavigated) onReady() }
+            }
+            ttsManager?.speak("좋아요. 전신이 잘 보입니다.") { activity?.runOnUiThread { proceed() } }
+            // 안전장치: TTS 콜백이 끝내 오지 않을 때만 진행 (정상 시엔 콜백이 먼저라 지연 없음)
+            _binding?.root?.postDelayed({ proceed() }, 3500L)
+        }
+    }
+
     // -----------------------------------------------
     // User away / occlusion monitor
     // -----------------------------------------------
@@ -856,7 +1033,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         userAwayCheckJob = viewLifecycleOwner.lifecycleScope.launch {
             while (isAdded && !hasNavigated) {
                 delay(500)
-                if (isPausedForUserAway || isPausedForOcclusion) continue
+                // 안내영상/단계 준비/막대기 설명 중에는 away·가림 일시정지 발동 안 함 (사용자 요청)
+                if (isPausedForUserAway || isPausedForOcclusion ||
+                    isExamGuidancePhase || chairPrepareMode || isBarSimulating) continue
                 val now = System.currentTimeMillis()
                 when {
                     lastValidFrameMs > 0L && now - lastValidFrameMs > USER_AWAY_TIMEOUT_MS -> onUserAway()
@@ -994,13 +1173,27 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     val sbu = com.fallzero.app.pose.SBUCalculator.calculate(landmarks)
                     val shoulderWidth = abs(landmarks[11].x() - landmarks[12].x())
                     val isFacingFront = sbu > 0f && (shoulderWidth / sbu) > 0.40f
-                    val isStill = yChange < 0.008f && isFullBodyVisible(landmarks) && isFacingFront
+                    // 무릎 각도로 서있음/앉음 판별 (앉으면 무릎 ~90°, 서면 ~170°). 보이는 쪽 다리 사용. (임계값 150°)
+                    val kvisL = landmarks[23].visibility().orElse(0f) + landmarks[25].visibility().orElse(0f) + landmarks[27].visibility().orElse(0f)
+                    val kvisR = landmarks[24].visibility().orElse(0f) + landmarks[26].visibility().orElse(0f) + landmarks[28].visibility().orElse(0f)
+                    val kneeAngle = if (kvisL >= kvisR)
+                        com.fallzero.app.pose.AngleCalculator.calculateAngle(landmarks[23], landmarks[25], landmarks[27])
+                    else com.fallzero.app.pose.AngleCalculator.calculateAngle(landmarks[24], landmarks[26], landmarks[28])
+                    val isStanding = kneeAngle > 150f
+                    val isStill = yChange < 0.008f && isFullBodyVisible(landmarks) && isFacingFront && isStanding
 
                     if (isStill) {
-                        if (bodyStillSinceMs == 0L) bodyStillSinceMs = System.currentTimeMillis()
+                        if (bodyStillSinceMs == 0L) {
+                            bodyStillSinceMs = System.currentTimeMillis()
+                            if (!chairDetectSpoken) {
+                                chairDetectSpoken = true; chairSitSpoken = false
+                                ttsManager?.speak("잘 감지됐어요. 그대로 서 계세요")
+                            }
+                        }
                         standingMSamples.add(m)
                         val held = System.currentTimeMillis() - bodyStillSinceMs
-                        if (held >= 3000L) {
+                        // 의자 가져와 앞에 서서 2초 이상 가만히 있으면 시작 (이전 방식으로 복원 — 사용자 요청)
+                        if (held >= 2000L) {
                             chairPreparePhase = 2
                             val avgM = if (standingMSamples.isNotEmpty()) standingMSamples.average().toFloat() else 50f
                             viewModel.calibrateChairStand(avgM)
@@ -1026,12 +1219,18 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                 }
                             }
                         } else {
-                            val remain = ((3000L - held) / 1000) + 1
-                            b.tvTimer.text = "감지 중... ${remain}초"
+                            val remain = ((2000L - held) / 1000) + 1
+                            b.tvTimer.text = "✓ 감지됨 — ${remain}초만 그대로!"
                         }
                     } else {
                         bodyStillSinceMs = 0L; standingMSamples.clear()
-                        b.tvTimer.text = "의자 앞에 가만히 서주세요"
+                        if (isFullBodyVisible(landmarks) && !isStanding) {
+                            // 앉아있음 → 일어나라고 안내
+                            b.tvTimer.text = "의자에서 일어나 주세요"
+                            if (!chairSitSpoken) { chairSitSpoken = true; chairDetectSpoken = false; ttsManager?.speak("의자에서 일어나 주세요") }
+                        } else {
+                            b.tvTimer.text = "의자 앞에 가만히 서주세요"
+                        }
                     }
                 }
                 return@runOnUiThread
@@ -1065,6 +1264,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         // 안내 영상 도중 화면 이탈 시 MediaPlayer/Surface 누수 + 백그라운드 자막 TTS 재생 방지
         // (ExerciseFragment.onDestroyView의 releaseGuidancePlayer()와 동일 처리)
         releaseExamGuidancePlayer()
+        releaseBarSimPlayer()
         cleanupCamera()
         try { _binding?.videoChairGuide?.stopPlayback() } catch (_: Exception) {}
         try { ttsManager?.shutdown() } catch (_: Exception) {}

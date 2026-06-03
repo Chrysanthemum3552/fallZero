@@ -77,7 +77,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private val USER_AWAY_MSG = "카메라 앞으로 와주세요"
     private val OCCLUSION_MSG = "신체의 일부가 보이지 않습니다. 조금 더 뒤로 가주세요"
     private val FRONT_FACING_MSG = "옆으로 돌아주세요"
-    private val SIDE_VIEW_THRESHOLD = 0.50f
+    private val SIDE_VIEW_THRESHOLD = 0.60f   // 0.50 → 0.60 (사용자 요청: 옆모습 인정 각도 완화)
 
     @Volatile private var isFrontCamera: Boolean = false
     private var cameraPreview: Preview? = null
@@ -109,6 +109,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         ttsManager = TTSManager.getInstance(requireContext())
         isFrontCamera = com.fallzero.app.util.CameraFacingPref.isFrontCamera(requireContext())
         binding.poseOverlay.setShowSkeleton(com.fallzero.app.util.DisplayPrefs.showSkeleton(requireContext()))
+        // 전면 카메라는 랜드마크가 이미 좌우반전(셀피)이라 오버레이는 반전 안 함(+1), 후면은 -1 (프리뷰와 일치)
+        binding.poseOverlay.scaleX = if (isFrontCamera) 1f else -1f
         showGuide = com.fallzero.app.util.DisplayPrefs.showGuide(requireContext())
 
         val step = SessionFlow.current()
@@ -138,11 +140,10 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
         if (prefs.getBoolean("skip_guidance", false)) {
             binding.guidanceOverlay.visibility = View.GONE
+            // 안내 영상을 건너뛰어도 "사람 확인 → 3,2,1 → 측정" 순서는 동일하게 거친다
             binding.root.postDelayed({
-                if (_binding != null && !hasNavigated) {
-                    lastSpokenCount = -1; viewModel.startMeasurement(); startUserAwayMonitor()
-                }
-            }, 800L)
+                if (_binding != null && !hasNavigated) startExerciseAfterGuidance()
+            }, 300L)
         } else {
             showStartGuidance(exerciseId)
         }
@@ -195,10 +196,13 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun showSubtitleAndSpeak(idx: Int) {
         if (idx >= guidanceLines.size) return
-        val text = guidanceLines[idx]
-        _binding?.tvGuideLineText?.text = text
+        val raw = guidanceLines[idx]
+        // "짧은자막|전체 나레이션" 형식 — 화면엔 짧은 자막, 음성은 전체 문장(없으면 동일)
+        val subtitle = raw.substringBefore("|")
+        val speak = if (raw.contains("|")) raw.substringAfter("|") else raw
+        _binding?.tvGuideLineText?.text = subtitle
         _binding?.guideTextOverlay?.visibility = View.VISIBLE
-        ttsManager?.speak(text.replace("\n", " ")) {
+        ttsManager?.speak(speak.replace("\n", " ")) {
             if (_binding == null || hasNavigated) return@speak
             _binding?.guideTextOverlay?.visibility = View.GONE
             // TTS 완료 후 다음 폴링 재개 (영상은 이미 재생 중)
@@ -225,6 +229,12 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         b.guidanceOverlay.visibility = View.VISIBLE
         b.videoExerciseGuide.visibility = View.GONE
         b.guideTextOverlay.visibility = View.GONE
+        // 운동설명 영상이 나오는 동안에는 상단 글씨(운동명·카운트·피드백)·진행도 막대를 숨긴다 (영상 가림 방지 — 사용자 요청)
+        b.tvExerciseName.visibility = View.GONE
+        b.tvCount.visibility = View.GONE
+        b.tvErrorMessage.visibility = View.GONE
+        b.btnCameraFlip.visibility = View.GONE
+        b.guideBar.visibility = View.GONE
 
         val allLines = getInstructionLines(exerciseId)
         guidanceLines = if (allLines.size > 1) allLines.subList(1, allLines.size) else emptyList()
@@ -240,32 +250,11 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val firstLine = allLines.getOrNull(0) ?: ""
         ttsManager?.speak(firstLine.replace("\n", " ")) {
             if (_binding == null || hasNavigated) return@speak
-            if (exerciseId == 6) {
-                // 운동6: 이미지 표시 + TTS 발화 -> TTS 완료 후 2초 이미지 유지 -> 영상 시작
-                val imgGuideText = "양발을 어깨 너비로 벌린 이미지입니다"
-                _binding?.ivExerciseGuideImage?.setImageResource(R.drawable.img_knee_bend_guide)
-                _binding?.ivExerciseGuideImage?.visibility = View.VISIBLE
-                _binding?.tvGuideLineText?.text = imgGuideText
-                _binding?.guideTextOverlay?.visibility = View.VISIBLE
-                _binding?.tvGuidanceTitle?.visibility = View.GONE
-                _binding?.tvVideoPlaceholder?.visibility = View.GONE
-                ttsManager?.speak(imgGuideText) {
-                    if (_binding == null || hasNavigated) return@speak
-                    // TTS 완료 후 자막만 숨기고 이미지 2초 유지
-                    _binding?.guideTextOverlay?.visibility = View.GONE
-                    _binding?.root?.postDelayed({
-                        if (_binding == null || hasNavigated) return@postDelayed
-                        _binding?.ivExerciseGuideImage?.visibility = View.GONE
-                        _binding?.videoExerciseGuide?.visibility = View.VISIBLE
-                        startGuidanceVideo(exerciseId, guidanceLines)
-                    }, 2000L)
-                }
-            } else {
-                _binding?.tvGuidanceTitle?.visibility = View.GONE
-                _binding?.tvVideoPlaceholder?.visibility = View.GONE
-                _binding?.videoExerciseGuide?.visibility = View.VISIBLE
-                startGuidanceVideo(exerciseId, guidanceLines)
-            }
+            // 모든 운동 동일: 곧바로 안내영상 재생 (운동6의 '어깨 너비' 이미지 가이드 제거 — 사용자 요청)
+            _binding?.tvGuidanceTitle?.visibility = View.GONE
+            _binding?.tvVideoPlaceholder?.visibility = View.GONE
+            _binding?.videoExerciseGuide?.visibility = View.VISIBLE
+            startGuidanceVideo(exerciseId, guidanceLines)
         }
     }
 
@@ -278,8 +267,9 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val videoAspect = videoW.toFloat() / videoH.toFloat()
         val viewAspect = viewW / viewH
         val sx: Float; val sy: Float
-        if (videoAspect > viewAspect) { sx = 1f; sy = viewAspect / videoAspect }  // 영상이 더 넓음 → 위아래 여백
-        else { sx = videoAspect / viewAspect; sy = 1f }                            // 영상이 더 높음 → 좌우 여백
+        // center-crop: 비율을 유지한 채 뷰를 꽉 채우고(여백 0) 넘치는 가장자리는 잘라낸다.
+        if (videoAspect > viewAspect) { sx = videoAspect / viewAspect; sy = 1f }  // 영상이 더 넓음 → 높이 채우고 좌우 크롭
+        else { sx = 1f; sy = viewAspect / videoAspect }                            // 영상이 더 높음 → 너비 채우고 상하 크롭
         val m = android.graphics.Matrix()
         m.setScale(sx, sy, viewW / 2f, viewH / 2f)
         tv.setTransform(m)
@@ -372,6 +362,26 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun startExerciseAfterGuidance() {
         lastSpokenCount = -1
+        // ① 설명이 끝나면 먼저 "카메라 앞에 전신이 제대로 서 있는지"부터 확인 (건너뛰지 않음).
+        //    감지(카운팅)는 여기서 시작하지 않음 — 사람 확인 → 3,2,1 → 그 다음에 켜진다.
+        // 전신 확인은 세션에서 "처음 1번만" (사용자 요청). 이미 했으면 건너뛰고 바로 진행.
+        if (com.fallzero.app.data.SessionFlow.exerciseBodyCheckDone) {
+            proceedAfterBodyCheck()
+        } else {
+            awaitPersonInFront {
+                com.fallzero.app.data.SessionFlow.exerciseBodyCheckDone = true
+                proceedAfterBodyCheck()
+            }
+        }
+    }
+
+    /** 전신 확인 이후: 연습(캘리브레이션)이면 3,2,1 없이 바로 연습 시작,
+     *  연습 없으면 본운동 직전에만 3,2,1. */
+    private fun proceedAfterBodyCheck() {
+        // 안내영상 종료 → 상단 글씨 다시 표시 (운동 중 상단 띠)
+        _binding?.tvExerciseName?.visibility = View.VISIBLE
+        _binding?.tvCount?.visibility = View.VISIBLE
+        _binding?.btnCameraFlip?.visibility = View.VISIBLE
         if (viewModel.isCalibrationRequired()) {
             isInGuidancePhase = false
             viewModel.startMeasurement()
@@ -388,6 +398,54 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     }
                 }, POST_START_DELAY_MS)
             }
+        }
+    }
+
+    /**
+     * 설명이 끝난 뒤, 카메라 앞에 전신이 제대로 잡힐 때까지 대기(절대 건너뛰지 않음).
+     * - 전신이 안 잡히면 "카메라 앞에 서주세요"를 계속 표시하며 대기.
+     * - 전신이 0.5초 연속 잡히면 통과 → 호출부에서 3,2,1 카운트다운 시작.
+     * - 측정(카운팅)은 여기서 시작하지 않는다(요청: 3,2,1 "시작!" 이후에만 감지 on).
+     * - 60초 안전장치(정상적으로는 사람이 서면 1~2초 내 통과; 데모 잠금 방지용).
+     * ※ 전신 판별 isFullBodyVisible 등 감지 로직 자체는 손대지 않음 — 측정 "시작 시점"만 제어.
+     */
+    private fun awaitPersonInFront(onReady: () -> Unit) {
+        val b = _binding ?: return
+        // 항상 보이는 "전신 확인" 단계 (사용자: 이미 서 있어도 또렷이 보이게). 최소 2.5초 노출.
+        b.pauseOverlay.visibility = View.VISIBLE
+        b.tvPauseMessage.text = "카메라에 전신이 잘 보이는지 확인할게요"
+        ttsManager?.speak("카메라에 전신이 잘 보이는지 확인할게요. 머리부터 발끝까지 보이게 서주세요.")
+        viewLifecycleOwner.lifecycleScope.launch {
+            val startMs = System.currentTimeMillis()
+            var detectedSinceMs = 0L
+            var confirmedAtMs = 0L
+            var confirmTtsDone = false
+            while (isAdded && !hasNavigated) {
+                delay(120)
+                val now = System.currentTimeMillis()
+                val fullBodyFresh = lastFullBodyMs > 0L && now - lastFullBodyMs < 400L
+                if (fullBodyFresh) {
+                    if (detectedSinceMs == 0L) detectedSinceMs = now
+                    if (now - detectedSinceMs >= 1000L) {             // 전신 1초 연속 → 확인 완료
+                        if (confirmedAtMs == 0L) {
+                            confirmedAtMs = now
+                            _binding?.tvPauseMessage?.text = "✓ 전신이 잘 보입니다"
+                            // 안내 음성이 끝난 뒤에 진행 ("좋아요…"가 중간에 끊기지 않도록) — 사용자 요청
+                            ttsManager?.speak("좋아요. 전신이 잘 보입니다.") { confirmTtsDone = true }
+                        }
+                        if (confirmTtsDone || now - confirmedAtMs > 4000L) break   // 음성 끝나면(또는 4초 안전장치) 진행
+                    } else {
+                        _binding?.tvPauseMessage?.text = "전신을 확인하는 중이에요…"
+                    }
+                } else {
+                    detectedSinceMs = 0L; confirmedAtMs = 0L; confirmTtsDone = false
+                    _binding?.tvPauseMessage?.text = "머리부터 발끝까지 보이게 서주세요"
+                }
+                if (now - startMs > 60_000L) break                    // 안전장치
+            }
+            if (!isAdded || hasNavigated) return@launch
+            _binding?.pauseOverlay?.visibility = View.GONE
+            onReady()
         }
     }
 
@@ -447,8 +505,13 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         if (postCalibrationStarted || _binding == null || hasNavigated) return
         postCalibrationStarted = true
         viewModel.pauseMeasurementForSideSwitch()
+        // 연습 완료 — "좋아요!"를 화면 가운데 크게 표시 + 나레이션 (사용자 요청)
+        _binding?.tvBigCountdown?.textSize = 72f
+        _binding?.tvBigCountdown?.text = "좋아요!"
+        _binding?.tvBigCountdown?.visibility = View.VISIBLE
         ttsManager?.speak("좋아요! 이제 본격적으로 시작할게요.") {
             if (_binding == null || hasNavigated) return@speak
+            _binding?.tvBigCountdown?.visibility = View.GONE
             startCountdown321 {
                 if (_binding == null || hasNavigated) return@startCountdown321
                 _binding?.root?.postDelayed({
@@ -591,13 +654,10 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                                     lastSpokenCount = state.count
                                     if (ttsManager?.isSpeaking() != true) ttsManager?.speak("${state.count}")
                                 }
+                                // 피드백/코칭 메시지가 있을 때만 잠깐 표시. 잘 하고 있으면 아무것도 표시하지 않음
+                                // (사용자 요청: 상시 "잘 하고 있어요!" 제거)
                                 val transientMsg = state.errorMessage ?: state.coachingCueMessage
                                 if (transientMsg != null) showTransientMessage(transientMsg)
-                                else if (b.tvErrorMessage.visibility == View.GONE) {
-                                    b.tvErrorMessage.text = "✓ 잘 하고 있어요!"
-                                    b.tvErrorMessage.setTextColor(0xFF4CAF50.toInt())
-                                    b.tvErrorMessage.visibility = View.VISIBLE
-                                }
                             }
                             b.tvExerciseName.text = SessionFlow.exerciseName(getCurrentExerciseId()) +
                                     (state.bilateralSide?.let { " — $it" } ?: "")
@@ -727,6 +787,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun startCountdown321(onReady: () -> Unit) {
         val b = _binding ?: return
+        b.tvBigCountdown.textSize = 120f   // "좋아요!"용 72sp로 바뀌었을 수 있어 카운트다운 크기 복원
         b.tvBigCountdown.visibility = View.VISIBLE; b.tvBigCountdown.text = "3"; ttsManager?.speak("삼")
         b.root.postDelayed({
             if (_binding == null || hasNavigated) return@postDelayed
@@ -875,6 +936,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private fun toggleCameraFacing() {
         isFrontCamera = !isFrontCamera
         com.fallzero.app.util.CameraFacingPref.setFrontCamera(requireContext(), isFrontCamera)
+        _binding?.poseOverlay?.scaleX = if (isFrontCamera) 1f else -1f
         cameraProvider?.let { bindCameraToSelector(it) }
     }
 
@@ -907,8 +969,11 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun updateGuide(landmarks: List<com.google.mediapipe.tasks.components.containers.NormalizedLandmark>) {
         val b = _binding ?: return
+        // 안내영상 재생 중에는 진행도 막대를 띄우지 않는다 (영상 가림 방지 — 사용자 요청)
+        if (isInGuidancePhase) { hideGuides(); return }
         when (val guide = viewModel.getGuide(landmarks)) {
             is com.fallzero.app.ui.overlay.ExerciseGuide.Bar -> {
+                // 엔진이 주는 막대(방향 포함) 그대로 표시 — 가로 변환 취소(사용자 요청 복구)
                 b.guideBar.visibility = View.VISIBLE; b.guideBubble.visibility = View.GONE; b.guideBar.setGuide(guide) }
             is com.fallzero.app.ui.overlay.ExerciseGuide.Bubble -> {
                 b.guideBar.visibility = View.GONE; b.guideBubble.visibility = View.VISIBLE; b.guideBubble.setGuide(guide) }

@@ -82,7 +82,9 @@ class ChairStandEngine(
         //   PRB(앉은 자세 캘리브레이션 값) 의존 완전 제거. exam mode와 동일한 standing-baseline 공식 사용.
         //   sit 값이 baseline으로 잘못 잡히지 않도록 STANDING_MIN(42) 이상의 M만 baseline 후보로 인정.
         //   이 임계값 미만의 M은 의자 sit이거나 측정 노이즈로 간주.
-        if (!examMode && !isInCalibration && m in STANDING_MIN..80f && m > trainingStandingBaseline) {
+        // 연습(캘리브레이션) 구간에서도 baseline을 잡도록 isInCalibration 제외 조건 제거 —
+        // 검사 세션과 동일하게 standing baseline 기반 동적 임계값을 연습부터 적용(사용자 명시: req4 의자 운동만).
+        if (!examMode && m in STANDING_MIN..80f && m > trainingStandingBaseline) {
             trainingStandingBaseline = m
             Log.d("ChairDebug", "TRAIN baseline updated: standingM=%.1f state=%s motThr=%.1f retThr=%.1f".format(
                 m, state, m - 9f, m - 5f))
@@ -137,15 +139,15 @@ class ChairStandEngine(
      */
     override fun getMotionThreshold(): Float = when {
         examMode -> dynamicMotionThreshold
-        isInCalibration -> 39f                                    // 캘리브레이션 모드 기본값
-        trainingStandingBaseline > 0f -> trainingStandingBaseline - 9f  // exam mode와 동일 식
-        else -> DEFAULT_MOTION_THR                                  // baseline 잡히기 전 안전값
+        trainingStandingBaseline > 0f -> trainingStandingBaseline - 9f  // 연습·본운동 공통(검사와 동일 식) — baseline 잡히면 즉시 적용
+        isInCalibration -> 39f                                          // baseline 잡히기 전 연습 기본값
+        else -> DEFAULT_MOTION_THR                                      // baseline 잡히기 전 안전값
     }
 
     override fun getReturnThreshold(): Float = when {
         examMode -> dynamicReturnThreshold
-        isInCalibration -> 42f
         trainingStandingBaseline > 0f -> trainingStandingBaseline - 5f
+        isInCalibration -> 42f
         else -> DEFAULT_RETURN_THR
     }
 
