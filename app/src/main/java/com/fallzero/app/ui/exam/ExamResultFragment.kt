@@ -66,8 +66,8 @@ class ExamResultFragment : Fragment() {
         binding.btnShare.setOnClickListener {
             val phase = viewModel.phase.value
             if (phase is ExamViewModel.ExamPhase.Completed) {
-                // 상세 보호자 보고서로 통일 (최종 결과 화면과 동일 — 사용자 요청)
-                ShareHelper.shareText(
+                // 상세 보호자 보고서로 통일 + 공유 전 미리보기 팝업 (사용자 요청)
+                ShareHelper.previewAndShareText(
                     requireContext(),
                     com.fallzero.app.util.GuardianTextReport.SHARE_TITLE,
                     com.fallzero.app.util.GuardianTextReport.build(phase.result)

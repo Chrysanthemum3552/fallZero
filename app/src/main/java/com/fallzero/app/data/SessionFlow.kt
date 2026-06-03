@@ -56,6 +56,10 @@ object SessionFlow {
      *  첫 운동에서 전신확인을 마치면 true. 이후 운동들은 전신확인을 건너뛴다(사용자: 처음 1번만). */
     @Volatile var exerciseBodyCheckDone: Boolean = false
 
+    /** 운동 세션 동안 "의자를 가져와 주세요" 안내를 이미 1번 했는지. 세션 시작 시 false로 리셋,
+     *  첫 운동에서 안내하면 true. 단일 운동(startSingleExercise)은 true로 두어 안내하지 않는다. */
+    @Volatile var exerciseChairPromptDone: Boolean = false
+
     /** 운동 세션 큐 빌드 — 자세 그룹별 순서:
      *    정면-서서(2,8) → 정면-앉기(7) → 측면 회전 → 측면-서서(4,5,6,3) → 의자 재배치 → 측면-앉기(1) → DONE
      *  사이마다 REST. 그룹 경계는 SIDE_ROTATION/CHAIR_REPOSITION으로 대체.
@@ -70,18 +74,17 @@ object SessionFlow {
         isFullExerciseSession = true
         index = 0
         exerciseBodyCheckDone = false
+        exerciseChairPromptDone = false
         val list = mutableListOf<Step>()
         list += Step(StepType.PRE_FLIGHT, title = "운동 준비",
             subtitle = "핸드폰을 수직으로 세우고 전신이 보이도록 서주세요.")
 
-        // 정면-서서: #2 옆으로 다리 들기, #8 한 발 균형
-        val frontStanding = listOf(2, 8)
-        // 정면-앉기: #7 의자 일어서기 (정면 측정)
-        val frontSitting = listOf(7)
-        // 측면-서서: #4 발뒤꿈치 들기, #5 발끝 들기, #6 무릎 살짝 굽히기, #3 뒤로 무릎 굽히기
-        val sideStanding = listOf(4, 5, 6, 3)
-        // 측면-앉기: #1 앉아서 무릎 펴기
-        val sideSitting = listOf(1)
+        // 정면-서서: #2 옆다리 들기, #6 무릎 살짝 굽히기, #5 발끝 들기, #4 발뒤꿈치 들기, #8 한 발 균형 (#4·#5·#6 정면 전환 — 측면 흔들림 회피)
+        val frontStanding = listOf(2, 6, 5, 4, 8)
+        // 정면-앉기: #1 앉아서 무릎 펴기 → #7 의자 일어서기 (둘 다 정면·의자 필요). #7이 일어선 상태로 끝나 회전에 자연스럽게 연결.
+        val frontSitting = listOf(1, 7)
+        // 측면-서서: #3 뒤로 무릎 굽히기 (유일한 측면 운동)
+        val sideStanding = listOf(3)
 
         // 정면-서서 그룹
         frontStanding.forEachIndexed { i, id ->
@@ -97,17 +100,10 @@ object SessionFlow {
         // 정면 → 측면 전환
         list += Step(StepType.SIDE_ROTATION, title = "옆으로 돌아주세요",
             subtitle = "이제 측면 운동입니다. 카메라가 옆모습을 볼 수 있게 옆으로 90도 돌아주세요.")
-        // 측면-서서 그룹
+        // 측면-서서 그룹 (#3만)
         sideStanding.forEachIndexed { i, id ->
             list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
             if (i < sideStanding.size - 1) list += restStep()
-        }
-        // 측면-서서 → 측면-앉기 사이: 의자 재배치 (자동 감지)
-        list += Step(StepType.CHAIR_REPOSITION, title = "의자에 앉아주세요",
-            subtitle = "이번엔 옆모습으로 의자에 앉으셔야 합니다. 카메라 옆에 의자를 두고 앉아주세요.")
-        sideSitting.forEachIndexed { i, id ->
-            list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
-            if (i < sideSitting.size - 1) list += restStep()
         }
         list += Step(StepType.DONE)
         steps = list
@@ -130,12 +126,13 @@ object SessionFlow {
         isFullExerciseSession = true  // 마지막 운동 완료 시 "오늘 운동 완료" 메시지 호환 동작.
         index = 0
         exerciseBodyCheckDone = false
+        exerciseChairPromptDone = false
 
         val remaining = exerciseIds.toSet()
-        val frontStanding = listOf(2, 8).filter { it in remaining }
-        val frontSitting = listOf(7).filter { it in remaining }
-        val sideStanding = listOf(4, 5, 6, 3).filter { it in remaining }
-        val sideSitting = listOf(1).filter { it in remaining }
+        // 그룹핑은 startExerciseSession()과 동일해야 함 — #1·#4·#5·#6은 정면 전환됨(측면 그룹에 두면 회전을 잘못 시킴).
+        val frontStanding = listOf(2, 6, 5, 4, 8).filter { it in remaining }
+        val frontSitting = listOf(1, 7).filter { it in remaining }
+        val sideStanding = listOf(3).filter { it in remaining }
 
         val list = mutableListOf<Step>()
         list += Step(StepType.PRE_FLIGHT, title = "운동 준비",
@@ -153,21 +150,13 @@ object SessionFlow {
             if (i < frontSitting.size - 1) list += restStep()
         }
         if ((frontStanding.isNotEmpty() || frontSitting.isNotEmpty()) &&
-            (sideStanding.isNotEmpty() || sideSitting.isNotEmpty())) {
+            sideStanding.isNotEmpty()) {
             list += Step(StepType.SIDE_ROTATION, title = "옆으로 돌아주세요",
                 subtitle = "이제 측면 운동입니다. 카메라가 옆모습을 볼 수 있게 옆으로 90도 돌아주세요.")
         }
         sideStanding.forEachIndexed { i, id ->
             list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
             if (i < sideStanding.size - 1) list += restStep()
-        }
-        if (sideSitting.isNotEmpty()) {
-            list += Step(StepType.CHAIR_REPOSITION, title = "의자에 앉아주세요",
-                subtitle = "이번엔 옆모습으로 의자에 앉으셔야 합니다. 카메라 옆에 의자를 두고 앉아주세요.")
-        }
-        sideSitting.forEachIndexed { i, id ->
-            list += Step(StepType.EXERCISE, exerciseId = id, title = exerciseName(id))
-            if (i < sideSitting.size - 1) list += restStep()
         }
         list += Step(StepType.DONE)
         steps = list
@@ -186,6 +175,7 @@ object SessionFlow {
         isFullExerciseSession = false
         index = 0
         exerciseBodyCheckDone = false
+        exerciseChairPromptDone = true   // 단일 운동은 의자 안내 생략
         val list = mutableListOf<Step>()
         list += Step(StepType.PRE_FLIGHT, title = "운동 준비",
             subtitle = "핸드폰을 수직으로 세우고 전신이 보이도록 서주세요.")
@@ -199,13 +189,13 @@ object SessionFlow {
         steps = list
     }
 
-    /** 정면 촬영 운동 ID (회전 불필요). #7은 검사세션과 동일하게 정면 어깨 기준 측정. */
-    val FRONT_EXERCISES = setOf(2, 7, 8)
+    /** 정면 촬영 운동 ID (회전 불필요). #1·#4·#5·#6은 측면 먼다리·흔들림 회피 위해 정면 전환. #7은 정면 어깨 기준 측정. */
+    val FRONT_EXERCISES = setOf(1, 2, 4, 5, 6, 7, 8)
 
     /** 단일 source of truth — 전체 루틴의 운동 순서.
      *  startExerciseSession()의 실제 큐 빌드 순서와 동일해야 함.
      *  홈 체크리스트·운동 가이드 리스트도 이 순서를 그대로 사용. */
-    val EXERCISE_DISPLAY_ORDER = listOf(2, 8, 7, 4, 5, 6, 3, 1)
+    val EXERCISE_DISPLAY_ORDER = listOf(2, 6, 5, 4, 8, 1, 7, 3)
 
     /** 디버그: 균형 검사 건너뛰고 의자 일어서기만 */
     fun startExamChairStandOnly() {

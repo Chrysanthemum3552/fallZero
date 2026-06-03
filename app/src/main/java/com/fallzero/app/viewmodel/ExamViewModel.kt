@@ -96,6 +96,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         currentBalanceStage = 0
         balanceCountAwaiting = false
         isPausedForUserAway = false
+        singleStageOnly = false   // 전체 흐름 — 이전 단일 stage 상태 잔존 방지
+        singleStageDone = false
         startNextBalanceStage()
     }
 
@@ -114,15 +116,17 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
         balanceCountAwaiting = false
         isPausedForUserAway = false
         singleStageOnly = true
+        singleStageDone = false
         startNextBalanceStage()
     }
     private var singleStageOnly: Boolean = false
+    private var singleStageDone: Boolean = false   // 단일 stage를 1번 수행했는지 (수행 후 다음 호출 때 완료)
 
     private fun startNextBalanceStage() {
-        // singleStageOnly: 첫 번째만 진행 후 종료 (메뉴에서 단일 stage 선택)
-        if (singleStageOnly && currentBalanceStage >= 1) {
+        // singleStageOnly: 단일 stage를 1번 수행한 뒤(다음 호출)에만 종료. 시작 전에 끝나버리던 버그 수정.
+        if (singleStageOnly && singleStageDone) {
             _phase.value = ExamPhase.BalanceComplete(balanceStageReached, tandemTimeSec)
-            singleStageOnly = false
+            singleStageOnly = false; singleStageDone = false
             return
         }
         currentBalanceStage++
@@ -131,6 +135,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
             _phase.value = ExamPhase.BalanceComplete(balanceStageReached, tandemTimeSec)
             return
         }
+        if (singleStageOnly) singleStageDone = true   // 이 stage(단일)를 수행 — 다음 호출 때 완료
         // 자세 준비 단계: Fragment가 TTS+카운트다운 완료 후 startBalanceMeasurementNow() 호출
         // (ViewModel 타이머 없음 — Fragment가 타이밍 제어)
         val stageNo = currentBalanceStage

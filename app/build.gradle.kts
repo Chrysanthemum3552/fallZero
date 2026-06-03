@@ -35,7 +35,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // 시연용 릴리스: R8 minify + 로그 strip(proguard) + 디버그 키 서명(별도 릴리스 키스토어 없이 바로 설치).
+            isMinifyEnabled = true
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }

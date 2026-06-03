@@ -19,6 +19,26 @@ object ShareHelper {
         context.startActivity(Intent.createChooser(intent, "결과 공유"))
     }
 
+    /** 공유 전 내용을 팝업으로 미리 보여주고 '공유하기'를 누르면 실제 공유 (사용자 요청). */
+    fun previewAndShareText(context: Context, title: String, text: String) {
+        val density = context.resources.displayMetrics.density
+        fun dp(v: Int) = (v * density).toInt()
+        val tv = android.widget.TextView(context).apply {
+            this.text = text
+            textSize = 15f
+            setTextColor(0xFF1A1A1A.toInt())
+            setPadding(dp(20), dp(16), dp(20), dp(16))
+            setLineSpacing(0f, 1.15f)
+        }
+        val scroll = android.widget.ScrollView(context).apply { addView(tv) }
+        android.app.AlertDialog.Builder(context)
+            .setTitle("보호자에게 보낼 내용 (미리보기)")
+            .setView(scroll)
+            .setPositiveButton("공유하기") { _, _ -> shareText(context, title, text) }
+            .setNegativeButton("취소", null)
+            .show()
+    }
+
     /** 여러 이미지를 한 번에 공유 (보고서 1·2페이지 등). */
     fun shareBitmaps(context: Context, bitmaps: List<Bitmap>, baseName: String = "result") {
         if (bitmaps.size == 1) { shareBitmap(context, bitmaps[0], "$baseName.png"); return }

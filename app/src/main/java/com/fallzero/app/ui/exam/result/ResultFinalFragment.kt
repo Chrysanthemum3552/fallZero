@@ -72,7 +72,8 @@ class ResultFinalFragment : Fragment() {
 
     private fun shareGuardianReport(r: com.fallzero.app.data.db.entity.ExamResult, isHigh: Boolean, riskCount: Int) {
         // 상세 보호자 보고서는 공용 헬퍼로 통일 (검사 결과 화면과 동일 문장). isHigh/riskCount는 헬퍼가 내부 계산.
-        ShareHelper.shareText(
+        // 공유 전 미리보기 팝업 → '공유하기' 눌러야 실제 공유 (사용자 요청).
+        ShareHelper.previewAndShareText(
             requireActivity(),
             com.fallzero.app.util.GuardianTextReport.SHARE_TITLE,
             com.fallzero.app.util.GuardianTextReport.build(r)

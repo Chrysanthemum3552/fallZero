@@ -7,14 +7,13 @@ import com.fallzero.app.pose.AngleCalculator.Side
 import com.fallzero.app.pose.SBUCalculator
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.abs
-import kotlin.math.atan2
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * 운동 #5: 발끝 들기 (Toe Raise / Dorsiflexion)
- * 양발 발끝을 들어 올렸다 내리기. 측면 촬영.
- * 메트릭: (y_heel - y_footIndex) / SBU (발끝 들림 정도)
+ * 운동 #5: 발끝 들기 (Toe Raise / Dorsiflexion) — **정면 촬영** (측면 흔들림 회피, 사용자 요청).
+ * 양발 발끝을 들어 올렸다 내리기.
+ * 메트릭: 양발 (ankle.y − foot_index.y)/SBU 평균 = 발목 대비 발끝이 올라온 정도. "가장 평평한 발" baseline 대비 신호.
  */
 class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
@@ -23,9 +22,8 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override val debugTag = "ToeDebug"
 
     init {
-        // 빠른 사이클 대응 — alpha 0.8로 smoother 반응 매우 빠르게 (pulse pattern 추적).
-        // 기본 0.5는 5초 윈도우의 30%만 반영, 0.8은 20% 평균 → 실시간 dip 추적 가능.
-        smoother = com.fallzero.app.pose.MetricSmoother(alpha = 0.8f)
+        // 스무딩 없음 (alpha=1.0) — 발끝 좌표가 충분히 안정적이라 평활 불필요 (사용자 요청).
+        smoother = com.fallzero.app.pose.MetricSmoother(alpha = 1.0f)
     }
 
     private var toeDebugCounter = 0
@@ -35,9 +33,10 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     private var signalMin = Float.MAX_VALUE
     private var signalMax = -Float.MAX_VALUE
 
-    // ratio = (heel.y - toe.y) / sbu — 발 안에서의 상대적 위치 (heel=pivot, toe=움직임).
-    // baseline = 최근 90 프레임의 10th percentile (통계적 outlier-robust).
-    private val WINDOW_SIZE = 90
+    // ratio = 양발 (ankle.y − foot_index.y)/sbu 평균 (정면: 발끝이 발목 대비 올라온 정도).
+    // baseline = 최근 윈도우(약 4초)의 낮은 percentile = "가장 평평한 발" — 빠른 반복 중에도 평평한 프레임을
+    //   충분히 담아 기준이 위로 drift/고정되지 않게 한다 (사용자: 바닥 기준을 상대 갱신).
+    private val WINDOW_SIZE = 120
     private val ratioBuffer = FloatArray(WINDOW_SIZE)
     private var bufferIdx = 0
     private var bufferFilled = false
@@ -52,52 +51,43 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
         val sbu = SBUCalculator.calculate(landmarks)
         if (sbu <= 0f) return null
-        val side = AngleCalculator.pickVisibleSide(landmarks, LandmarkIndex.LEFT_HEEL, LandmarkIndex.RIGHT_HEEL)
-            ?: return null
-        val (heel, footIndex) = getHeelFoot(landmarks, side)
-        val ankle = if (side == Side.LEFT) landmarks[LandmarkIndex.LEFT_ANKLE] else landmarks[LandmarkIndex.RIGHT_ANKLE]
+        // 정면 전환(실험): 양발 발끝(foot_index 31/32)이 발목(27/28) 대비 얼마나 올라왔는지 — 두 발 평균.
+        //   측면의 '먼 다리 가림 + heel 떨림'을 피하려고 ankle(안정)+toe만 쓰고, 양발 평균으로 안정화.
+        val lAnkle = landmarks[LandmarkIndex.LEFT_ANKLE]; val lToe = landmarks[LandmarkIndex.LEFT_FOOT_INDEX]
+        val rAnkle = landmarks[LandmarkIndex.RIGHT_ANKLE]; val rToe = landmarks[LandmarkIndex.RIGHT_FOOT_INDEX]
+        val lVis = minOf(lAnkle.visibility().orElse(0f), lToe.visibility().orElse(0f))
+        val rVis = minOf(rAnkle.visibility().orElse(0f), rToe.visibility().orElse(0f))
+        val lLift = (lAnkle.y() - lToe.y()) / sbu   // 발끝 들면 toe.y↓ → 값 증가
+        val rLift = (rAnkle.y() - rToe.y()) / sbu
+        val ratio = when {
+            lVis > 0.3f && rVis > 0.3f -> (lLift + rLift) / 2f
+            lVis > 0.3f -> lLift
+            rVis > 0.3f -> rLift
+            else -> return null
+        }
 
-        // ratio: toe가 heel 위로 올라가면 양수. standing 시 ~0 또는 small negative.
-        val ratio = (heel.y() - footIndex.y()) / sbu
+        ratioMin = min(ratioMin, ratio); ratioMax = max(ratioMax, ratio)
 
-        // 통계 업데이트
-        ratioMin = min(ratioMin, ratio)
-        ratioMax = max(ratioMax, ratio)
-
-        // 발 기울기 각도
-        val footDx = footIndex.x() - heel.x()
-        val footDy = heel.y() - footIndex.y()
-        val footTiltDeg = Math.toDegrees(atan2(footDy.toDouble(), footDx.toDouble())).toFloat()
-        val knee = if (side == Side.LEFT) landmarks[LandmarkIndex.LEFT_KNEE] else landmarks[LandmarkIndex.RIGHT_KNEE]
-        val ankleAngle = AngleCalculator.calculateAngle(knee, ankle, footIndex)
-
+        // baseline = 최근 윈도우(약 4초)의 5th percentile = "가장 평평한 발" — 매 프레임 상대 갱신.
         ratioBuffer[bufferIdx] = ratio
         bufferIdx = (bufferIdx + 1) % WINDOW_SIZE
         if (bufferIdx == 0) bufferFilled = true
-
-        // 5th percentile baseline — outlier에 매우 강함 + standing 자세에 가장 가까운 값 채택
-        // (10th보다 낮춰 더 standing-biased — 사용자 small ROM도 신호 잘 감지)
-        // sort O(n log n) → quickselect O(n) — 결과 동일, ~6배 빠름 (n=90).
-        val effectiveSize = if (bufferFilled) WINDOW_SIZE else bufferIdx
-        val baseline = if (effectiveSize >= 5) {
-            val pctIdx = (effectiveSize * 0.05f).toInt().coerceAtLeast(0)
-            com.fallzero.app.pose.nthSmallest(ratioBuffer.copyOf(effectiveSize), pctIdx, 0, effectiveSize - 1)
+        val effSize = if (bufferFilled) WINDOW_SIZE else bufferIdx
+        val baseline = if (effSize >= 5) {
+            val pctIdx = (effSize * 0.05f).toInt().coerceAtLeast(0)
+            com.fallzero.app.pose.nthSmallest(ratioBuffer.copyOf(effSize), pctIdx, 0, effSize - 1)
         } else ratio
         val signal = ratio - baseline
-        signalMin = min(signalMin, signal)
-        signalMax = max(signalMax, signal)
+        signalMin = min(signalMin, signal); signalMax = max(signalMax, signal)
 
         toeDebugCounter++
         if (toeDebugCounter % 30 == 0) {
             Log.d("ToeDebug",
-                "RAW side=$side sbu=%.4f heelXY=(%.3f,%.4f) toeXY=(%.3f,%.4f) ankleXY=(%.3f,%.4f) ratio=%.4f baseline=%.4f signal=%.4f footTilt=%.1f° ankleAngle(KAT)=%.1f° heelVis=%.2f toeVis=%.2f".format(
-                    sbu, heel.x(), heel.y(), footIndex.x(), footIndex.y(), ankle.x(), ankle.y(),
-                    ratio, baseline, signal, footTiltDeg, ankleAngle,
-                    heel.visibility().orElse(0f), footIndex.visibility().orElse(0f)))
+                "FRONT lLift=%.4f rLift=%.4f vis(l=%.2f r=%.2f) ratio=%.4f baseline=%.4f signal=%.4f sbu=%.4f".format(
+                    lLift, rLift, lVis, rVis, ratio, baseline, signal, sbu))
             Log.d("ToeDebug",
-                "STATS ratio range [%.4f ~ %.4f] (Δ=%.4f) signal range [%.4f ~ %.4f] (Δ=%.4f) — 발끝 들면 signal>0 (motionThr=%.4f retThr=%.4f)".format(
-                    ratioMin, ratioMax, ratioMax - ratioMin,
-                    signalMin, signalMax, signalMax - signalMin,
+                "STATS ratio[%.4f~%.4f Δ%.4f] signal[%.4f~%.4f Δ%.4f] motThr=%.4f retThr=%.4f".format(
+                    ratioMin, ratioMax, ratioMax - ratioMin, signalMin, signalMax, signalMax - signalMin,
                     getMotionThreshold(), getReturnThreshold()))
         }
         return signal
@@ -138,11 +128,11 @@ class ToeRaiseEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override val movementThreshold = 0.005f
     // CalfRaise와 동일 — 작은 ROM 운동의 조기 종료 방지 (4초 → 8초)
     override val inactivityTimeoutMs = 8000L
-    // **고정 임계값** (PRB 기반 X) — toe raise 해부학 기반.
-    //   고령층 작은 ROM 수용을 위해 motionThr 0.030 → 0.022.
-    //   gap = 0.010 (hysteresis 유지).
-    override fun getMotionThreshold() = 0.022f
-    override fun getReturnThreshold() = 0.012f
+    // PRB 기반 (사용자 요청): 연습(캘리브레이션) 2회로 "최대 발끝 들림"(prb)을 측정 →
+    //   본운동에서 그 75% 이상 들면 1회로 인정. 연습 중에는 작은 기본값으로 동작을 잡는다.
+    //   prb가 너무 작을 때 대비 하한(floor)도 둠.
+    override fun getMotionThreshold() = if (isInCalibration) 0.015f else maxOf(prb * 0.60f, 0.010f)
+    override fun getReturnThreshold() = if (isInCalibration) 0.007f else maxOf(prb * 0.30f, 0.006f)
 
     /** 막대기 시각화(읽기 전용) — lastMetric을 progress로 변환. 좌표 판정 로직과 무관. */
     override fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {

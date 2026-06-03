@@ -145,10 +145,11 @@ class HipAbductionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
         val motThr = getMotionThreshold(); val retThr = getReturnThreshold()
         val gap = motThr - retThr
         val progress = if (gap > 0f) ((lastMetric - retThr) / gap).coerceIn(0f, 1f) else 0f
+        // 막대 채움 방향 — 화면(미러)에서 든 다리 쪽으로 보이도록 좌우 반대로 (사용자 요청: 카메라 그대로, 막대만 반대쪽)
         val dir = if (lockedSide == Side.RIGHT)
-            com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.FROM_CENTER_RIGHT
-        else
             com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.FROM_CENTER_LEFT
+        else
+            com.fallzero.app.ui.overlay.ExerciseGuide.FillDirection.FROM_CENTER_RIGHT
         return com.fallzero.app.ui.overlay.ExerciseGuide.Bar(
             progress = progress, vertical = false,
             fillDirection = dir,

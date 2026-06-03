@@ -144,6 +144,14 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             binding.root.postDelayed({
                 if (_binding != null && !hasNavigated) startExerciseAfterGuidance()
             }, 300L)
+        } else if (!com.fallzero.app.data.SessionFlow.exerciseChairPromptDone) {
+            // 운동 세션 시작 시 1번만: "의자를 가져와 주세요" 안내 → 의자 앞에 서서 가만히 있는지 확인(검사세션처럼) → 진행.
+            // 이 확인이 세션 전신확인을 겸하므로(사용자 요청), 운동 안내 뒤 별도 전신확인은 생략한다.
+            com.fallzero.app.data.SessionFlow.exerciseChairPromptDone = true
+            showChairBringPrompt {
+                com.fallzero.app.data.SessionFlow.exerciseBodyCheckDone = true
+                if (_binding != null && !hasNavigated) showStartGuidance(exerciseId)
+            }
         } else {
             showStartGuidance(exerciseId)
         }
@@ -217,6 +225,70 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         if (!player.isPlaying) player.start()
         if (guidanceLineIndex < guidancePausePoints.size) {
             pauseCheckHandler.post(pauseCheckRunnable)
+        }
+    }
+
+    /** 운동 세션 시작 시 1번만: 의자 안내 이미지(의자 앞 서있는 사람) + 음성 → 안내가 끝나면
+     *  의자 앞에 서서 가만히 있는지 확인(검사세션 방식, 카메라 보이게) → 확인되면 onDone. (사용자 요청) */
+    private fun showChairBringPrompt(onDone: () -> Unit) {
+        val b = _binding ?: return
+        isInGuidancePhase = true
+        b.guidanceOverlay.visibility = View.VISIBLE
+        b.videoExerciseGuide.visibility = View.GONE
+        b.guideTextOverlay.visibility = View.GONE
+        b.tvVideoPlaceholder.visibility = View.GONE
+        b.tvGuidanceTitle.text = "의자를 가져와 주세요"
+        b.tvGuidanceTitle.visibility = View.VISIBLE
+        b.ivExerciseGuideImage.setImageResource(R.drawable.chair_front_pose)
+        b.ivExerciseGuideImage.visibility = View.VISIBLE
+        var proceeded = false
+        val proceed = {
+            if (!proceeded) {
+                proceeded = true
+                _binding?.ivExerciseGuideImage?.visibility = View.GONE
+                _binding?.tvGuidanceTitle?.visibility = View.GONE
+                _binding?.guidanceOverlay?.visibility = View.GONE   // 카메라가 보이게 (검사처럼)
+                if (_binding != null && !hasNavigated) awaitPersonStillInFront(onDone)
+            }
+        }
+        ttsManager?.speak("이번 운동 중에는 의자가 필요한 동작이 있어요. 의자를 가져와 의자 앞에 서주세요.") {
+            activity?.runOnUiThread { proceed() }
+        }
+        // 안전장치: TTS 콜백 누락 대비 (정상 시엔 콜백이 먼저)
+        b.root.postDelayed({ proceed() }, 12000L)
+    }
+
+    /** 의자 앞에 서서 가만히 있는지 확인 (카메라 보이게, 검사세션 방식). 전신이 2초 연속 잡히면 "시작할게요" 후 진행.
+     *  ※ 전신 판별 isFullBodyVisible 등 감지 로직은 손대지 않고 "진행 시점"만 제어. */
+    private fun awaitPersonStillInFront(onReady: () -> Unit) {
+        val b = _binding ?: return
+        b.tvErrorMessage.text = "의자 앞에 서서 가만히 계세요"
+        b.tvErrorMessage.visibility = View.VISIBLE
+        viewLifecycleOwner.lifecycleScope.launch {
+            val startMs = System.currentTimeMillis()
+            var detectedSinceMs = 0L
+            var confirmed = false
+            while (isAdded && !hasNavigated) {
+                delay(120)
+                val now = System.currentTimeMillis()
+                val fullBodyFresh = lastFullBodyMs > 0L && now - lastFullBodyMs < 400L
+                if (fullBodyFresh) {
+                    if (detectedSinceMs == 0L) { detectedSinceMs = now; _binding?.tvErrorMessage?.text = "✓ 잘 보입니다. 잠시만요…" }
+                    if (now - detectedSinceMs >= 2000L) { confirmed = true; break }   // 2초 연속 → 확인
+                } else {
+                    detectedSinceMs = 0L
+                    _binding?.tvErrorMessage?.text = "의자 앞에 서서 가만히 계세요"
+                }
+                if (now - startMs > 60_000L) break
+            }
+            if (!isAdded || hasNavigated) return@launch
+            _binding?.tvErrorMessage?.visibility = View.GONE
+            if (!confirmed) { onReady(); return@launch }
+            // 확인되면 "좋아요 시작할게요" 후 진행 (음성 끝난 직후 — 사용자 요청)
+            var done = false
+            val finish = { if (!done) { done = true; if (isAdded && !hasNavigated) onReady() } }
+            ttsManager?.speak("좋아요. 시작할게요.") { activity?.runOnUiThread { finish() } }
+            _binding?.root?.postDelayed({ finish() }, 3500L)
         }
     }
 
@@ -411,9 +483,10 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
      */
     private fun awaitPersonInFront(onReady: () -> Unit) {
         val b = _binding ?: return
-        // 항상 보이는 "전신 확인" 단계 (사용자: 이미 서 있어도 또렷이 보이게). 최소 2.5초 노출.
-        b.pauseOverlay.visibility = View.VISIBLE
-        b.tvPauseMessage.text = "카메라에 전신이 잘 보이는지 확인할게요"
+        // 전신 확인 단계: 사용자가 카메라(자기 모습)를 보며 위치를 잡아야 한다.
+        // 화면을 가리는 일시정지 오버레이를 쓰지 않고(=어둡게 처리 X) 상단 안내 문구만 띄워 카메라가 또렷이 보이게 한다. (사용자 요청)
+        b.tvErrorMessage.text = "카메라에 전신이 잘 보이는지 확인할게요"
+        b.tvErrorMessage.visibility = View.VISIBLE
         ttsManager?.speak("카메라에 전신이 잘 보이는지 확인할게요. 머리부터 발끝까지 보이게 서주세요.")
         viewLifecycleOwner.lifecycleScope.launch {
             val startMs = System.currentTimeMillis()
@@ -429,22 +502,22 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                     if (now - detectedSinceMs >= 1000L) {             // 전신 1초 연속 → 확인 완료
                         if (confirmedAtMs == 0L) {
                             confirmedAtMs = now
-                            _binding?.tvPauseMessage?.text = "✓ 전신이 잘 보입니다"
+                            _binding?.tvErrorMessage?.text = "✓ 전신이 잘 보입니다"
                             // 안내 음성이 끝난 뒤에 진행 ("좋아요…"가 중간에 끊기지 않도록) — 사용자 요청
                             ttsManager?.speak("좋아요. 전신이 잘 보입니다.") { confirmTtsDone = true }
                         }
                         if (confirmTtsDone || now - confirmedAtMs > 4000L) break   // 음성 끝나면(또는 4초 안전장치) 진행
                     } else {
-                        _binding?.tvPauseMessage?.text = "전신을 확인하는 중이에요…"
+                        _binding?.tvErrorMessage?.text = "전신을 확인하는 중이에요…"
                     }
                 } else {
                     detectedSinceMs = 0L; confirmedAtMs = 0L; confirmTtsDone = false
-                    _binding?.tvPauseMessage?.text = "머리부터 발끝까지 보이게 서주세요"
+                    _binding?.tvErrorMessage?.text = "머리부터 발끝까지 보이게 서주세요"
                 }
                 if (now - startMs > 60_000L) break                    // 안전장치
             }
             if (!isAdded || hasNavigated) return@launch
-            _binding?.pauseOverlay?.visibility = View.GONE
+            _binding?.tvErrorMessage?.visibility = View.GONE
             onReady()
         }
     }
@@ -505,6 +578,8 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         if (postCalibrationStarted || _binding == null || hasNavigated) return
         postCalibrationStarted = true
         viewModel.pauseMeasurementForSideSwitch()
+        // 2번째 연습 완료 순간 isInCalibration이 바로 false가 돼 "2/2"가 안 보이던 문제 — 여기서 명시적으로 채워 보여줌 (사용자 요청)
+        _binding?.tvCount?.text = "연습 2/2"
         // 연습 완료 — "좋아요!"를 화면 가운데 크게 표시 + 나레이션 (사용자 요청)
         _binding?.tvBigCountdown?.textSize = 72f
         _binding?.tvBigCountdown?.text = "좋아요!"
@@ -925,7 +1000,9 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // -----------------------------------------------
 
     private fun bindCameraToSelector(provider: ProcessCameraProvider) {
-        val selector = if (isFrontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
+        // 검사 화면과 동일하게 KioskCameraSelector 사용 — USB 웹캠(EXTERNAL) 우선, 없으면 가용 카메라로 폴백.
+        // (기존 DEFAULT_FRONT_CAMERA 직접 사용 시, 웹캠이 전면이 아니면 "No available camera"로 카메라가 안 켜졌음)
+        val selector = com.fallzero.app.util.KioskCameraSelector.select(isFrontCamera)
         try {
             provider.unbindAll()
             val preview = cameraPreview ?: return; val analyzer = cameraAnalyzer ?: return

@@ -53,6 +53,12 @@ class BalanceEngine(
 
     private val smoother = MetricSmoother(alpha = 0.25f)
 
+    // footX/footY EMA 완화 — 웹캠 각도에서 앞뒤 발 세로차(footY)가 작고 떨려, 적정 자세도 순간 임계값을 못 넘는 문제 방지.
+    // logcat 실측: 반일렬 footY≈0.05~0.07, 일렬 footY≈0.06~0.11 (원 기준 0.10/0.15는 더 가파른 폰 각도 기준이라 미달).
+    private var smoothedFootX = Float.NaN
+    private var smoothedFootY = Float.NaN
+    private val FOOT_SMOOTH_ALPHA = 0.3f
+
     // 사용자 명시 권한: 시각화 전용 read-only 캐시. processLandmarks가 이미 계산한 값을 그대로 저장만 함.
     //  카운트/state/timer 로직 무관. getGuide()에서 읽기 전용으로 사용.
     private var lastSwayRatio: Float = 0f
@@ -124,8 +130,12 @@ class BalanceEngine(
         val aScore = smoother.smooth(rawAScore)
 
         // ── 2. 자세 검증 (해당 단계의 발 배치가 맞는지) ──
-        val footXNorm = abs(leftAnkleX - rightAnkleX) / sbu
-        val footYNorm = ankleYDiff / sbu
+        val rawFootX = abs(leftAnkleX - rightAnkleX) / sbu
+        val rawFootY = ankleYDiff / sbu
+        smoothedFootX = if (smoothedFootX.isNaN()) rawFootX else smoothedFootX + FOOT_SMOOTH_ALPHA * (rawFootX - smoothedFootX)
+        smoothedFootY = if (smoothedFootY.isNaN()) rawFootY else smoothedFootY + FOOT_SMOOTH_ALPHA * (rawFootY - smoothedFootY)
+        val footXNorm = smoothedFootX
+        val footYNorm = smoothedFootY
 
         var poseValid = true
         var poseHint: String? = null
@@ -146,8 +156,8 @@ class BalanceEngine(
             }
             2 -> {
                 // 반탠덤(반일렬): 한 발이 반보 앞 + 두 발이 어느 정도 모여 있어야.
-                // 실측 반탠덤: footX≈0.03~0.10, footY≈0.15~0.25.
-                if (footYNorm < 0.10f) {
+                // webcam 실측(footY≈0.05~0.07)에 맞춰 0.10→0.04로 (EMA 완화와 함께). 정상 직립 footY≈0.01~0.02보다 충분히 큼.
+                if (footYNorm < 0.04f) {
                     poseValid = false
                     poseHint = "한쪽 발을 반보 앞에 놓아주세요"
                 } else if (footXNorm > 0.32f) {
@@ -157,9 +167,8 @@ class BalanceEngine(
             }
             3 -> {
                 // 탠덤(일렬): 한 발 뒤꿈치를 다른 발 엄지발가락 바로 앞에 — 발이 한 줄로 정렬.
-                // 실측 탠덤: footX≈0.01~0.10, footY≈0.20~0.40.
-                // '옆에 적당히 둔' 자세(footX 큼)는 거부해야 함 → footX 기준을 좁게.
-                if (footYNorm < 0.15f) {
+                // webcam 실측(footY≈0.06~0.11)에 맞춰 0.15→0.06으로 (EMA 완화와 함께). footX 정렬 기준은 유지(한 줄).
+                if (footYNorm < 0.06f) {
                     poseValid = false
                     poseHint = "한쪽 발을 다른 발 바로 앞에 놓아주세요"
                 } else if (footXNorm > 0.22f) {
@@ -279,8 +288,8 @@ class BalanceEngine(
         if (debugFrameCount % 30 == 0) {
             val baselineStr = if (baselineAScore.isNaN()) "측정중(${baselineSamples.size}/$BASELINE_SAMPLES_TARGET)" else "%.3f".format(baselineAScore)
             Log.d("BalanceDebug",
-                "stage=$stage side=$side rawA=%.3f sA=%.3f baseline=%s corr=%.3f margin=%.2f pose=%b stable=$isStable state=$state best=%.1f elapsed=%.1f"
-                    .format(rawAScore, aScore, baselineStr, correctedSway, swayMargin, poseValid,
+                "stage=$stage side=$side footX=%.3f footY=%.3f rawA=%.3f sA=%.3f baseline=%s corr=%.3f margin=%.2f pose=%b hint=%s stable=$isStable state=$state best=%.1f elapsed=%.1f"
+                    .format(footXNorm, footYNorm, rawAScore, aScore, baselineStr, correctedSway, swayMargin, poseValid, poseHint ?: "-",
                         bestHoldTimeSec, if (stableStartTimeMs > 0) (nowMs - stableStartTimeMs) / 1000f else 0f))
         }
 
@@ -326,6 +335,8 @@ class BalanceEngine(
         consecutiveStableFrames = 0
         bestHoldTimeSec = 0f
         smoother.reset()
+        smoothedFootX = Float.NaN
+        smoothedFootY = Float.NaN
         debugFrameCount = 0
         // baseline 학습 상태 리셋 — 다음 측정 시 처음부터 다시 학습
         baselineAScore = Float.NaN

@@ -67,6 +67,12 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private val standingMSamples = mutableListOf<Float>()
     private var chairDetectSpoken = false   // 의자 준비: "잘 감지됐어요" 1회 발화 여부
     private var chairSitSpoken = false       // 의자 준비: "일어나 주세요" 1회 발화 여부
+    // 의자 준비→측정 전환 견고화 (사용자 승인): 재진입 세대 가드 + 무진행 워치독.
+    //   준비 안내 체인(TTS·영상 콜백 다단계)에서 한 콜백이라도 누락되면 chairPrepareMode가 영원히 true로 남아
+    //   프레임 처리가 스킵되어 "막대기·타이머 없이 굳는" 버그 → 단계마다 워치독을 재무장하고, 진행이 멈추면 측정을 강제 시작.
+    private var chairPrepareGen = 0
+    private var chairPrepareWatchdog: Runnable? = null
+    private val CHAIR_PREPARE_STEP_TIMEOUT_MS = 30000L  // 한 단계 무진행 허용치(최장 단계 ~20초보다 길게)
 
     private enum class Mode { BALANCE, CHAIR_STAND }
     private var mode: Mode = Mode.BALANCE
@@ -228,7 +234,9 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                 }
             }
             Mode.CHAIR_STAND -> {
-                chairPrepareMode = true; chairPreparePhase = 0
+                // 새 진입 세대 — 이전(굳었던) 진입의 떠도는 콜백·워치독·영상 플레이어를 무효화/정리
+                chairPrepareGen++; cancelChairWatchdog(); releaseBarSimPlayer()
+                chairPrepareMode = true; chairPreparePhase = 0; isBarSimulating = false
                 bodyStillSinceMs = 0L; lastShoulderY = 0f; standingMSamples.clear()
                 chairDetectSpoken = false; chairSitSpoken = false
                 val b = _binding ?: return
@@ -288,6 +296,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun playChairGuidanceVideo(onAfterScript: () -> Unit) {
         val b = _binding ?: return
+        feedChairWatchdog()   // 안내영상 단계 진입 — 영상 동안 워치독 유지
         b.tvGuidanceTitle.text = ""; b.tvGuidanceText.text = ""
         b.tvGuidanceCountdown.visibility = View.GONE; b.tvVideoPlaceholder.visibility = View.GONE
         b.tvChairSubtitle.visibility = View.GONE
@@ -313,6 +322,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private fun startBarSimulation(onAfterScript: () -> Unit) {
         val b = _binding ?: return
         isBarSimulating = true
+        feedChairWatchdog()   // 막대기 설명 단계 진입 — 시뮬레이션(~20초) 동안 워치독 유지
         val barGuide = { p: Float ->
             com.fallzero.app.ui.overlay.ExerciseGuide.Bar(
                 progress = p, vertical = true,
@@ -448,6 +458,44 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
 
     private fun releaseBarSimPlayer() {
         try { barSimPlayer?.release() } catch (_: Exception) {}; barSimPlayer = null
+    }
+
+    // ── 의자 준비→측정 전환 견고화 (사용자 승인) ──
+    /** 워치독 재무장 — 현재 단계가 STEP_TIMEOUT 동안 다음 콜백으로 진행하지 못하면 측정을 강제 시작.
+     *  각 단계 경계에서 호출 → 정상 진행 시 매번 갱신되어 발화하지 않고, 콜백 누락/정지 시에만 발동. */
+    private fun feedChairWatchdog() {
+        val root = _binding?.root ?: return
+        chairPrepareWatchdog?.let { root.removeCallbacks(it) }
+        val gen = chairPrepareGen
+        val r = Runnable { enterChairMeasurement(gen) }
+        chairPrepareWatchdog = r
+        root.postDelayed(r, CHAIR_PREPARE_STEP_TIMEOUT_MS)
+    }
+
+    private fun cancelChairWatchdog() {
+        chairPrepareWatchdog?.let { _binding?.root?.removeCallbacks(it) }
+        chairPrepareWatchdog = null
+    }
+
+    /** 의자 준비 → 측정 전환 (멱등 + 세대 가드). 정상 체인 끝과 워치독이 둘 다 호출해도 한 번만 실행.
+     *  세대 불일치(재진입) 또는 이미 측정 시작(chairPrepareMode=false)이면 무시 — 떠도는 콜백 무해화. */
+    private fun enterChairMeasurement(gen: Int) {
+        cancelChairWatchdog()
+        if (_binding == null || hasNavigated) return
+        if (!chairPrepareMode || gen != chairPrepareGen) return
+        chairPrepareMode = false; isBarSimulating = false
+        // 워치독 강제 진입(안내 도중 콜백 누락) 시 남아있을 수 있는 준비 UI/플레이어 정리.
+        //   정상 체인 경로에선 이미 정리돼 있어 모두 no-op이라 안전.
+        releaseBarSimPlayer()
+        _binding?.guideBarSim?.visibility = View.GONE
+        _binding?.videoChairGuidance?.visibility = View.GONE
+        _binding?.guidanceOverlay?.visibility = View.GONE
+        _binding?.vCountdownDim?.visibility = View.GONE
+        hideFloatingFeedback()
+        lastSpokenSecond = -1; lastHintSpokenMs = 0L
+        viewModel.startChairStand()
+        _binding?.guideBar?.bringToFront()
+        startUserAwayMonitor()
     }
 
     private fun showThirtySecCallout(onAfter: () -> Unit) {
@@ -985,6 +1033,10 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         val b = _binding ?: return
         // 전신 확인 단계: 사용자가 카메라 프리뷰로 자기 모습을 직접 보며 전신이 다 나오는지 확인해야 한다.
         // 따라서 화면을 가리는 일시정지 오버레이를 쓰지 않고(=화면 이탈 일시정지 로직과 다름) 상단 안내 문구만 띄운다. (사용자 요청)
+        // 막대기 설명 직후 켜진 dim(vCountdownDim)을 끄고 상단 단계 제목 띠도 숨겨 카메라를 밝고 크게 보여준다.
+        //   전신이 잘 보이는지 사용자가 직접 확인하려면 화면이 어두우면 안 됨 (사용자 요청). dim은 이후 3·2·1 카운트다운에서 다시 켜진다.
+        b.vCountdownDim.visibility = View.GONE
+        b.layoutTopBar.visibility = View.GONE
         showFloatingFeedback("카메라 앞에 전신이 잘 보이게 서주세요", 0xFFFFEB3B.toInt())
         viewLifecycleOwner.lifecycleScope.launch {
             val startMs = System.currentTimeMillis()
@@ -1009,6 +1061,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
             }
             if (!isAdded || hasNavigated) return@launch
             hideFloatingFeedback()
+            _binding?.layoutTopBar?.visibility = View.VISIBLE   // 전신 확인 종료 → 상단 단계 제목 띠 복원 (카운트다운/측정 화면용)
             if (!confirmed) { onReady(); return@launch }
             // 전신 확인됨 → "좋아요 전신이 잘 보입니다" 한 뒤 '바로' 다음으로.
             // 폴링 대기 없이 TTS 완료 콜백에서 즉시 진행 — 불필요한 delay로 "왜 안 돼?" 느낌 주지 않게 (사용자 요청).
@@ -1195,25 +1248,23 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         // 의자 가져와 앞에 서서 2초 이상 가만히 있으면 시작 (이전 방식으로 복원 — 사용자 요청)
                         if (held >= 2000L) {
                             chairPreparePhase = 2
+                            val gen = chairPrepareGen            // 이 진입 세대 — 체인 끝 전환의 가드용
                             val avgM = if (standingMSamples.isNotEmpty()) standingMSamples.average().toFloat() else 50f
                             viewModel.calibrateChairStand(avgM)
                             showFloatingFeedback("준비 완료", 0xFF4CAF50.toInt())
                             b.tvCount.text = ""; b.tvTimer.text = ""
+                            feedChairWatchdog()                  // 준비 안내 체인 시작 — 이후 단계 경계마다 재무장
                             showChairStandGuidance {
                                 if (_binding == null || hasNavigated) return@showChairStandGuidance
+                                feedChairWatchdog()              // 안내영상+막대기설명 끝 → 다음 단계 감시
                                 hideFloatingFeedback(); startChairGuideVideo()
                                 showThirtySecCallout {
                                     if (_binding == null || hasNavigated) return@showThirtySecCallout
+                                    feedChairWatchdog()
                                     ttsManager?.speak("이제 시작하겠습니다") {
                                         if (_binding == null || hasNavigated) return@speak
                                         startCountdown321 {
-                                            if (_binding != null && !hasNavigated && chairPrepareMode) {
-                                                chairPrepareMode = false; isBarSimulating = false
-                                                lastSpokenSecond = -1; lastHintSpokenMs = 0L
-                                                viewModel.startChairStand()
-                                                _binding?.guideBar?.bringToFront()
-                                                startUserAwayMonitor()
-                                            }
+                                            enterChairMeasurement(gen)   // 정상 체인 끝 (멱등 — 워치독과 중복 안전)
                                         }
                                     }
                                 }
@@ -1264,6 +1315,7 @@ class ExamFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         // 안내 영상 도중 화면 이탈 시 MediaPlayer/Surface 누수 + 백그라운드 자막 TTS 재생 방지
         // (ExerciseFragment.onDestroyView의 releaseGuidancePlayer()와 동일 처리)
         releaseExamGuidancePlayer()
+        cancelChairWatchdog()   // 의자 준비 워치독 정리 — 뷰 파괴 후 늦은 콜백 발화 방지
         releaseBarSimPlayer()
         cleanupCamera()
         try { _binding?.videoChairGuide?.stopPlayback() } catch (_: Exception) {}

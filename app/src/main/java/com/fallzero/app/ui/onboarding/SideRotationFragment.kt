@@ -105,6 +105,8 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
         binding.btnCameraFlip.setOnClickListener { toggleCameraFacing() }
         // 관절 점 표시 토글 적용 (default OFF)
         binding.poseOverlay.setShowSkeleton(com.fallzero.app.util.DisplayPrefs.showSkeleton(requireContext()))
+        // 스켈레톤 좌우 보정 — 전면 카메라는 랜드마크가 이미 좌우반전이라 +1, 후면 -1 (운동·검사와 동일, 몸과 반대로 움직이던 문제 수정)
+        binding.poseOverlay.scaleX = if (isFrontCamera) 1f else -1f
 
         if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA)
             == PackageManager.PERMISSION_GRANTED) {
@@ -257,6 +259,7 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
     private fun toggleCameraFacing() {
         isFrontCamera = !isFrontCamera
         com.fallzero.app.util.CameraFacingPref.setFrontCamera(requireContext(), isFrontCamera)
+        _binding?.poseOverlay?.scaleX = if (isFrontCamera) 1f else -1f
         cameraProvider?.let { bindCameraToSelector(it) }
     }
 

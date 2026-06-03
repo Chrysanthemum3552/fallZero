@@ -1,17 +1,18 @@
 package com.fallzero.app.pose.engine
 
 import android.util.Log
-import com.fallzero.app.pose.AngleCalculator
 import com.fallzero.app.pose.AngleCalculator.LandmarkIndex
-import com.fallzero.app.pose.AngleCalculator.Side
 import com.fallzero.app.pose.SBUCalculator
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
-import kotlin.math.abs
 
 /**
- * 운동 #6: 무릎 굽히기 (Mini Squat / Knee Bend)
- * 양발 어깨 너비로 벌리고 무릎을 살짝 굽혔다 펴기. 측면 촬영.
- * 메트릭: 180° - hip-knee-ankle 각도 (직립 ≈ 0°, 굽힘 시 증가)
+ * 운동 #6: 무릎 살짝 굽히기 (Mini Squat / Knee Bend) — **정면 촬영** (사용자 요청: 측면 흔들림 회피).
+ *
+ * 정면에서는 무릎 굽힘 각도(2D)가 거의 안 변하므로, 무릎을 굽히면 **몸이 내려가는 것(hip 하강)**으로 감지한다.
+ * 메트릭: (hipY - 서있을때 hipY) / SBU × 100  → 직립 ≈ 0, 굽힐수록 증가.
+ *   - hip(23/24, 양쪽 평균)만 사용 — 발(29~32)·얼굴(0~10) 같은 불안정 관절 미사용.
+ *   - baseline = 최근 90프레임 hipY의 10th percentile (= 가장 높은 위치 = 서있는 자세, outlier robust).
+ *   - 임계값은 logcat(KneeBendDebug) 실측으로 튜닝.
  */
 class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
@@ -19,90 +20,55 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override val coachingCueMessage = "무릎을 더 굽혀주세요."
     override val debugTag = "KneeBendDebug"
 
-    private var kneeBendDebugCounter = 0
-    // 매 frame 좌/우 flexion 캐시 — extractMetric → detectError 재사용 (calculateAngle 2회/frame 절감)
-    private var lastLeftFlexion = 0f
-    private var lastRightFlexion = 0f
+    private val WINDOW = 90
+    private val hipYBuffer = FloatArray(WINDOW)
+    private var bufferIdx = 0
+    private var bufferFilled = false
+    private var dbgCounter = 0
 
-    // PDF §8 — "무릎 과도 전방 돌출" 보상 동작. 측면 자세에서 (knee.x - ankle.x) 의 baseline
-    // (standing 자세)을 잡고, 굽힘 동작 중 절대 차이가 baseline 대비 SBU의 임계값 초과 시 경고.
-    // 좌우 체중 쏠림/몸통 좌우 기울임은 측면 view에서 직접 측정 불가하므로 미포함.
-    private var kneeAnkleDxBaseline: Float = Float.NaN
-    private var kneeForwardBaselineFrameCount = 0
-    private val KNEE_FORWARD_BASELINE_FRAMES = 30
-    private val KNEE_FORWARD_THRESHOLD = 0.35f  // standing baseline 대비 SBU의 35%까지 허용 (사용자 요청 추가 완화 0.25 → 0.35)
+    init {
+        smoother = com.fallzero.app.pose.MetricSmoother(alpha = 0.5f)
+    }
 
     override fun extractMetric(landmarks: List<NormalizedLandmark>): Float? {
-        // 양쪽 다리 모두 계산 후 더 큰 flexion 채택 (Q4 fix).
-        // pickVisibleSide는 카메라 쪽 다리만 picking → 사용자가 반대편(visibility 낮은) 다리 굽히면 못 잡음.
-        val (lHip, lKnee, lAnkle) = getHipKneeAnkle(landmarks, Side.LEFT)
-        val (rHip, rKnee, rAnkle) = getHipKneeAnkle(landmarks, Side.RIGHT)
-        val leftFlexion = (180f - AngleCalculator.calculateAngle(lHip, lKnee, lAnkle)).coerceAtLeast(0f)
-        val rightFlexion = (180f - AngleCalculator.calculateAngle(rHip, rKnee, rAnkle)).coerceAtLeast(0f)
-        lastLeftFlexion = leftFlexion
-        lastRightFlexion = rightFlexion
-
-        // 둘 다 visibility 너무 낮으면 null
-        val lKneeVis = lKnee.visibility().orElse(0f)
-        val rKneeVis = rKnee.visibility().orElse(0f)
-        if (lKneeVis < 0.2f && rKneeVis < 0.2f) return null
-
-        val flexion = maxOf(leftFlexion, rightFlexion)
-        val flexedSide = if (leftFlexion >= rightFlexion) Side.LEFT else Side.RIGHT
-
-        kneeBendDebugCounter++
-        if (kneeBendDebugCounter % 30 == 0) {
-            val sbu = SBUCalculator.calculate(landmarks)
-            Log.d("KneeBendDebug",
-                "RAW side=$flexedSide LEFT(flex=%.1f°,vis=%.2f) RIGHT(flex=%.1f°,vis=%.2f) sbu=%.4f maxFlex=%.1f".format(
-                    leftFlexion, lKneeVis, rightFlexion, rKneeVis, sbu, flexion))
-        }
-        return flexion
-    }
-
-    /**
-     * 검출 순서 (PDF §8):
-     *   1) 무릎 과도 굽힘 — maxFlex ≥ OVER_BEND_DEG (기존, 사용자 명시 80°)
-     *   2) 무릎 과도 전방 돌출 — (knee.x - ankle.x) 절댓값이 baseline 대비 SBU 비율 초과 (신규)
-     * 최적화: extractMetric 캐시값 재사용 — calculateAngle 2회/frame 절감.
-     */
-    override fun detectError(landmarks: List<NormalizedLandmark>): String? {
-        val maxFlex = maxOf(lastLeftFlexion, lastRightFlexion)
-        if (maxFlex >= OVER_BEND_DEG) return "무릎을 너무 굽히지 마세요"
-
-        // 무릎 전방 돌출 — calibration 중에는 standing baseline 잡기 불안정 (사용자 굽힘 연습 중).
-        if (isInCalibration) return null
         val sbu = SBUCalculator.calculate(landmarks)
         if (sbu <= 0f) return null
-        val side = AngleCalculator.pickVisibleSide(landmarks, LandmarkIndex.LEFT_KNEE, LandmarkIndex.RIGHT_KNEE)
-            ?: return null
-        val kneeIdx = if (side == Side.LEFT) LandmarkIndex.LEFT_KNEE else LandmarkIndex.RIGHT_KNEE
-        val ankleIdx = if (side == Side.LEFT) LandmarkIndex.LEFT_ANKLE else LandmarkIndex.RIGHT_ANKLE
-        val dx = landmarks[kneeIdx].x() - landmarks[ankleIdx].x()
+        val lHip = landmarks[LandmarkIndex.LEFT_HIP]
+        val rHip = landmarks[LandmarkIndex.RIGHT_HIP]
+        if (lHip.visibility().orElse(0f) < 0.2f && rHip.visibility().orElse(0f) < 0.2f) return null
+        val hipY = (lHip.y() + rHip.y()) / 2f
 
-        if (kneeForwardBaselineFrameCount < KNEE_FORWARD_BASELINE_FRAMES) {
-            kneeAnkleDxBaseline = if (kneeAnkleDxBaseline.isNaN()) dx
-                                  else kneeAnkleDxBaseline * 0.7f + dx * 0.3f
-            kneeForwardBaselineFrameCount++
-            return null
+        hipYBuffer[bufferIdx] = hipY
+        bufferIdx = (bufferIdx + 1) % WINDOW
+        if (bufferIdx == 0) bufferFilled = true
+        val effSize = if (bufferFilled) WINDOW else bufferIdx
+        // 10th percentile = 가장 높은 위치(작은 y) = 서있는 자세 baseline
+        val baseline = if (effSize >= 10) {
+            val pctIdx = (effSize * 0.10f).toInt().coerceAtLeast(0)
+            com.fallzero.app.pose.nthSmallest(hipYBuffer.copyOf(effSize), pctIdx, 0, effSize - 1)
+        } else hipY
+
+        // 몸이 내려간 정도 — 서있을 때 0, 굽힐수록 +. /sbu로 거리 독립.
+        val metric = (((hipY - baseline) / sbu) * 100f).coerceAtLeast(0f)
+
+        dbgCounter++
+        if (dbgCounter % 30 == 0) {
+            Log.d("KneeBendDebug", "FRONT hipY=%.4f baseline=%.4f sbu=%.4f metric=%.2f motThr=%.1f retThr=%.1f cal=%b".format(
+                hipY, baseline, sbu, metric, getMotionThreshold(), getReturnThreshold(), isInCalibration))
         }
-        // 측면 자세는 카메라 방향에 따라 dx 부호가 달라지므로 절댓값으로 비교.
-        // 굽힘 동작 중 |dx|가 standing baseline의 |dx|보다 SBU의 임계값만큼 더 커지면 무릎이 앞으로 더 나간 것.
-        val forwardShift = (abs(dx) - abs(kneeAnkleDxBaseline)) / sbu
-        return if (forwardShift > KNEE_FORWARD_THRESHOLD) "무릎이 너무 앞으로 나오지 않게 해주세요" else null
+        return metric
     }
 
-    private val OVER_BEND_DEG = 80f
+    // 정면 전환 — 측면 전용 "무릎 전방 돌출/과도 굽힘" 경고 제거 (오작동 방지).
+    override fun detectError(landmarks: List<NormalizedLandmark>): String? = null
 
     override val metricIncreasing = true
-    // 미니 스쿼트: 직립 ~0~5°, 살짝 굽히면 ~30°. PRB 캡 35° 적용 — 사용자가 calibration 시
-    // 깊은 스쿼트(60°+)를 해도 PRB는 35°로 제한해서 본 운동 motionThr=24.5°가 되도록.
-    // "살짝 굽히기" 임상 정의에 맞는 임계값 유지.
+
+    // hip 하강 metric — 살짝 굽히면 대략 15~30 (logcat 실측으로 튜닝 예정). 초기 추정값.
     private val MAX_PRB = 35f
-    override fun getMotionThreshold() = if (isInCalibration) 25f
-        else maxOf(prb.coerceAtMost(MAX_PRB) * 0.70f, 20f)
-    // 복귀 기준 완화 — 노인 사용자가 무릎을 완전히 펴기 어려운 점 고려 (12° → 16°). 16° 이내면 카운트.
-    override fun getReturnThreshold() = if (isInCalibration) 10f else 16f
+    override fun getMotionThreshold() = if (isInCalibration) 12f
+        else maxOf(prb.coerceAtMost(MAX_PRB) * 0.60f, 9f)
+    override fun getReturnThreshold() = if (isInCalibration) 5f else 6f
 
     /** 막대기 시각화(읽기 전용) — lastMetric을 progress로 변환. 좌표 판정 로직과 무관. */
     override fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {
@@ -120,10 +86,9 @@ class KneeBendEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
 
     override fun reset() {
         super.reset()
-        kneeBendDebugCounter = 0
-        lastLeftFlexion = 0f
-        lastRightFlexion = 0f
-        kneeAnkleDxBaseline = Float.NaN
-        kneeForwardBaselineFrameCount = 0
+        for (i in hipYBuffer.indices) hipYBuffer[i] = 0f
+        bufferIdx = 0
+        bufferFilled = false
+        dbgCounter = 0
     }
 }

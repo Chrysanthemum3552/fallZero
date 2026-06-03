@@ -120,8 +120,11 @@ class KneeFlexionEngine(targetCount: Int = 10) : BaseRepEngine(targetCount) {
     override val metricIncreasing = true
     // 슬굴곡(180-angle): 직립 시 ~0~10°, 굽히면 ~60~90°.
     override fun getMotionThreshold() = if (isInCalibration) 30f else maxOf(prb * 0.55f, 40f)
-    // 복귀 기준 완화 — 발을 완전히 내려놓기 어려운 점 고려 (20° → 28°). 28° 이내면 카운트.
-    override fun getReturnThreshold() = if (isInCalibration) 10f else 28f
+    // 복귀 기준 완화 — 발을 완전히 내려놓기 어려운 점 고려. 본운동은 28° 이내면 카운트.
+    //   연습(캘리브레이션) 복귀도 10°→22°로 완화: 10°(거의 완전히 편 상태)까지 내려야 1회가 완료돼
+    //   연습이 안 끝나던 문제 수정 (사용자 보고). 본운동처럼 살짝 굽은 채 내려도 사이클 완료.
+    //   모션 30°와 8° 간격 유지(히스테리시스). 피크(prb) 측정은 영향 없음.
+    override fun getReturnThreshold() = if (isInCalibration) 22f else 28f
 
     /** 막대기 시각화(읽기 전용) — lastMetric을 progress로 변환. 좌표 판정 로직과 무관. */
     override fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? {
