@@ -16,6 +16,10 @@ interface SessionDao {
     @Insert
     suspend fun insertRecord(record: ExerciseRecord): Long
 
+    /** 진급이 발생한 기록에 진급 메시지 표식 — 운동 기록 화면 "🎉 진급!" 배지용. */
+    @Query("UPDATE exercise_records SET promotedLabel = :label WHERE id = :recordId")
+    suspend fun markRecordPromoted(recordId: Int, label: String)
+
     @Query("SELECT * FROM training_sessions WHERE userId = :userId ORDER BY startedAt DESC")
     fun getSessionsByUser(userId: Int): Flow<List<TrainingSession>>
 

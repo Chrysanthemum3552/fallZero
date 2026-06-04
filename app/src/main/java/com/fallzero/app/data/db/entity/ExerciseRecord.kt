@@ -22,5 +22,14 @@ data class ExerciseRecord(
     val durationMs: Long = 0L,         // 운동 시작 ~ 목표 수행 완료까지의 총 시간 (ms)
     val speedLossRate: Float = 0f,     // 후반 3rep vs 초반 3rep RepSpeed 중앙값 기반 저하율 (0~1)
     val balanceWobble: Float = 0f,     // 균형 운동 sway/threshold 평균 비율 (운동 #8 전용, 0~1+)
-    val performedAt: Long = System.currentTimeMillis()
+    val performedAt: Long = System.currentTimeMillis(),
+    // ─── 회당(per-rep) 결과 직렬화 (운동 기록 동그라미 화면용) ───
+    //   근력 비양방: "M;S=O|상체 기울임|O|…"   (O=초록=오류無, 라벨=주황 사유)
+    //   근력 양방:   "M;L=…;R=…"               (좌/우 각각 한 줄)
+    //   균형(#8):    "B;L=<좌초>;R=<우초>"       (좌/우 유지시간, 초)
+    //   빈 문자열 "" = 이 기능 이전 기록(상세 없음 → 흐리게 표시).
+    val repResults: String = "",
+    // 이 기록에서 진급이 발생했으면 진급 메시지를 저장(빈 문자열 = 진급 아님).
+    // 운동 기록 동그라미 화면에서 해당 회차 카드에 "🎉 진급!" 배지로 표시.
+    val promotedLabel: String = ""
 )

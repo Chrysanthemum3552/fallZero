@@ -398,6 +398,29 @@
             android:textSize="18sp"
             android:textColor="#FFA726"
             app:strokeColor="#FFA726"
+            android:layout_marginBottom="12dp" />
+
+        <!-- 시연용: 진급 시연 더미 삽입 (각 운동 깨끗한 더미 2개 + 진급단계 1 리셋) -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_insert_dummy"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="시연용 더미 2개씩 삽입"
+            android:textSize="18sp"
+            android:textColor="#42A5F5"
+            app:strokeColor="#42A5F5"
+            android:layout_marginBottom="6dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="모든 운동에 '깨끗한 완료' 기록을 2개씩 넣고 진급단계를 1로 초기화합니다. 시연 당일 각 운동을 1번만 깨끗이 하면 진급이 표시됩니다."
+            android:breakStrategy="simple"
+            android:hyphenationFrequency="none"
+            android:textSize="14sp"
+            android:textColor="@color/text_secondary"
+            android:lineSpacingExtra="2dp"
             android:layout_marginBottom="32dp" />
 
         <View

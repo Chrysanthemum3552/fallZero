@@ -1,55 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 1 페이지 = 1 record. width는 어댑터에서 RecyclerView 폭에 맞게 강제 설정. -->
+<!-- 1 페이지 = 1 record. 회당 동그라미. width는 어댑터에서 RecyclerView 폭에 맞게 강제 설정. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:paddingStart="16dp"
-    android:paddingEnd="16dp">
+    android:paddingEnd="16dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="8dp">
 
-    <!-- 점수 + 날짜 + 등급 -->
-    <LinearLayout
+    <!-- 진급 발생 회차 배지 (promotedLabel 있을 때만) -->
+    <TextView
+        android:id="@+id/tv_promoted"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#1B5E20"
+        android:background="#FFD54F"
+        android:padding="6dp"
+        android:gravity="center"
+        android:layout_marginBottom="6dp"
+        android:visibility="gone"
+        tools:visibility="visible"
+        tools:text="🎉 축하해요!&#10;발뒤꿈치 들기가 2세트로 진급했어요." />
 
-        <TextView
-            android:id="@+id/tv_score"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:textColor="@color/text_primary"
-            tools:text="82점" />
+    <TextView
+        android:id="@+id/tv_date"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textColor="@color/text_secondary"
+        tools:text="2026-06-05 (목)" />
 
-        <TextView
-            android:id="@+id/tv_grade_date"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:textSize="13sp"
-            android:textColor="@color/text_secondary"
-            android:layout_marginStart="12dp"
-            android:breakStrategy="simple"
-            android:hyphenationFrequency="none"
-            tools:text="🟡 보통이에요\n2026-05-14" />
-    </LinearLayout>
+    <!-- 동그라미 줄(들) — 어댑터에서 프로그램으로 추가 (비양방 1줄, 양방 2줄) -->
+    <LinearLayout
+        android:id="@+id/container_rows"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="8dp" />
 
-    <View
+    <TextView
+        android:id="@+id/tv_reasons"
         android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="@color/text_secondary"
-        android:alpha="0.2"
-        android:layout_marginTop="8dp"
-        android:layout_marginBottom="8dp" />
-
-    <include layout="@layout/inc_ability_row" android:id="@+id/row_completion" />
-    <include layout="@layout/inc_ability_row" android:id="@+id/row_form" />
-    <include layout="@layout/inc_ability_row" android:id="@+id/row_rom" />
-    <include layout="@layout/inc_ability_row" android:id="@+id/row_consistency" />
-    <include layout="@layout/inc_ability_row" android:id="@+id/row_speed" />
-    <include layout="@layout/inc_ability_row" android:id="@+id/row_time" />
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:textColor="@color/text_primary"
+        android:lineSpacingMultiplier="1.3"
+        android:layout_marginTop="10dp"
+        tools:text="🟢 초록 8 · 🟠 주황 2&#10;지적: 3회 상체 기울임 · 7회 골반 기울임" />
 
 </LinearLayout>

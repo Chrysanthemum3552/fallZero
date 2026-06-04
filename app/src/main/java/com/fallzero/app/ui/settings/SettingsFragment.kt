@@ -12,6 +12,8 @@ import androidx.navigation.fragment.findNavController
 import androidx.work.WorkManager
 import com.fallzero.app.R
 import com.fallzero.app.data.db.FallZeroDatabase
+import com.fallzero.app.data.db.entity.ExerciseRecord
+import com.fallzero.app.data.db.entity.TrainingSession
 import com.fallzero.app.databinding.FragmentSettingsBinding
 import com.fallzero.app.util.DisplayPrefs
 import com.fallzero.app.util.TTSManager
@@ -152,6 +154,30 @@ class SettingsFragment : Fragment() {
                 .show()
         }
 
+        // 시연용 더미 삽입 — 각 운동에 깨끗한 완료 기록 2개 + 모든 진급단계 1 리셋.
+        // 진급 규칙이 "최근 3회 모두 깨끗한 완료"이므로, 더미 2개를 미리 넣어두면
+        // 시연 당일 각 운동을 1번만 깨끗이 수행해도 진급(축하)이 표시된다.
+        binding.btnInsertDummy.setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("시연용 더미 삽입")
+                .setMessage("모든 운동에 '깨끗한 완료' 더미 기록을 2개씩 추가하고, 모든 진급 단계를 1로 초기화합니다.\n\n시연 당일 각 운동을 1번만 깨끗이 수행하면 진급이 표시됩니다.")
+                .setPositiveButton("삽입") { _, _ ->
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        insertDemoDummies(db, userId)
+                        prefs.edit().apply {
+                            remove("current_set_level")
+                            for (exId in 1..7) remove("set_level_ex_$exId")
+                            apply()
+                        }
+                        Toast.makeText(requireContext(),
+                            "더미 2개씩 삽입 완료 · 진급단계 1로 초기화. 이제 각 운동을 1번만 깨끗이 하면 진급해요.",
+                            Toast.LENGTH_LONG).show()
+                    }
+                }
+                .setNegativeButton("취소", null)
+                .show()
+        }
+
         // 현재 사용 중인 MediaPipe 모델 표시
         binding.tvPoseModel.text = buildPoseModelLabel()
 
@@ -171,6 +197,48 @@ class SettingsFragment : Fragment() {
                 val b = _binding ?: return@speak
                 val elapsedMs = System.currentTimeMillis() - ttsStartMs
                 b.tvTtsResult.text = "결과: %.2f초".format(elapsedMs / 1000f)
+            }
+        }
+    }
+
+    /**
+     * 시연용 더미 기록 삽입. 8개 운동 각각 "깨끗한 완료"(목표 달성 + 오류 0, 모두 초록) 기록 2개씩.
+     * performedAt을 현재보다 살짝 과거(now-2s, now-1s)로 박아, 이후의 실제 1회가 가장 최신이 되어
+     * "최근 3회 = 더미2 + 실연1 모두 깨끗" → 진급이 발생하게 한다.
+     */
+    private suspend fun insertDemoDummies(db: FallZeroDatabase, userId: Int) {
+        val now = System.currentTimeMillis()
+        val sessionId = db.sessionDao().insertSession(
+            TrainingSession(userId = userId, startedAt = now - 3000, completedAt = now - 1000, isCompleted = true)
+        ).toInt()
+        val tenGreen = List(10) { "O" }.joinToString("|")  // 10회 모두 초록
+        for (exId in 1..8) {
+            val bilateral = exId in setOf(1, 2, 3)
+            val balance = exId == 8
+            val target = when { balance -> 1; bilateral -> 20; else -> 10 }
+            val repResults = when {
+                balance -> "B;L=10;R=10"                 // 균형: 좌/우 10초 유지
+                bilateral -> "M;L=$tenGreen;R=$tenGreen" // 양방: 좌/우 각 10회 초록
+                else -> "M;S=$tenGreen"                  // 비양방: 10회 초록
+            }
+            for (k in 0 until 2) {
+                db.sessionDao().insertRecord(
+                    ExerciseRecord(
+                        sessionId = sessionId,
+                        exerciseId = exId,
+                        setLevel = 1,
+                        targetCount = target,
+                        achievedCount = target,
+                        errorCount = 0,
+                        qualityScore = 100,
+                        completionScore = 100,
+                        formScore = 100,
+                        romScore = 100,
+                        consistencyScore = 100,
+                        repResults = repResults,
+                        performedAt = now - (2000L - k * 1000L)  // k=0 → now-2000, k=1 → now-1000
+                    )
+                )
             }
         }
     }

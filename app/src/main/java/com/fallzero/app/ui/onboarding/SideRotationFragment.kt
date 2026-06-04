@@ -97,7 +97,7 @@ class SideRotationFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener
         val rotateTts = step.subtitle.replace("\n", " ").ifEmpty {
             "이제 측면 운동입니다. 옆으로 90도 돌아주세요."
         }
-        val ttsText = if (pendingMsg != null) "$pendingMsg $rotateTts" else rotateTts
+        val ttsText = if (pendingMsg != null) "${pendingMsg.replace("\n", " ")} $rotateTts" else rotateTts
         ttsManager?.speak(ttsText)
 
         // 사용자 이전 설정 복원

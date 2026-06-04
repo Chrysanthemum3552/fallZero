@@ -749,14 +749,19 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                         }
                         is ExerciseViewModel.ExerciseUiState.Completed -> {
                             if (hasNavigated) return@collect
-                            if (state.autoEndedByInactivity) Toast.makeText(requireContext(),
-                                "동작이 감지되지 않아 다음 단계로 넘어갑니다.", Toast.LENGTH_LONG).show()
-                            state.progressionResult?.let { result ->
-                                Toast.makeText(requireContext(), result.message, Toast.LENGTH_LONG).show()
-                                requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-                                    .edit().putString("pending_progression_msg", result.message).apply()
+                            if (!SessionFlow.isFullExerciseSession) {
+                                // 개별 운동: 완료/축하 오버레이 → 음성 끝나면 홈. (풀세션은 아래 기존 동작 그대로 유지)
+                                showIndividualCompleteOverlay(state)
+                            } else {
+                                if (state.autoEndedByInactivity) Toast.makeText(requireContext(),
+                                    "동작이 감지되지 않아 다음 단계로 넘어갑니다.", Toast.LENGTH_LONG).show()
+                                state.progressionResult?.let { result ->
+                                    Toast.makeText(requireContext(), result.message, Toast.LENGTH_LONG).show()
+                                    requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+                                        .edit().putString("pending_progression_msg", result.message).apply()
+                                }
+                                navigateNext()
                             }
-                            navigateNext()
                         }
                     }
                 }
@@ -836,6 +841,46 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
         }
         ttsManager?.speak("오늘 운동을 모두 마치셨어요. 정말 수고하셨어요.") { goHome() }
         b.root.postDelayed({ goHome() }, 4500L)
+    }
+
+    /**
+     * 개별 운동(단일 실행) 완료 시 — 진급했으면 축하창, 아니면 완료/격려창을 띄우고
+     * 음성 안내가 끝나면 홈으로 이동. (풀세션은 showSessionCompleteOverlay가 따로 담당하므로 호출되지 않음)
+     */
+    private fun showIndividualCompleteOverlay(state: ExerciseViewModel.ExerciseUiState.Completed) {
+        val b = _binding ?: return
+        hasNavigated = true
+        cleanupCamera()
+        userAwayCheckJob?.cancel(); pauseAnnounceJob?.cancel()
+        b.guidanceOverlay.visibility = View.GONE
+        b.pauseOverlay.visibility = View.GONE
+
+        val promo = state.progressionResult
+        val speakText: String
+        if (promo != null) {
+            // 진급 — 축하 (기존 ProgressionResult.message 재사용)
+            b.tvSessionCompleteTitle.text = promo.message
+            b.tvSessionCompleteSubtitle.text = "고생하셨어요!"
+            speakText = promo.message.replace("\n", " ")
+        } else {
+            // 미진급 — 완료 격려
+            b.tvSessionCompleteTitle.text = "${state.exerciseName} 운동을 완료하였습니다"
+            b.tvSessionCompleteSubtitle.text = "고생하셨어요."
+            speakText = "${state.exerciseName} 운동을 완료하였습니다. 고생하셨어요."
+        }
+        b.sessionCompleteOverlay.visibility = View.VISIBLE
+
+        var navigated = false
+        val goHome = {
+            if (!navigated) {
+                navigated = true
+                SessionFlow.reset()
+                if (_binding != null && isAdded) findNavController().navigate(R.id.action_global_home)
+            }
+        }
+        ttsManager?.speak(speakText) { goHome() }
+        // 안전장치: 음성 콜백 누락 대비 (정상 시엔 콜백이 먼저)
+        b.root.postDelayed({ goHome() }, 8000L)
     }
 
     private fun abortToHome() {

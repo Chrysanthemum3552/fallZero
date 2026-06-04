@@ -44,7 +44,8 @@ class RestFragment : Fragment() {
         if (pendingProgressionMsg != null) {
             prefs.edit().remove("pending_progression_msg").apply()
             binding.tvTitle.text = "축하해요!"
-            binding.tvSubtitle.text = pendingProgressionMsg
+            // 메시지는 "축하해요!\n…진급했어요." 형식 — title이 이미 "축하해요!"라 subtitle은 개행 뒷부분만.
+            binding.tvSubtitle.text = pendingProgressionMsg.substringAfter("\n")
         } else {
             binding.tvTitle.text = step.title.ifEmpty { "고생하셨어요!" }
             binding.tvSubtitle.text = step.subtitle.ifEmpty { "잠시 쉬었다 갈까요?" }
@@ -56,7 +57,7 @@ class RestFragment : Fragment() {
 
         // 진급 안내는 휴식 멘트보다 앞에 — 한 호흡에 발화.
         val openingTts = if (pendingProgressionMsg != null) {
-            "$pendingProgressionMsg ${seconds}초만 쉬었다 갈게요."
+            "${pendingProgressionMsg.replace("\n", " ")} ${seconds}초만 쉬었다 갈게요."
         } else {
             "고생하셨어요. ${seconds}초만 쉬었다 갈게요."
         }

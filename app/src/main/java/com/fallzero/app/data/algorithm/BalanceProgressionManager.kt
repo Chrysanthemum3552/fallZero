@@ -18,23 +18,8 @@ import com.fallzero.app.data.db.entity.ExerciseRecord
  */
 object BalanceProgressionManager {
 
-    /**
-     * ⚠ 시연용 완화 패치 — true이면 직전 운동 1회만으로 "목표 달성 + 자세 오류 0회" 만족 시 즉시 stage 진급.
-     * 3일 연속, 흔들림 게이트는 모두 우회. 시연 종료 후 반드시 false로 되돌릴 것.
-     * (ProgressionManager.DEMO_MODE 도 동일하게 토글.)
-     */
-    private const val DEMO_MODE = true
-
-    init {
-        if (DEMO_MODE) {
-            android.util.Log.w("Progression",
-                "⚠ DEMO_MODE=true (Balance) — 진급 조건 완화 활성. 시연 후 false로 되돌릴 것!")
-        }
-    }
-
-    /** 흔들림 최대 — sway/threshold 평균이 이 값 이하여야 안정 성공으로 인정.
-     *  BalanceEngine.balanceWobble은 0~1+ 범위 (1.0 = 임계값 근처 평균). 0.70이면 상당히 안정. */
-    private const val MAX_WOBBLE = 0.70f
+    /** 진급에 필요한 연속 "깨끗한 완료" 횟수. (ProgressionManager와 동일 규칙) */
+    const val REQUIRED_CLEAN_STREAK = 3
 
     data class BalanceLevel(
         val stage: Int,
@@ -67,34 +52,15 @@ object BalanceProgressionManager {
     }
 
     /**
-     * 균형 운동 단계 진급 판단 (PDF §9).
-     * 3일 연속 다음 조건을 모두 충족 → 다음 stage:
-     *   1. 목표 시간 달성 (achievedCount ≥ targetCount, 즉 1)
-     *   2. 자세 오류 0회
-     *   3. 흔들림(balanceWobble) ≤ MAX_WOBBLE
+     * 균형 운동 단계 진급 판단 (2026-06 개정 — ProgressionManager와 동일 규칙).
+     * 해당 운동의 가장 최근 3개 기록이 모두 "깨끗한 완료"이면 다음 stage로 진급:
+     *   · 깨끗한 완료 = 목표 시간 달성(achievedCount ≥ targetCount) AND 자세 오류 0회(errorCount == 0)
+     *   날짜(연속일)는 따지지 않음. 흔들림 게이트도 제거(완료+오류0만으로 판정).
      * @param records 운동 #8의 기록 목록 (최신순 정렬 권장)
      */
     fun shouldProgressStage(records: List<ExerciseRecord>): Boolean {
-        if (DEMO_MODE) {
-            val latest = records.maxByOrNull { it.performedAt } ?: return false
-            return latest.achievedCount >= latest.targetCount && latest.errorCount == 0
-        }
-
-        if (records.size < 3) return false
-        val byDay = mutableMapOf<Long, ExerciseRecord>()
-        for (r in records.sortedByDescending { it.performedAt }) {
-            val dayKey = r.performedAt / (24 * 60 * 60 * 1000L)
-            if (!byDay.containsKey(dayKey)) byDay[dayKey] = r
-            if (byDay.size == 3) break
-        }
-        if (byDay.size < 3) return false
-        val sortedDays = byDay.keys.sorted()
-        val isConsecutive = sortedDays[1] - sortedDays[0] == 1L && sortedDays[2] - sortedDays[1] == 1L
-        if (!isConsecutive) return false
-        return byDay.values.all {
-            it.achievedCount >= it.targetCount &&
-            it.errorCount == 0 &&
-            it.balanceWobble <= MAX_WOBBLE
-        }
+        if (records.size < REQUIRED_CLEAN_STREAK) return false
+        val recent = records.sortedByDescending { it.performedAt }.take(REQUIRED_CLEAN_STREAK)
+        return recent.all { it.achievedCount >= it.targetCount && it.errorCount == 0 }
     }
 }

@@ -5,41 +5,29 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.LinearLayout
-import android.widget.ProgressBar
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.activityViewModels
-import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.PagerSnapHelper
+import androidx.recyclerview.widget.RecyclerView
 import com.fallzero.app.R
-import com.fallzero.app.data.algorithm.BalanceProgressionManager
 import com.fallzero.app.data.SessionFlow
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.data.db.entity.ExerciseRecord
-import com.fallzero.app.data.repository.PRBRepository
 import com.fallzero.app.databinding.FragmentReportBinding
-import com.fallzero.app.ui.exam.SimpleChartView
-import com.fallzero.app.viewmodel.ReportViewModel
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
+/**
+ * 운동 기록 화면 — 운동별 "회당 동그라미"만 표시.
+ * 🟢 정확히 수행 / 🟠 지적받음(+사유). 양방은 좌/우 2줄, 균형(#8)은 유지시간(초).
+ * 운동당 최근 5회를 좌우 스와이프로 확인.
+ */
 class ReportFragment : Fragment() {
 
     private var _binding: FragmentReportBinding? = null
     private val binding get() = _binding!!
-    private val viewModel: ReportViewModel by activityViewModels()
-
-    private val exerciseNames = mapOf(
-        1 to "앉아서 무릎 펴기", 2 to "옆으로 다리 들기", 3 to "뒤로 무릎 굽히기",
-        4 to "발뒤꿈치 들기", 5 to "발끝 들기", 6 to "무릎 살짝 굽히기",
-        7 to "의자에서 일어서기", 8 to "한 발로 서기"
-    )
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -51,135 +39,41 @@ class ReportFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
-        binding.btnBack.setOnClickListener {
-            findNavController().navigateUp()
-        }
-
-        loadProgressionStatus()
-        observePage2()
-        observePage3()
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.page1.collect { data ->
-                    val b = _binding ?: return@collect
-                    data ?: return@collect
-                    val latest = data.latestResult
-                    val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.KOREAN)
-
-                    if (latest == null) {
-                        b.tvLatestRisk.text = getString(R.string.report_no_data)
-                        b.tvLatestRisk.setTextColor(0xFF424242.toInt())
-                        return@collect
-                    }
-                    val isHighRisk = latest.finalRiskLevel == "high"
-                    b.tvLatestRisk.text = if (isHighRisk) "낙상 위험군" else "낙상 안전군"
-                    b.tvLatestRisk.setBackgroundResource(
-                        if (isHighRisk) R.drawable.bg_risk_level else R.drawable.bg_risk_low
-                    )
-                    // text_primary가 노란색이라 옅은 배경 위에서 안 보임 → 위험/안전별 진한 색으로 덮어쓰기.
-                    b.tvLatestRisk.setTextColor(
-                        if (isHighRisk) 0xFFC62828.toInt() else 0xFF2E7D32.toInt()
-                    )
-                    b.tvChairDetail.text =
-                        "의자 일어서기: ${latest.chairStandCount}회 (기준 ${latest.chairStandNorm}회)" +
-                                "\n검사일: ${dateFormat.format(Date(latest.performedAt))}"
-                    b.tvBalanceDetail.text =
-                        "균형 검사: ${latest.balanceStageReached}단계 · 일렬 ${latest.tandemTimeSec.toInt()}초"
-                    val first = data.firstResult
-                    b.tvImprovement.text = when {
-                        first == null || first.id == latest.id -> "첫 번째 검사 결과입니다."
-                        data.isImproved -> "이전 검사 대비 위험군에서 안전군으로 개선되었습니다!"
-                        latest.finalRiskLevel == first.finalRiskLevel -> "이전 검사와 동일한 판정입니다."
-                        else -> "이전 검사 대비 지속적으로 모니터링이 필요합니다."
-                    }
-                }
-            }
-        }
-
-        loadExerciseQualityGraph()
+        binding.btnBack.setOnClickListener { findNavController().navigateUp() }
+        loadAbilityCards()
     }
 
-    /** "꾸준한 운동" 섹션 — 주간 이행률 + 최근 28일 세션 카운트 + 최근 세션 날짜 목록. */
-    private fun observePage2() {
+    /** 8개 운동 각각 카드 1장 — 카드 안에서 좌우 스와이프로 최근 5개 record를 동그라미로 확인. */
+    private fun loadAbilityCards() {
         viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.page2.collect { data ->
-                    val b = _binding ?: return@collect
-                    data ?: return@collect
-                    b.tvWeeklyAdherence.text = data.weeklyAdherenceText
-                    b.tvTotalSessions.text = "최근 28일 총 ${data.totalSessions}회 완료"
-                    if (data.recentSessions.isEmpty()) {
-                        b.tvRecentSessions.text = "아직 운동 기록이 없어요"
-                    } else {
-                        val dateFormat = SimpleDateFormat("MM/dd (E)", Locale.KOREAN)
-                        val sb = StringBuilder("최근 운동:\n")
-                        data.recentSessions.take(7).forEach { session ->
-                            sb.append("• ${dateFormat.format(Date(session.startedAt))}\n")
-                        }
-                        b.tvRecentSessions.text = sb.toString().trimEnd()
-                    }
-                }
+            val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
+            val userId = prefs.getInt("user_id", 0)
+            val db = FallZeroDatabase.getInstance(requireContext())
+
+            val b = _binding ?: return@launch
+            val container = b.layoutAbilityCards
+            container.removeAllViews()
+            val inflater = LayoutInflater.from(requireContext())
+
+            SessionFlow.EXERCISE_DISPLAY_ORDER.forEach { exerciseId ->
+                val records = db.sessionDao().getRecentRecordsByExercise(userId, exerciseId, 5)
+                val section = inflater.inflate(R.layout.item_ability_section, container, false)
+                bindAbilitySection(section, exerciseId, records)
+                container.addView(section)
             }
         }
     }
 
-    private fun observePage3() {
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.page3.collect { data ->
-                    val b = _binding ?: return@collect
-                    data ?: return@collect
-                    loadAbilityDetails(b)
-                }
-            }
-        }
-    }
-
-    /**
-     * 8개 운동 각각 카드 1장 — 카드 안에서 좌우 스와이프로 최근 5개 record를 개별 확인.
-     * 평균이 아니라 개별 세션 기록을 그대로 보여줌.
-     */
-    private suspend fun loadAbilityDetails(b: FragmentReportBinding) {
-        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-        val userId = prefs.getInt("user_id", 0)
-        val db = FallZeroDatabase.getInstance(requireContext())
-        val prbRepo = PRBRepository(db.prbDao())
-
-        val container = b.layoutAbilityCards
-        container.removeAllViews()
-        val inflater = LayoutInflater.from(requireContext())
-
-        SessionFlow.EXERCISE_DISPLAY_ORDER.forEach { exerciseId ->
-            val records = db.sessionDao().getRecentRecordsByExercise(userId, exerciseId, 5)
-            val prb = prbRepo.getLatestPRB(userId, exerciseId)
-            val section = inflater.inflate(R.layout.item_ability_section, container, false)
-            bindAbilitySection(section, exerciseId, records, prb?.prbValue)
-            container.addView(section)
-        }
-    }
-
-    /** 운동 1개 섹션 — header(이름+PRB) + 좌우 스와이프 RecyclerView(record당 1페이지) + 페이지 인디케이터. */
+    /** 운동 1개 섹션 — header(이름) + 좌우 스와이프 RecyclerView(record당 1페이지) + 페이지 인디케이터. */
     private fun bindAbilitySection(
         section: View,
         exerciseId: Int,
-        records: List<ExerciseRecord>,
-        prbValue: Float?
+        records: List<ExerciseRecord>
     ) {
-        val name = exerciseNames[exerciseId] ?: "운동 $exerciseId"
-        section.findViewById<TextView>(R.id.tv_ex_name).text = name
-
-        val tvPrb = section.findViewById<TextView>(R.id.tv_prb)
-        if (prbValue != null) {
-            val unit = when (exerciseId) { in 1..6 -> "°"; 7 -> "%"; else -> "초" }
-            tvPrb.text = "기준값: ${"%.1f".format(prbValue)}$unit"
-        } else {
-            tvPrb.text = "기준값: 측정 전"
-        }
+        section.findViewById<TextView>(R.id.tv_ex_name).text = SessionFlow.exerciseName(exerciseId)
 
         val tvEmpty = section.findViewById<TextView>(R.id.tv_empty)
-        val rv = section.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rv_records)
+        val rv = section.findViewById<RecyclerView>(R.id.rv_records)
         val tvPage = section.findViewById<TextView>(R.id.tv_page_indicator)
 
         if (records.isEmpty()) {
@@ -194,23 +88,14 @@ class ReportFragment : Fragment() {
         rv.visibility = View.VISIBLE
         tvPage.visibility = View.VISIBLE
 
-        // 시간 효율 baseline — 이 운동의 최근 records 중 성공한 것들의 평균 durationMs.
-        val baselineMs: Float? = records
-            .filter { it.achievedCount >= it.targetCount && it.durationMs > 0L }
-            .takeIf { it.size >= 3 }
-            ?.map { it.durationMs.toFloat() }?.average()?.toFloat()
-
-        rv.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(
-            requireContext(),
-            androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL,
-            false
+        rv.layoutManager = LinearLayoutManager(
+            requireContext(), LinearLayoutManager.HORIZONTAL, false
         )
-        // 스와이프 시 1 페이지씩 스냅
-        // 기존 SnapHelper가 있으면 제거 후 새로 부착 (재바인딩 시 중복 부착 방지)
+        // 스와이프 시 1 페이지씩 스냅 (재바인딩 시 중복 부착 방지)
         rv.onFlingListener = null
-        androidx.recyclerview.widget.PagerSnapHelper().attachToRecyclerView(rv)
+        PagerSnapHelper().attachToRecyclerView(rv)
 
-        rv.adapter = AbilityRecordAdapter(records, baselineMs, isBalance = exerciseId == 8)
+        rv.adapter = AbilityRecordAdapter(records, exerciseId)
 
         fun updatePageIndicator(currentPos: Int) {
             // records는 최신순(내림차순)이라 position 0 = 가장 최근.
@@ -218,105 +103,17 @@ class ReportFragment : Fragment() {
         }
         updatePageIndicator(0)
 
-        // 스크롤이 멈췄을 때 가운데에 있는 페이지 위치를 업데이트.
         rv.clearOnScrollListeners()
-        rv.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
-            override fun onScrollStateChanged(recyclerView: androidx.recyclerview.widget.RecyclerView, newState: Int) {
-                if (newState == androidx.recyclerview.widget.RecyclerView.SCROLL_STATE_IDLE) {
-                    val lm = recyclerView.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager ?: return
+        rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrollStateChanged(recyclerView: RecyclerView, newState: Int) {
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    val lm = recyclerView.layoutManager as? LinearLayoutManager ?: return
                     val pos = lm.findFirstCompletelyVisibleItemPosition().takeIf { it >= 0 }
                         ?: lm.findFirstVisibleItemPosition()
                     if (pos >= 0) updatePageIndicator(pos)
                 }
             }
         })
-    }
-
-    /** 점수 → 텍스트 색상. 85+ 녹색, 65+ 노랑(text_primary 유지), 그 아래 빨강. */
-    private fun scoreColor(score: Int): Int = when {
-        score >= 85 -> ContextCompat.getColor(requireContext(), R.color.success)
-        score >= 65 -> ContextCompat.getColor(requireContext(), R.color.text_primary)
-        else -> ContextCompat.getColor(requireContext(), R.color.error)
-    }
-
-    /** 속도 유지력 점수 (QualityScorer.calcSpeedMaintenance와 동일 식). */
-    private fun calcSpeedScore(speedLossRate: Float): Int =
-        ((1f - speedLossRate) * 100f).toInt().coerceIn(0, 100)
-
-    /** 시간 효율 점수 (QualityScorer.calcTimeEfficiency와 동일 식). */
-    private fun calcTimeScore(durationMs: Long, baselineMs: Float?): Int {
-        if (baselineMs == null || baselineMs <= 0f || durationMs <= 0L) return 100
-        val ratio = durationMs.toFloat() / baselineMs
-        if (ratio <= 1.0f) return 100
-        return (100f - (ratio - 1.0f) * 80f).toInt().coerceIn(0, 100)
-    }
-
-    /** 현재 진급 단계 표시 — 균형 운동(stage 1~5)과 근력 운동(1세트/2세트) 모두. */
-    private fun loadProgressionStatus() {
-        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-        val balanceStage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
-        val balanceLevel = BalanceProgressionManager.getLevel(balanceStage)
-        binding.tvBalanceProgression.text =
-            "🟢 한 발 서기: ${balanceLevel.description} ${balanceLevel.targetTimeSec.toInt()}초 (${balanceStage}/5단계)"
-
-        // 근력 운동(#1~#7) 세트 단계 — 모두 1세트면 "전체 1세트", 일부 진급 시 운동명 나열
-        val advanced = (1..7).filter { id -> prefs.getInt("set_level_ex_$id", 1) >= 2 }
-        binding.tvStrengthProgression.text = if (advanced.isEmpty()) {
-            "💪 근력 운동: 모두 1세트"
-        } else {
-            val names = advanced.joinToString(", ") { SessionFlow.exerciseName(it) }
-            "💪 2세트 진급: $names\n그 외 운동: 1세트"
-        }
-    }
-
-    /**
-     * 운동 품질 점수 꺾은선 그래프 (최근 5회 세션 평균).
-     * 새 6지표(달성·자세·ROM·일관성·속도유지·시간효율)의 산술 평균을 record별로 계산하고,
-     * session 내 모든 record의 그 평균을 다시 평균. legacy qualityScore(가중합) 미사용.
-     */
-    private fun loadExerciseQualityGraph() {
-        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-        val userId = prefs.getInt("user_id", 0)
-        val db = FallZeroDatabase.getInstance(requireContext())
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            val sessions = db.sessionDao().getRecentCompletedSessions(userId, 5)
-            val b = _binding ?: return@launch
-            val chart = b.root.findViewById<SimpleChartView>(R.id.chart_exercise_quality)
-
-            if (sessions.isEmpty()) return@launch
-
-            // 시간 효율 baseline은 운동별로 다름. 그래프에 등장하는 운동들에 대해 미리 계산해 cache.
-            val allRecords = sessions.flatMap { db.sessionDao().getRecordsBySession(it.id) }
-            val exerciseIds = allRecords.map { it.exerciseId }.toSet()
-            val baselineCache: Map<Int, Float?> = exerciseIds.associateWith { exerciseId ->
-                val recs = db.sessionDao().getRecentRecordsByExercise(userId, exerciseId, 30)
-                    .filter { it.achievedCount >= it.targetCount && it.durationMs > 0L }
-                if (recs.size >= 3) recs.map { it.durationMs.toFloat() }.average().toFloat() else null
-            }
-
-            // 세션별 6지표 산술평균 계산 (오래된 순)
-            val scores = sessions.reversed().mapNotNull { session ->
-                val records = db.sessionDao().getRecordsBySession(session.id)
-                if (records.isEmpty()) null
-                else records.map { rec ->
-                    val baseline = baselineCache[rec.exerciseId]
-                    val sixDimAvg = (
-                        rec.completionScore +
-                        rec.formScore +
-                        rec.romScore +
-                        rec.consistencyScore +
-                        calcSpeedScore(rec.speedLossRate) +
-                        calcTimeScore(rec.durationMs, baseline)
-                    ) / 6f
-                    sixDimAvg
-                }.average().toFloat()
-            }
-
-            if (scores.isNotEmpty()) {
-                chart?.setData(scores, "#FFFF00")
-            }
-        }
     }
 
     override fun onDestroyView() {

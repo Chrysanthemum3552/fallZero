@@ -75,6 +75,15 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
     private var exerciseStartMs: Long = 0L
     private val allRepTimestamps = mutableListOf<Long>()
 
+    // 회당(per-rep) 마크 — 운동 기록 동그라미용. null=초록(자세오류無), non-null=주황 사유(짧은 라벨).
+    // bilateral은 좌/우 분리, 비양방은 single. startRightSide()에서 reset되지 않고 운동 끝까지 누적.
+    private val repMarksLeft = mutableListOf<String?>()
+    private val repMarksRight = mutableListOf<String?>()
+    private val repMarksSingle = mutableListOf<String?>()
+    // 균형(#8) 좌/우 유지시간(초)
+    private var balanceLeftHoldSec = 0f
+    private var balanceRightHoldSec = 0f
+
     fun initExercise(engine: ExerciseEngine, exerciseId: Int, setLevel: Int, existingSessionId: Long = -1L) {
         // 초기화 race 방지: setPRB 호출 전까지 frame 처리 차단
         isReady = false
@@ -91,6 +100,11 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         currentRepPeak = Float.NaN
         lastRepCount = 0
         allRepTimestamps.clear()
+        repMarksLeft.clear()
+        repMarksRight.clear()
+        repMarksSingle.clear()
+        balanceLeftHoldSec = 0f
+        balanceRightHoldSec = 0f
         // 운동 시작 시각 — completeExercise까지의 차이가 durationMs (PDF §6).
         // 안내 화면(measurementStarted=false) 동안도 포함되지만, 모든 사용자에 동일하게 적용되므로
         // 상대 비교(개인의 최근 안정 성공 평균 대비)에 영향 없음.
@@ -227,6 +241,14 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             // PDF §5 SpeedLossRate 계산용 — 각 카운트 시각 누적.
             // 양측 운동도 engine.reset() 영향 안 받음 (ViewModel이 직접 보관).
             allRepTimestamps.add(now)
+            // 회당 마크 적재 (운동 기록 동그라미용): 카운트 시점의 자세 오류를 짧은 라벨로. 없으면 null=초록.
+            val repReason = result.errorMessage?.let { shortErrorLabel(it) }
+            when {
+                !isBilateral -> repMarksSingle.add(repReason)
+                sidePhase == SidePhase.LEFT -> repMarksLeft.add(repReason)
+                sidePhase == SidePhase.RIGHT -> repMarksRight.add(repReason)
+                else -> Unit
+            }
         }
         lastRepCount = result.count
 
@@ -304,6 +326,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         when (sidePhase) {
             SidePhase.LEFT -> {
                 leftCompletedCount = engine.currentCount
+                if (currentExerciseId == 8) balanceLeftHoldSec = (engine as? BalanceEngine)?.bestHoldTimeSec ?: 0f
                 sidePhase = SidePhase.INTERSIDE_REST
                 _uiState.value = ExerciseUiState.SideSwitch(
                     exerciseName = engine.exerciseName,
@@ -315,6 +338,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             }
             SidePhase.RIGHT -> {
                 rightCompletedCount = engine.currentCount
+                if (currentExerciseId == 8) balanceRightHoldSec = (engine as? BalanceEngine)?.bestHoldTimeSec ?: 0f
                 isCompleted = true
                 completeExercise(engine)
             }
@@ -414,10 +438,18 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                 priorSuccess.map { it.durationMs.toFloat() }.average().toFloat()
             } else null
 
+            // 저장용 오류 횟수 — 회당 마크(좌+우 모두)의 주황 개수와 일치시켜 "동그라미 ↔ 진급 판정"을 정합화.
+            // (라이브 errorCount는 startRightSide에서 0으로 리셋되어 양방의 왼쪽 오류가 누락되므로 사용하지 않음.)
+            // #8 균형은 detectError 오류가 없어 라이브 errorCount(0)을 그대로 사용.
+            val savedErrorCount = if (currentExerciseId == 8) errorCount
+                else repMarksLeft.count { it != null } +
+                     repMarksRight.count { it != null } +
+                     repMarksSingle.count { it != null }
+
             val breakdown = QualityScorer.calculate(
                 achievedCount = totalAchieved,
                 targetCount = totalTarget,
-                errorCount = errorCount,
+                errorCount = savedErrorCount,
                 repMetrics = repPeakMetrics.toList(),
                 prbValue = prbForScorer,
                 metricIsDecreasing = currentExerciseId == 7,  // ChairStand: 작을수록 좋음 (D%)
@@ -428,14 +460,14 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                 durationMs = durationMs,
                 baselineDurationMs = baselineDurationMs
             )
-            sessionRepository.saveRecord(
+            val newRecordId = sessionRepository.saveRecord(
                 ExerciseRecord(
                     sessionId = currentSessionId.toInt(),
                     exerciseId = currentExerciseId,
                     setLevel = currentSetLevel,
                     targetCount = totalTarget,
                     achievedCount = totalAchieved,
-                    errorCount = errorCount,
+                    errorCount = savedErrorCount,
                     qualityScore = breakdown.totalScore,
                     completionScore = breakdown.completionScore,
                     formScore = breakdown.formScore,
@@ -444,13 +476,18 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                     avgMetricRatio = breakdown.avgMetricRatio,
                     durationMs = durationMs,
                     speedLossRate = speedLossRate,
-                    balanceWobble = balanceWobble
+                    balanceWobble = balanceWobble,
+                    repResults = serializeRepResults()
                 )
             )
             // PDF 개선 진급 알고리즘 — 기록 저장 후 즉시 평가. 단순한 실패는 무시(데이터 부족 등).
             val progressionResult = runCatching { evaluateProgression() }
                 .onFailure { android.util.Log.w("Progression", "evaluateProgression failed", it) }
                 .getOrNull()
+            // 진급이 발생했으면 방금 저장한 그 기록에 진급 표식 — 운동 기록 화면 "🎉 진급!" 배지용.
+            if (progressionResult != null) {
+                runCatching { sessionRepository.markRecordPromoted(newRecordId.toInt(), progressionResult.message) }
+            }
             _uiState.value = ExerciseUiState.Completed(
                 engine.exerciseName,
                 breakdown.totalScore,
@@ -499,7 +536,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                     isBalance = true,
                     previousLevel = currentSetLevel,
                     newLevel = nextStage,
-                    message = "축하해요! 균형 훈련이 ${nextDesc} 단계로 진급했어요."
+                    message = "축하해요!\n균형 훈련이 ${nextDesc} 단계로 진급했어요."
                 )
             } else {
                 android.util.Log.i("Progression", "Balance already at final stage ($currentSetLevel)")
@@ -517,7 +554,7 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                     isBalance = false,
                     previousLevel = currentEx,
                     newLevel = 2,
-                    message = "축하해요! $name${subjectParticle(name)} 2세트로 진급했어요."
+                    message = "축하해요!\n$name${subjectParticle(name)} 2세트로 진급했어요."
                 )
             }
             return null
@@ -559,6 +596,31 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         return ((firstSpeed - lastSpeed) / firstSpeed).toFloat().coerceAtLeast(0f)
     }
 
+    /** 자세 오류 원문 메시지 → 짧은 진단 라벨 (동그라미 옆 표시용). */
+    private fun shortErrorLabel(msg: String): String = when {
+        msg.contains("반대") -> "반대쪽 다리"
+        msg.contains("골반") && msg.contains("기울") -> "골반 기울임"
+        msg.contains("상체") -> "상체 기울임"
+        msg.contains("골반") && msg.contains("흔들") -> "골반 흔들림"
+        msg.contains("허벅지") -> "허벅지 들림"
+        msg.contains("무릎") && msg.contains("펴") -> "무릎 굽힘"
+        msg.contains("흔들") -> "몸 흔들림"
+        else -> "자세 오류"
+    }
+
+    /** 회당 마크를 ExerciseRecord.repResults 문자열로 직렬화 (포맷은 ExerciseRecord 주석 참고). */
+    private fun serializeRepResults(): String {
+        if (currentExerciseId == 8) {
+            return "B;L=%.0f;R=%.0f".format(balanceLeftHoldSec, balanceRightHoldSec)
+        }
+        fun enc(marks: List<String?>): String = marks.joinToString("|") { it ?: "O" }
+        return if (isBilateral) {
+            "M;L=${enc(repMarksLeft)};R=${enc(repMarksRight)}"
+        } else {
+            "M;S=${enc(repMarksSingle)}"
+        }
+    }
+
     fun debugIncrementCount() {
         val engine = currentEngine ?: return
         engine.debugForceCount()
@@ -598,6 +660,11 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         leftCompletedCount = 0
         rightCompletedCount = 0
         allRepTimestamps.clear()
+        repMarksLeft.clear()
+        repMarksRight.clear()
+        repMarksSingle.clear()
+        balanceLeftHoldSec = 0f
+        balanceRightHoldSec = 0f
         exerciseStartMs = 0L
         _uiState.value = ExerciseUiState.Idle
     }

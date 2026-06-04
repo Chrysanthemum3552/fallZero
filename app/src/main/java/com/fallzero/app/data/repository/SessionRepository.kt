@@ -30,6 +30,10 @@ class SessionRepository(private val sessionDao: SessionDao) {
     suspend fun saveRecord(record: ExerciseRecord): Long =
         sessionDao.insertRecord(record)
 
+    /** 진급이 발생한 기록에 진급 메시지 표식 (운동 기록 "🎉 진급!" 배지용). */
+    suspend fun markRecordPromoted(recordId: Int, label: String) =
+        sessionDao.markRecordPromoted(recordId, label)
+
     suspend fun getRecentCompletedSessions(userId: Int, limit: Int = 7): List<TrainingSession> =
         sessionDao.getRecentCompletedSessions(userId, limit)
 

@@ -98,7 +98,7 @@ class ChairRepositionFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListe
         val chairTts = step.subtitle.replace("\n", " ").ifEmpty {
             "이번엔 옆모습으로 의자에 앉으셔야 합니다. 카메라 옆에 의자를 두고 앉아주세요."
         }
-        val ttsText = if (pendingMsg != null) "$pendingMsg $chairTts" else chairTts
+        val ttsText = if (pendingMsg != null) "${pendingMsg.replace("\n", " ")} $chairTts" else chairTts
         ttsManager?.speak(ttsText)
 
         // 사용자 이전 카메라 설정 복원

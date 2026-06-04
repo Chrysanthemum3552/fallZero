@@ -38,14 +38,6 @@
                 android:breakStrategy="simple"
                 android:hyphenationFrequency="none"
                 tools:text="무릎 펴기" />
-
-            <TextView
-                android:id="@+id/tv_prb"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="13sp"
-                android:textColor="@color/text_secondary"
-                tools:text="개인 기준값: 72.3°" />
         </LinearLayout>
 
         <!-- 비어있을 때 (records 없음) — 가운데 안내. RecyclerView/page indicator는 GONE. -->
