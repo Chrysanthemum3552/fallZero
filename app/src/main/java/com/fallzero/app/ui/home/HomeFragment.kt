@@ -15,7 +15,6 @@ import com.fallzero.app.data.algorithm.BalanceProgressionManager
 import com.fallzero.app.databinding.FragmentHomeBinding
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.util.CastHelper
-import com.fallzero.app.util.ShareHelper
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -66,9 +65,6 @@ class HomeFragment : Fragment() {
         }
         binding.btnCastTv.setOnClickListener {
             CastHelper.openScreenCast(requireActivity())
-        }
-        binding.btnShareGuardian.setOnClickListener {
-            shareGuardianReport()
         }
 
         loadDashboard()
@@ -269,102 +265,6 @@ class HomeFragment : Fragment() {
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
         return cal.timeInMillis
-    }
-
-    private fun shareGuardianReport() {
-        val prefs = requireActivity().getSharedPreferences("fallzero_prefs", Context.MODE_PRIVATE)
-        val userId = prefs.getInt("user_id", 0)
-        val userName = prefs.getString("user_name", "사용자") ?: "사용자"
-        val db = FallZeroDatabase.getInstance(requireContext())
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            val latestExam = db.examResultDao().getLatestResult(userId)
-            val streak = calculateStreak(db, userId)
-            val todayStart = getTodayStartMillis()
-            val todayCompletedIds = db.sessionDao().getTodayCompletedExerciseIds(userId, todayStart).toSet()
-
-            val sessionRepo = com.fallzero.app.data.repository.SessionRepository(db.sessionDao())
-            val evals = com.fallzero.app.data.SessionFlow.EXERCISE_DISPLAY_ORDER.map { exId ->
-                val records = sessionRepo.getRecentRecordsByExercise(userId, exId, limit = 30)
-                val name = exerciseDisplayName(exId)
-                if (exId == 8) {
-                    val stage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
-                    com.fallzero.app.data.algorithm.ProgressionEvaluator.evaluateBalance(stage, records)
-                } else {
-                    val setLevel = prefs.getInt("set_level_ex_$exId", 1).coerceIn(1, 2)
-                    com.fallzero.app.data.algorithm.ProgressionEvaluator.evaluateStrength(exId, name, setLevel, records)
-                }
-            }
-
-            val riskLevel = when {
-                latestExam == null -> "검사 필요"
-                latestExam.finalRiskLevel == "high" -> "위험군"
-                else -> "비위험군"
-            }
-            val isHighRisk = latestExam?.let { it.finalRiskLevel == "high" }
-            val today = java.text.SimpleDateFormat("yyyy년 M월 d일", java.util.Locale.KOREA)
-                .format(java.util.Date())
-
-            val header = com.fallzero.app.util.GuardianReportRenderer.HeaderInfo(
-                userName = userName,
-                date = today,
-                riskLevel = riskLevel,
-                isHighRisk = isHighRisk,
-                streakDays = streak,
-                todayCompleted = todayCompletedIds.size,
-                todayTotal = 8
-            )
-
-            // 운동 이행 현황 — 캘린더(히트맵)용. 최근 4주를 덮도록 충분히 가져와 로컬 날짜로 변환.
-            val calSessions = db.sessionDao().getRecentCompletedSessions(userId, 60)
-            val weekStart = System.currentTimeMillis() - 7L * 24 * 60 * 60 * 1000L
-            val weekCount = calSessions.count { it.startedAt >= weekStart }
-            val dayKeyFormat = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.KOREA)
-            val exercisedDays = calSessions
-                .map { dayKeyFormat.format(java.util.Date(it.startedAt)) }
-                .toSet()
-            val adherence = com.fallzero.app.util.GuardianReportRenderer.AdherenceInfo(
-                streakDays = streak,
-                weekCount = weekCount,
-                todayCompleted = todayCompletedIds.size,
-                todayTotal = 8,
-                exercisedDays = exercisedDays
-            )
-
-            // 훈련 진급 단계 — 운동별 현재 단계를 구체적으로 나열 (전체 루틴 순서)
-            val progressionLines = SessionFlow.EXERCISE_DISPLAY_ORDER.map { id ->
-                if (id == 8) {
-                    val stage = prefs.getInt("current_set_level", 1).coerceIn(1, 5)
-                    val lvl = BalanceProgressionManager.getLevel(stage)
-                    "${SessionFlow.exerciseName(id)} — ${lvl.description} ${lvl.targetTimeSec.toInt()}초 (${stage}/5단계)"
-                } else {
-                    val set = prefs.getInt("set_level_ex_$id", 1).coerceIn(1, 2)
-                    "${SessionFlow.exerciseName(id)} — ${set}세트 / 최종 2세트"
-                }
-            }
-
-            // 1페이지: 이행 현황 + 진급 단계 + 최근 5회 추이 / 2페이지: 운동별 능력·진급 현황
-            val page1 = com.fallzero.app.util.GuardianReportRenderer.renderPage1(
-                header, adherence, progressionLines, evals
-            )
-            val page2 = com.fallzero.app.util.GuardianReportRenderer.renderPage2(header, evals)
-            ShareHelper.shareBitmaps(
-                requireActivity(), listOf(page1, page2),
-                "fallzero_report_${System.currentTimeMillis()}"
-            )
-        }
-    }
-
-    private fun exerciseDisplayName(id: Int): String = when (id) {
-        1 -> "앉아서 무릎 펴기"
-        2 -> "옆으로 다리 들기"
-        3 -> "뒤로 무릎 굽히기"
-        4 -> "발뒤꿈치 들기"
-        5 -> "발끝 들기"
-        6 -> "무릎 살짝 굽히기"
-        7 -> "의자에서 일어서기"
-        8 -> "한 발로 서서 균형 잡기"
-        else -> "운동 $id"
     }
 
     override fun onDestroyView() {

@@ -373,20 +373,6 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_share_guardian"
-                    android:layout_width="match_parent"
-                    android:layout_height="72dp"
-                    android:text="@string/home_share_guardian"
-                    android:textSize="22sp"
-                    android:textColor="@color/primary"
-                    android:layout_marginTop="14dp"
-                    app:backgroundTint="@color/surface"
-                    app:strokeColor="@color/primary"
-                    app:strokeWidth="2dp"
-                    app:cornerRadius="14dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_cast_tv"
                     android:layout_width="match_parent"
                     android:layout_height="72dp"

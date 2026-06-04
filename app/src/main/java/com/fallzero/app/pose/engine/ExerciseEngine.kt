@@ -64,12 +64,6 @@ interface ExerciseEngine {
      * 가이드 화면이 필요한 engine만 override.
      */
     fun getGuide(landmarks: List<NormalizedLandmark>): com.fallzero.app.ui.overlay.ExerciseGuide? = null
-
-    /**
-     * 균형 운동 #8 전용 — sway/threshold 평균 비율 (0~1+). 1에 가까울수록 임계값에 자주 닿았다 = 흔들림이 컸다.
-     * 균형 외 운동은 항상 0f. PDF §9 균형 안정성 게이트에서 사용.
-     */
-    val balanceWobble: Float get() = 0f
 }
 
 data class FrameResult(

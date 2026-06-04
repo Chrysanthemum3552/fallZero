@@ -8,12 +8,10 @@ import com.fallzero.app.data.SessionFlow
 import com.fallzero.app.data.algorithm.BalanceProgressionManager
 import com.fallzero.app.data.algorithm.PRBManager
 import com.fallzero.app.data.algorithm.ProgressionManager
-import com.fallzero.app.data.algorithm.QualityScorer
 import com.fallzero.app.data.db.FallZeroDatabase
 import com.fallzero.app.data.db.entity.ExerciseRecord
 import com.fallzero.app.data.repository.PRBRepository
 import com.fallzero.app.data.repository.SessionRepository
-import com.fallzero.app.pose.engine.BalanceEngine
 import com.fallzero.app.pose.engine.EngineState
 import com.fallzero.app.pose.engine.ExerciseEngine
 import com.fallzero.app.pose.engine.FrameResult
@@ -37,7 +35,6 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
     private var currentExerciseId: Int = 0
     private var currentSetLevel: Int = 1
     private var currentSessionId: Long = -1
-    private var errorCount = 0
     private var calibrationPrbSaved = false
     private var isCompleted = false
     private var currentPrb = 0f
@@ -64,16 +61,13 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
     // 사용자는 안내 멘트와 카운트다운 동안 자세를 잡을 시간을 확보 — 잘못된 동작이 측정되지 않음.
     @Volatile private var measurementStarted = false
 
-    // 다차원 품질 점수용 데이터 수집.
-    // currentRepPeak: NaN sentinel로 시작 → 첫 capture부터 정확히 추적 (ChairStand decreasing 대응)
-    private val repPeakMetrics = mutableListOf<Float>()
-    private var currentRepPeak: Float = Float.NaN
-    private var lastRepCount = 0
-
-    // PDF §5·§6 개선 진급 알고리즘용 — 운동 전체 duration과 rep별 timestamp 수집.
-    // bilateral 양측 운동도 ViewModel 레벨에서 누적되므로 reset 사이 손실 없음.
-    private var exerciseStartMs: Long = 0L
-    private val allRepTimestamps = mutableListOf<Long>()
+    // 단순 진급 룰용 — 반복별 음성피드백 발생 여부.
+    //   currentRepHadFeedback: 현재 진행 중인 반복(아직 카운트 미완료) 안에서 errorMessage 또는
+    //                          coachingCueMessage가 한 번이라도 검출됐는지.
+    //   allRepFeedbackFlags: 카운트가 확정된 시점에 currentRepHadFeedback을 push.
+    //                          true=피드백 발생, false=무피드백(잘 수행). 양측 운동은 좌→우 누적.
+    private var currentRepHadFeedback = false
+    private val allRepFeedbackFlags = mutableListOf<Boolean>()
 
     fun initExercise(engine: ExerciseEngine, exerciseId: Int, setLevel: Int, existingSessionId: Long = -1L) {
         // 초기화 race 방지: setPRB 호출 전까지 frame 처리 차단
@@ -84,17 +78,10 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         currentEngine = engine
         currentExerciseId = exerciseId
         currentSetLevel = setLevel
-        errorCount = 0
         calibrationPrbSaved = false
         isCompleted = false
-        repPeakMetrics.clear()
-        currentRepPeak = Float.NaN
-        lastRepCount = 0
-        allRepTimestamps.clear()
-        // 운동 시작 시각 — completeExercise까지의 차이가 durationMs (PDF §6).
-        // 안내 화면(measurementStarted=false) 동안도 포함되지만, 모든 사용자에 동일하게 적용되므로
-        // 상대 비교(개인의 최근 안정 성공 평균 대비)에 영향 없음.
-        exerciseStartMs = System.currentTimeMillis()
+        allRepFeedbackFlags.clear()
+        currentRepHadFeedback = false
         lastMovementMs = System.currentTimeMillis()
         lastMetricValue = 0f
         lastFrameMs = 0L
@@ -179,9 +166,12 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
 
     fun onFrameResult(result: FrameResult) {
         val engine = currentEngine ?: return
-        // errorCount는 rep 단위 카운팅 — 카운트 발생 frame에서 errorMessage가 있을 때만 +1.
-        // (errorMessage는 매 frame 전달되지만, 이는 transient 피드백용. errorCount는 사이클당 1회.)
-        if (result.isCountIncremented && result.errorMessage != null) errorCount++
+
+        // 단순 진급 룰: 진행 중인 반복 안에서 어떤 음성 안내라도 검출됐는지 누적.
+        // 캘리브레이션 중에는 추적 안 함 (본 운동 카운트만 집계).
+        if (!engine.isInCalibration && (result.errorMessage != null || result.coachingCueMessage != null)) {
+            currentRepHadFeedback = true
+        }
 
         val now = System.currentTimeMillis()
 
@@ -211,24 +201,13 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             }
         }
 
-        // 운동의 "extreme" 추적: ChairStand(#7)는 작을수록 좋음(min), 나머지는 클수록 좋음(max)
-        if (result.state == EngineState.IN_MOTION) {
-            val isDecreasing = currentExerciseId == 7
-            currentRepPeak = when {
-                currentRepPeak.isNaN() -> result.currentMetric
-                isDecreasing -> minOf(currentRepPeak, result.currentMetric)
-                else -> maxOf(currentRepPeak, result.currentMetric)
-            }
-        }
         if (result.isCountIncremented && !engine.isInCalibration) {
-            if (!currentRepPeak.isNaN()) repPeakMetrics.add(currentRepPeak)
-            currentRepPeak = Float.NaN
             lastMovementMs = now
-            // PDF §5 SpeedLossRate 계산용 — 각 카운트 시각 누적.
-            // 양측 운동도 engine.reset() 영향 안 받음 (ViewModel이 직접 보관).
-            allRepTimestamps.add(now)
+            // 단순 진급 룰: 이 반복(직전 카운트~지금)에서 피드백이 발생했는지 push 후 리셋.
+            //   카운트와 같은 frame에서 emitted된 errorMessage도 위 누적 단계에서 잡힘.
+            allRepFeedbackFlags.add(currentRepHadFeedback)
+            currentRepHadFeedback = false
         }
-        lastRepCount = result.count
 
         _uiState.value = ExerciseUiState.Running(
             count = result.count,
@@ -331,12 +310,10 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         engine.onSideSwitch()
         // PRB는 reset() 후에도 유지되므로 다시 setPRB 호출 불필요
         sidePhase = SidePhase.RIGHT
-        errorCount = 0
         isAwaitingFinalCount = false
         lastMovementMs = System.currentTimeMillis()
         lastMetricValue = 0f
         lastFrameMs = 0L
-        currentRepPeak = Float.NaN
         measurementStarted = true
         _uiState.value = ExerciseUiState.Ready(
             exerciseName = engine.exerciseName,
@@ -383,51 +360,11 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             }
             val totalAchieved = if (isBilateral) leftCompletedCount + rightCompletedCount.coerceAtLeast(0) else engine.currentCount
             val totalTarget = if (isBilateral) perSideTarget * 2 else engine.targetCount
-            // 균형 운동(#8)은 ROM/일관성 슬롯을 안정성/유지시간으로 재해석. QualityScorer가 운동별 의미를 다르게 계산.
-            val isBalance = currentExerciseId == 8
-            val balanceEngine = engine as? BalanceEngine
-            val balanceWobbleForScorer = if (isBalance) engine.balanceWobble else null
-            val bestHoldForScorer = if (isBalance) balanceEngine?.bestHoldTimeSec else null
-            val targetHoldForScorer = if (isBalance) BalanceProgressionManager.getTargetTime(currentSetLevel) else null
 
-            // CalfRaise(#4)/ToeRaise(#5)는 motionThreshold가 고정값(0.030/0.022)인데 PRB는 calibration 최댓값.
-            // 결과적으로 본 운동에서 PRB 대비 ratio가 항상 낮아 ROM 점수가 부당하게 낮음.
-            // ROM 계산용으로만 PRB를 motionThreshold의 약 2배로 cap — 카운트 동작은 영향 없음, ROM 점수만 합리화.
-            val prbForScorer = when (currentExerciseId) {
-                4 -> currentPrb.coerceAtMost(0.060f)   // CalfRaise: motionThr(0.030) × 2
-                5 -> currentPrb.coerceAtMost(0.044f)   // ToeRaise: motionThr(0.022) × 2
-                // KneeBend "살짝 굽히기": motionThr=24.5° (cap 35°×0.70). PRB 그대로 쓰면 깊게 굽혀야 ROM 100.
-                // ROM 계산용으로 25°로 cap — 카운트된 rep(≥24.5°)은 ratio≥0.98로 ROM ≈100 보장.
-                6 -> currentPrb.coerceAtMost(25f)
-                else -> currentPrb
-            }
-            // PDF §5·§6 측정값 — 6지표 통합으로 QualityScorer 계산에도 필요해 먼저 산출.
-            val durationMs = if (exerciseStartMs > 0L) System.currentTimeMillis() - exerciseStartMs else 0L
-            val speedLossRate = calculateSpeedLossRate(allRepTimestamps)
-            val balanceWobble = engine.balanceWobble
-            // 시간 효율 점수용 baseline: 과거 성공한 같은 운동의 durationMs 평균. 3개 미만이면 null → score=100.
-            val pastRecords = sessionRepository.getRecentRecordsByExercise(userId, currentExerciseId, 30)
-            val priorSuccess = pastRecords.filter {
-                it.achievedCount >= it.targetCount && it.durationMs > 0L
-            }
-            val baselineDurationMs: Float? = if (priorSuccess.size >= 3) {
-                priorSuccess.map { it.durationMs.toFloat() }.average().toFloat()
-            } else null
+            // 단순 진급 룰의 단일 입력 — 반복별 피드백 발생 여부 CSV.
+            // 미완료(자동 종료 등) 시점에 진행 중이던 미카운트 반복은 push 안 함 (불완전 데이터 제외).
+            val repFeedbackFlagsCsv = allRepFeedbackFlags.joinToString(",") { if (it) "1" else "0" }
 
-            val breakdown = QualityScorer.calculate(
-                achievedCount = totalAchieved,
-                targetCount = totalTarget,
-                errorCount = errorCount,
-                repMetrics = repPeakMetrics.toList(),
-                prbValue = prbForScorer,
-                metricIsDecreasing = currentExerciseId == 7,  // ChairStand: 작을수록 좋음 (D%)
-                balanceWobble = balanceWobbleForScorer,
-                bestHoldSec = bestHoldForScorer,
-                targetHoldSec = targetHoldForScorer,
-                speedLossRate = speedLossRate,
-                durationMs = durationMs,
-                baselineDurationMs = baselineDurationMs
-            )
             sessionRepository.saveRecord(
                 ExerciseRecord(
                     sessionId = currentSessionId.toInt(),
@@ -435,26 +372,14 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
                     setLevel = currentSetLevel,
                     targetCount = totalTarget,
                     achievedCount = totalAchieved,
-                    errorCount = errorCount,
-                    qualityScore = breakdown.totalScore,
-                    completionScore = breakdown.completionScore,
-                    formScore = breakdown.formScore,
-                    romScore = breakdown.romScore,
-                    consistencyScore = breakdown.consistencyScore,
-                    avgMetricRatio = breakdown.avgMetricRatio,
-                    durationMs = durationMs,
-                    speedLossRate = speedLossRate,
-                    balanceWobble = balanceWobble
+                    repFeedbackFlags = repFeedbackFlagsCsv
                 )
             )
-            // PDF 개선 진급 알고리즘 — 기록 저장 후 즉시 평가. 단순한 실패는 무시(데이터 부족 등).
             val progressionResult = runCatching { evaluateProgression() }
                 .onFailure { android.util.Log.w("Progression", "evaluateProgression failed", it) }
                 .getOrNull()
             _uiState.value = ExerciseUiState.Completed(
-                engine.exerciseName,
-                breakdown.totalScore,
-                breakdown,
+                exerciseName = engine.exerciseName,
                 autoEndedByInactivity = autoEndedByInactivity,
                 progressionResult = progressionResult
             )
@@ -541,24 +466,6 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         val message: String
     )
 
-    /**
-     * PDF §5 SpeedLossRate 계산. 초반 3개와 후반 3개 rep 간격(=RepDuration의 근사)의 중앙값 비교.
-     *   RepSpeed = 1 / RepDuration
-     *   SpeedLossRate = (초반 속도 - 후반 속도) / 초반 속도
-     * 카운트 시각이 N개면 인접 간격은 N-1개. 의미 있는 비교를 위해 최소 7개 timestamp(=6 interval) 필요.
-     */
-    private fun calculateSpeedLossRate(timestamps: List<Long>): Float {
-        if (timestamps.size < 7) return 0f
-        val intervals = (1 until timestamps.size).map { timestamps[it] - timestamps[it - 1] }
-        if (intervals.size < 6) return 0f
-        val firstMedianMs = intervals.take(3).sorted()[1]
-        val lastMedianMs = intervals.takeLast(3).sorted()[1]
-        if (firstMedianMs <= 0L || lastMedianMs <= 0L) return 0f
-        val firstSpeed = 1.0 / firstMedianMs
-        val lastSpeed = 1.0 / lastMedianMs
-        return ((firstSpeed - lastSpeed) / firstSpeed).toFloat().coerceAtLeast(0f)
-    }
-
     fun debugIncrementCount() {
         val engine = currentEngine ?: return
         engine.debugForceCount()
@@ -586,19 +493,15 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         isAwaitingFinalCount = false
         currentEngine?.reset()
         currentEngine = null
-        errorCount = 0
         isCompleted = false
         calibrationPrbSaved = false
-        repPeakMetrics.clear()
-        currentRepPeak = Float.NaN
-        lastRepCount = 0
         lastFrameMs = 0L
         lastMetricValue = 0f
         sidePhase = SidePhase.LEFT
         leftCompletedCount = 0
         rightCompletedCount = 0
-        allRepTimestamps.clear()
-        exerciseStartMs = 0L
+        allRepFeedbackFlags.clear()
+        currentRepHadFeedback = false
         _uiState.value = ExerciseUiState.Idle
     }
 
@@ -631,8 +534,6 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
         ) : ExerciseUiState()
         data class Completed(
             val exerciseName: String,
-            val qualityScore: Int = 0,
-            val breakdown: QualityScorer.QualityBreakdown? = null,
             val autoEndedByInactivity: Boolean = false,
             val progressionResult: ProgressionResult? = null
         ) : ExerciseUiState()

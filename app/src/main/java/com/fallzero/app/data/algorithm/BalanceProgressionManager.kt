@@ -18,24 +18,6 @@ import com.fallzero.app.data.db.entity.ExerciseRecord
  */
 object BalanceProgressionManager {
 
-    /**
-     * ⚠ 시연용 완화 패치 — true이면 직전 운동 1회만으로 "목표 달성 + 자세 오류 0회" 만족 시 즉시 stage 진급.
-     * 3일 연속, 흔들림 게이트는 모두 우회. 시연 종료 후 반드시 false로 되돌릴 것.
-     * (ProgressionManager.DEMO_MODE 도 동일하게 토글.)
-     */
-    private const val DEMO_MODE = true
-
-    init {
-        if (DEMO_MODE) {
-            android.util.Log.w("Progression",
-                "⚠ DEMO_MODE=true (Balance) — 진급 조건 완화 활성. 시연 후 false로 되돌릴 것!")
-        }
-    }
-
-    /** 흔들림 최대 — sway/threshold 평균이 이 값 이하여야 안정 성공으로 인정.
-     *  BalanceEngine.balanceWobble은 0~1+ 범위 (1.0 = 임계값 근처 평균). 0.70이면 상당히 안정. */
-    private const val MAX_WOBBLE = 0.70f
-
     data class BalanceLevel(
         val stage: Int,
         val description: String,
@@ -67,34 +49,18 @@ object BalanceProgressionManager {
     }
 
     /**
-     * 균형 운동 단계 진급 판단 (PDF §9).
-     * 3일 연속 다음 조건을 모두 충족 → 다음 stage:
-     *   1. 목표 시간 달성 (achievedCount ≥ targetCount, 즉 1)
-     *   2. 자세 오류 0회
-     *   3. 흔들림(balanceWobble) ≤ MAX_WOBBLE
-     * @param records 운동 #8의 기록 목록 (최신순 정렬 권장)
+     * 균형 운동 단계 진급 판단 — 단순 룰.
+     *
+     * 직전 1회 운동에서 "목표 시간 달성" + "유지 동안 음성피드백 0건" → 즉시 다음 stage.
+     * 균형 운동은 1 "rep"이므로
+     * repFeedbackFlags 길이도 1. 유지 시간 동안 errorMessage 또는 coachingCueMessage가
+     * 한 번도 발화되지 않았다는 단일 기준.
      */
     fun shouldProgressStage(records: List<ExerciseRecord>): Boolean {
-        if (DEMO_MODE) {
-            val latest = records.maxByOrNull { it.performedAt } ?: return false
-            return latest.achievedCount >= latest.targetCount && latest.errorCount == 0
-        }
-
-        if (records.size < 3) return false
-        val byDay = mutableMapOf<Long, ExerciseRecord>()
-        for (r in records.sortedByDescending { it.performedAt }) {
-            val dayKey = r.performedAt / (24 * 60 * 60 * 1000L)
-            if (!byDay.containsKey(dayKey)) byDay[dayKey] = r
-            if (byDay.size == 3) break
-        }
-        if (byDay.size < 3) return false
-        val sortedDays = byDay.keys.sorted()
-        val isConsecutive = sortedDays[1] - sortedDays[0] == 1L && sortedDays[2] - sortedDays[1] == 1L
-        if (!isConsecutive) return false
-        return byDay.values.all {
-            it.achievedCount >= it.targetCount &&
-            it.errorCount == 0 &&
-            it.balanceWobble <= MAX_WOBBLE
-        }
+        val latest = records.maxByOrNull { it.performedAt } ?: return false
+        if (latest.achievedCount < latest.targetCount) return false
+        val flags = latest.repFeedbackFlags.split(",").filter { it.isNotBlank() }
+        if (flags.isEmpty()) return false
+        return flags.all { it == "0" }
     }
 }
