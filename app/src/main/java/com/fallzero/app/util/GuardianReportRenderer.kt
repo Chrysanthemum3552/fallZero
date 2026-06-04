@@ -17,7 +17,7 @@ import java.util.Locale
  * - 헤더: 사용자 이름·날짜·위험 등급
  * - 요약: 연속 운동일·오늘 완료율
  * - 8개 운동 카드: 각 게이트의 현재 값·필요 값·통과 여부(✓/✗)
- * - 진급까지 N일 필요 표시
+ * - 진급까지 N회 필요 표시
  */
 object GuardianReportRenderer {
 
@@ -608,7 +608,7 @@ object GuardianReportRenderer {
             }
         }
         canvas.drawText(
-            "연속 통과: ${eval.consecutiveDays} / ${eval.daysNeeded} 일",
+            "연속 통과: ${eval.consecutiveDays} / ${eval.daysNeeded} 회",
             WIDTH - PADDING - 24f, centerY, daysPaint
         )
     }
