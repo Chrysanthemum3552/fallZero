@@ -79,7 +79,6 @@
                 android:background="#80000000" android:contentDescription="카메라 전환"
                 android:padding="8dp" android:src="@android:drawable/ic_menu_camera" />
 
-            <!-- 좌상단: 남은시간 원형 게이지 (게이지가 30초→0초로 줄어듦) -->
             <FrameLayout
                 android:id="@+id/layout_corner_count"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -121,7 +120,6 @@
                 </LinearLayout>
             </FrameLayout>
 
-            <!-- 좌하단: 현재 일어선 횟수 -->
             <TextView
                 android:id="@+id/tv_corner_count"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
@@ -144,8 +142,8 @@
             <TextView
                 android:id="@+id/tv_floating_feedback"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:layout_gravity="top|center_horizontal"
-                android:layout_marginTop="16dp"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="96dp"
                 android:background="#CC000000"
                 android:paddingLeft="20dp" android:paddingRight="20dp"
                 android:paddingTop="10dp" android:paddingBottom="10dp"
@@ -334,20 +332,21 @@
 
             <TextureView
                 android:id="@+id/video_chair_guidance"
-                android:layout_width="0dp" android:layout_height="0dp"
-                android:visibility="gone"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
+                android:layout_width="match_parent" android:layout_height="0dp"
+                android:layout_marginTop="12dp" android:visibility="gone"
+                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintBottom_toTopOf="@id/layout_guidance_text"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" ></TextureView>
 
             <ImageView
                 android:id="@+id/iv_chair_front_pose"
-                android:layout_width="0dp" android:layout_height="0dp"
+                android:layout_width="match_parent" android:layout_height="0dp"
+                android:layout_marginTop="12dp"
                 android:scaleType="centerCrop" android:visibility="gone"
                 android:contentDescription="의자 앞에 정면을 바라보고 서주세요"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tv_guidance_title"
+                app:layout_constraintBottom_toTopOf="@id/layout_guidance_text"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintEnd_toEndOf="parent" />
 
@@ -397,11 +396,6 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-        <!--
-            [추가] 발 이미지 전환 안내 오버레이 (반일렬서기 / 일렬서기 전용)
-            - 영상 5초 시점에 코드로 VISIBLE, 약 2.5초 후 GONE
-            - 텍스트 크기/내용: tv_foot_guide_text 속성에서 수정
-        -->
         <FrameLayout
             android:id="@+id/foot_guide_overlay"
             android:layout_width="match_parent" android:layout_height="match_parent"
@@ -420,16 +414,12 @@
 
         </FrameLayout>
 
-        <!--
-            [추가] 검사 안내 영상 자막 오버레이 (exercise와 동일 스타일)
-            VideoView를 담은 ConstraintLayout 다음에 선언 -> z-order 상 위에 렌더링
-            TTS 발화 중 해당 구간 영상 위에 큰 노란 텍스트 표시
-        -->
+        <!-- 검사 안내 영상 자막 오버레이 -->
         <FrameLayout
             android:id="@+id/exam_guide_text_overlay"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:background="#55000000"
+            android:background="#B3000000"
             android:visibility="gone">
 
             <TextView
@@ -439,18 +429,18 @@
                 android:layout_gravity="center"
                 android:layout_marginStart="28dp"
                 android:layout_marginEnd="28dp"
-                android:textSize="52sp"
-                android:maxLines="2"
-                android:breakStrategy="high_quality"
+                android:textSize="48sp"
+                android:maxLines="4"
+                android:breakStrategy="simple"
                 android:hyphenationFrequency="none"
                 android:autoSizeTextType="uniform"
-                android:autoSizeMinTextSize="24sp"
-                android:autoSizeMaxTextSize="56sp"
+                android:autoSizeMinTextSize="20sp"
+                android:autoSizeMaxTextSize="48sp"
                 android:autoSizeStepGranularity="2sp"
                 android:textStyle="bold"
                 android:textColor="#FFFF00"
                 android:gravity="center"
-                android:lineSpacingMultiplier="1.2"
+                android:lineSpacingMultiplier="1.25"
                 android:shadowColor="#000000"
                 android:shadowDx="4"
                 android:shadowDy="4"
