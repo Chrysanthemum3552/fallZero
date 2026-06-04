@@ -48,6 +48,9 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
 
     // 누적 결과
     private var chairCount = 0
+    // [Task1] 의자 일어서기 '일어나주세요' 안내 — 앉은 자세(IN_MOTION) 지속 추적.
+    private var chairSeatedSinceMs = 0L
+    @Volatile private var chairStandHint: String? = null
     private var balanceStageReached = 0
     private var tandemTimeSec = 0f
     private var oneLegTimeSec = 0f          // 한 발 서기(stage 4) 유지 시간 — 보호자 공유 추이용
@@ -184,6 +187,8 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
     fun startChairStand() {
         chairStandEngine.reset()
         chairCount = 0
+        chairSeatedSinceMs = 0L
+        chairStandHint = null
         chairStandStartTime = System.currentTimeMillis()
         chairStandPausedElapsed = 0L
         chairStandPauseStartMs = 0L
@@ -197,7 +202,7 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 // pausedElapsed 만큼 빼서 실제 측정 시간 계산 (일시정지 시간 제외)
                 val elapsed = System.currentTimeMillis() - chairStandStartTime - chairStandPausedElapsed
-                _phase.value = ExamPhase.ChairStand(elapsed, chairCount, isRunning = true)
+                _phase.value = ExamPhase.ChairStand(elapsed, chairCount, isRunning = true, errorHint = chairStandHint)
                 if (elapsed >= CHAIR_STAND_DURATION_MS) break
                 delay(100)
             }
@@ -285,6 +290,15 @@ class ExamViewModel(application: Application) : AndroidViewModel(application) {
                 if (!p.isRunning) return
                 val result: FrameResult = chairStandEngine.processLandmarks(landmarks)
                 if (result.isCountIncremented) chairCount = result.count
+                // [Task1] 앉은 채(IN_MOTION)로 2초 이상 → "의자에서 일어나주세요" 힌트 (타이머가 phase.errorHint로 전달, Fragment가 발화·표시).
+                val nowMs = System.currentTimeMillis()
+                if (result.state == EngineState.IN_MOTION) {
+                    if (chairSeatedSinceMs == 0L) chairSeatedSinceMs = nowMs
+                    chairStandHint = if (nowMs - chairSeatedSinceMs > 2000L) "의자에서 일어나주세요" else null
+                } else {
+                    chairSeatedSinceMs = 0L
+                    chairStandHint = null
+                }
             }
             is ExamPhase.BalancePrepare -> {
                 // 준비 중 — 엔진 처리 안 함 (사용자가 자세를 준비하는 시간)

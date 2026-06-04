@@ -282,25 +282,9 @@ class ExerciseViewModel(application: Application) : AndroidViewModel(application
             lastMetricValue = result.currentMetric
         }
 
-        // inactivity 자동 종료 — engine별 timeout(default 4초, CalfRaise/ToeRaise 8초). 균형 운동(#8) 제외.
-        val inactivityTimeoutMs = engine.inactivityTimeoutMs
-        if (!isCompleted && !engine.isInCalibration && currentExerciseId != 8 &&
-            now - lastMovementMs > inactivityTimeoutMs) {
-            // 진단: 어떤 운동에서 timeout으로 끝났는지 명시 (ChairStand 카운트 누락 원인 추적)
-            android.util.Log.w("ChairStandDiag",
-                "INACTIVITY TIMEOUT FIRED! exerciseId=$currentExerciseId sinceMovement=${now - lastMovementMs}ms timeout=${inactivityTimeoutMs}ms curCount=${engine.currentCount} curM=${result.currentMetric} → completeExercise(autoEnded=true)")
-            isCompleted = true
-            // 양측 운동 진행 중이면 현재까지의 카운트를 보존 (데이터 손실 방지)
-            if (isBilateral) {
-                when (sidePhase) {
-                    SidePhase.LEFT -> leftCompletedCount = engine.currentCount
-                    SidePhase.RIGHT -> rightCompletedCount = engine.currentCount
-                    else -> Unit
-                }
-            }
-            completeExercise(engine, autoEndedByInactivity = true)
-            return
-        }
+        // [사용자 요청] 무동작 자동 종료(inactivity → 다음으로 자동 넘김) 로직 제거.
+        //   운동은 목표 횟수를 채우거나 사용자가 '정지' 버튼을 눌러야만 종료된다.
+        //   (lastMovementMs 추적은 의자 일어서기 '일어나주세요' 안내 등에 계속 사용되므로 유지.)
 
         // 목표 횟수 달성 → 양측 처리 또는 완료
         // 1.5초 delay: "열" 카운트 음성이 발화될 시간 확보 (즉시 다음 단계 전환하면 cut off)

@@ -66,9 +66,26 @@
         android:textSize="28sp"
         android:textColor="@color/text_primary"
         android:gravity="center"
-        android:layout_marginBottom="80dp"
+        android:layout_marginBottom="24dp"
         android:layout_marginLeft="24dp"
         android:layout_marginRight="24dp"
+        app:layout_constraintBottom_toTopOf="@+id/btn_skip_rest"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- 15초 휴식 건너뛰기 (사용자 요청) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_skip_rest"
+        android:layout_width="wrap_content"
+        android:layout_height="64dp"
+        android:text="휴식 건너뛰기 ▶"
+        android:textSize="22sp"
+        android:paddingLeft="32dp"
+        android:paddingRight="32dp"
+        app:cornerRadius="32dp"
+        app:backgroundTint="@color/primary"
+        android:textColor="@color/on_primary"
+        android:layout_marginBottom="48dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />

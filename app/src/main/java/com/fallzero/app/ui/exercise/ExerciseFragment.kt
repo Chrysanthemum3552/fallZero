@@ -52,6 +52,9 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     private var showGuide: Boolean = true
     private var lastSpokenCount = -1
     private var sideSwitchInProgress = false
+    // [Task1] 의자 일어서기(#7) '의자에서 일어나주세요' 안내용 — 앉은 자세 지속 시간 추적.
+    private var chairSeatedSinceMs = 0L
+    private var lastChairStandPromptMs = 0L
     private var lastTransientMsgMs = 0L
     private var transientMsgHideRunnable: Runnable? = null
     private val TRANSIENT_MSG_COOLDOWN_MS = 4000L
@@ -736,6 +739,7 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
                             }
                             b.tvExerciseName.text = SessionFlow.exerciseName(getCurrentExerciseId()) +
                                     (state.bilateralSide?.let { " — $it" } ?: "")
+                            maybeChairStandPrompt(state)
                         }
                         is ExerciseViewModel.ExerciseUiState.SideSwitch -> {
                             if (sideSwitchInProgress) return@collect
@@ -892,6 +896,32 @@ class ExerciseFragment : Fragment(), PoseLandmarkerHelper.LandmarkerListener {
     // -----------------------------------------------
     // Transient message / Countdown
     // -----------------------------------------------
+
+    /**
+     * [Task1] 의자 일어서기(#7): 앉은 자세(IN_MOTION)로 2초 이상 머무르면 "의자에서 일어나주세요" 안내.
+     * 계속 앉아있으면 ~3초마다 반복. 일어서면(상태 전환) 안내 숨김.
+     * ※ 감지 로직은 안 건드리고 엔진이 주는 상태(engineState)만 읽어 안내 시점만 제어.
+     */
+    private fun maybeChairStandPrompt(state: ExerciseViewModel.ExerciseUiState.Running) {
+        val b = _binding ?: return
+        if (getCurrentExerciseId() != 7 || state.isCalibrating || hasNavigated) {
+            chairSeatedSinceMs = 0L
+            return
+        }
+        val now = System.currentTimeMillis()
+        if (state.engineState == EngineState.IN_MOTION) {   // 앉은 상태(일어서기 전)
+            if (chairSeatedSinceMs == 0L) chairSeatedSinceMs = now
+            if (now - chairSeatedSinceMs > 2000L && now - lastChairStandPromptMs > 3000L) {
+                lastChairStandPromptMs = now
+                b.tvErrorMessage.text = "의자에서 일어나주세요"
+                b.tvErrorMessage.visibility = View.VISIBLE
+                ttsManager?.speak("의자에서 일어나주세요")
+            }
+        } else {
+            chairSeatedSinceMs = 0L
+            if (b.tvErrorMessage.text == "의자에서 일어나주세요") b.tvErrorMessage.visibility = View.GONE
+        }
+    }
 
     private fun showTransientMessage(msg: String) {
         val now = System.currentTimeMillis()

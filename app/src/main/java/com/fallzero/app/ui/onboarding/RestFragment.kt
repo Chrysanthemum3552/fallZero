@@ -73,6 +73,13 @@ class RestFragment : Fragment() {
                 advanceNext()
             }
         }.start()
+
+        // [사용자 요청] 15초 휴식 건너뛰기 — 즉시 다음 단계로.
+        binding.btnSkipRest.setOnClickListener {
+            timer?.cancel()
+            try { ttsManager?.stop() } catch (_: Exception) {}
+            advanceNext()
+        }
     }
 
     private fun peekNextLabel(): String {
