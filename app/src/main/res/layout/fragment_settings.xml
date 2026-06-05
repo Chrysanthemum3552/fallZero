@@ -415,7 +415,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="모든 운동에 '깨끗한 완료' 기록을 2개씩 넣고 진급단계를 1로 초기화합니다. 시연 당일 각 운동을 1번만 깨끗이 하면 진급이 표시됩니다."
+            android:text="모든 운동에 '깨끗한 완료' 기록을 2개씩 넣고 진급단계를 1로\n초기화합니다. 시연 당일 각 운동을 1번만 깨끗이 하면 진급이\n표시됩니다."
             android:breakStrategy="simple"
             android:hyphenationFrequency="none"
             android:textSize="14sp"
