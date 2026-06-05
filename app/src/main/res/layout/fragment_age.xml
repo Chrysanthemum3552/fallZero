@@ -40,7 +40,7 @@
         android:id="@+id/tv_subtitle"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="음성으로 말하거나 아래 칸을 눌러 입력하세요"
+        android:text="음성으로 말하거나 아래 칸을 눌러 \n입력하세요"
         android:breakStrategy="simple"
         android:hyphenationFrequency="none"
         android:textSize="22sp"

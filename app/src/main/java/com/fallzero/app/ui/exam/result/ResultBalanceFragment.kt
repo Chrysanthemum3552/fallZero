@@ -45,7 +45,7 @@ class ResultBalanceFragment : Fragment() {
         binding.tvUserValue.text = "${userSec}초"
 
         val (msg, narration) = if (r.isHighRiskBalance)
-            "균형 검사에서 위험 신호가 있어요" to
+            "균형 검사에서 위험 신호가 \n있어요" to
                     "균형 검사 결과를 알려드릴게요. 한 발을 다른 발 앞에 일렬로 놓는 일렬 서기 자세를 10초 이상 유지해야 안전합니다. ${userSec}초를 유지하셨어요. 위험 신호가 있어요."
         else
             "균형 검사는 안전해요" to

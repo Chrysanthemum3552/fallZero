@@ -42,7 +42,7 @@
             android:text="🟢 정확히 수행한 횟수 · 🟠 지적받은 횟수 (좌우 스와이프로 지난 기록)"
             android:breakStrategy="simple"
             android:hyphenationFrequency="none"
-            android:textSize="13sp"
+            android:textSize="12sp"
             android:textColor="@color/text_secondary"
             android:layout_marginBottom="14dp" />
 

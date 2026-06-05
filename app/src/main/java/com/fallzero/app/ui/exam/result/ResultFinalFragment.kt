@@ -51,7 +51,7 @@ class ResultFinalFragment : Fragment() {
         }
 
         val narration = if (isHigh)
-            "종합 결과를 알려드릴게요. 낙상 위험군이에요. ${riskCount}가지 항목에서 위험 신호가 있어요. 낙상 예방 운동을 시작해 보세요."
+            "종합 결과를 알려드릴게요. 낙상 위험군이에요. ${riskCount}가지 항목에서 위험 신호가 \n있어요. 낙상 예방 운동을 시작해 보세요."
         else
             "종합 결과를 알려드릴게요. 낙상 안전군이에요. 현재 낙상 위험 신호가 없습니다."
 

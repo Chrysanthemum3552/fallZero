@@ -87,7 +87,7 @@
         android:layout_height="wrap_content"
         android:breakStrategy="simple"
         android:hyphenationFrequency="none"
-        android:textSize="24sp"
+        android:textSize="28sp"
         android:textStyle="bold"
         android:gravity="center"
         android:layout_marginTop="20dp"

@@ -208,8 +208,8 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="ON 시 운동·검사 중 &quot;어디까지 해야 할지&quot; 게이지로 표시됩니다."
-            android:textSize="16sp"
+            android:text="ON 시 운동·검사 중 &quot;어디까지 해야 할지&quot; 게이지로 \n표시됩니다."
+            android:textSize="17sp"
             android:textColor="@color/text_secondary"
             android:lineSpacingExtra="2dp"
             android:layout_marginBottom="16dp" />
@@ -238,8 +238,8 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="ON 시 카메라 화면에 33개 관절 위치 + 연결선이 표시됩니다."
-            android:textSize="16sp"
+            android:text="ON 시 카메라 화면에 33개 관절 위치 + 연결선이 \n표시됩니다."
+            android:textSize="18sp"
             android:textColor="@color/text_secondary"
             android:lineSpacingExtra="2dp"
             android:layout_marginBottom="32dp" />
@@ -282,7 +282,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="ON 시 운동 화면에 수동 카운트 +1 버튼이 표시됩니다."
+            android:text="ON 시 운동 화면에 수동 카운트 +1 버튼이 \n표시됩니다."
             android:breakStrategy="simple"
             android:hyphenationFrequency="none"
             android:textSize="16sp"
@@ -337,7 +337,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="대사를 입력하고 측정을 누르면 0.75배속 TTS로 읽어주고 소요 시간을 표시합니다."
+            android:text="대사를 입력하고 측정을 누르면 0.75배속 TTS로 \n읽어주고 소요 시간을 표시합니다."
             android:textSize="14sp"
             android:textColor="@color/text_secondary"
             android:lineSpacingExtra="2dp"

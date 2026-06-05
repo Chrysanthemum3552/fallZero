@@ -46,7 +46,7 @@ class ResultChairFragment : Fragment() {
         binding.tvUserValue.text = "${user}회"
 
         val (msg, narration) = if (r.isHighRiskChairStand)
-            "의자 일어서기에서 위험 신호가 있어요" to
+            "의자 일어서기에서 위험 신호가 \n있어요" to
                     "의자 일어서기 결과를 알려드릴게요. 안전 기준은 ${norm}회인데, ${user}회를 하셨어요. 위험 신호가 있어요."
         else
             "의자 일어서기는 안전해요" to

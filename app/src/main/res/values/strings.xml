@@ -18,7 +18,7 @@
 
     <!-- Survey Step 2: STEADI 낙상 위험 설문 -->
     <string name="steadi_title">낙상 위험 설문 (CDC STEADI)</string>
-    <string name="steadi_q1">지난 1년 동안 넘어진 적이 있으신가요?</string>
+    <string name="steadi_q1">지난 1년 동안 넘어진 \n적이 있으신가요?</string>
     <string name="steadi_q2">서 있거나 걸을 때\n불안정한 느낌이\n드시나요?</string>
     <string name="steadi_q3">넘어질까봐\n두려우신가요?</string>
     <string name="steadi_yes">예</string>

@@ -59,7 +59,7 @@ class ResultSurveyFragment : Fragment() {
         }
 
         val (msg, narration) = if (r.isHighRiskSurvey)
-            "설문 차원에서 위험 신호가 있어요" to
+            "설문 차원에서 위험 신호가 \n있어요" to
                     "설문 결과를 알려드릴게요. 설문 답변에서 낙상 위험 신호가 있어요."
         else
             "설문 차원은 안전해요" to
