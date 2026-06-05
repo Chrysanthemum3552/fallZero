@@ -16,6 +16,10 @@ interface SessionDao {
     @Insert
     suspend fun insertRecord(record: ExerciseRecord): Long
 
+    /** 시연용 더미 삽입 시 — 해당 사용자의 모든 운동 기록 삭제(깨끗한 슬레이트). */
+    @Query("DELETE FROM exercise_records WHERE sessionId IN (SELECT id FROM training_sessions WHERE userId = :userId)")
+    suspend fun deleteAllRecordsForUser(userId: Int)
+
     /** 진급이 발생한 기록에 진급 메시지 표식 — 운동 기록 화면 "🎉 진급!" 배지용. */
     @Query("UPDATE exercise_records SET promotedLabel = :label WHERE id = :recordId")
     suspend fun markRecordPromoted(recordId: Int, label: String)

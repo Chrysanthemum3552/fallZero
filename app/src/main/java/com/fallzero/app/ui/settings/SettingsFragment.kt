@@ -160,7 +160,7 @@ class SettingsFragment : Fragment() {
         binding.btnInsertDummy.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("시연용 더미 삽입")
-                .setMessage("모든 운동에 '깨끗한 완료' 더미 기록을 2개씩 추가하고, 모든 진급 단계를 1로 초기화합니다.\n\n시연 당일 각 운동을 1번만 깨끗이 수행하면 진급이 표시됩니다.")
+                .setMessage("기존 운동 기록을 모두 삭제하고, 모든 운동에 '완벽하게 수행한(모두 초록)' 기록을 2개씩 새로 넣습니다. 진급 단계도 1로 초기화합니다.\n\n시연 당일 각 운동을 1번만 깨끗이 수행하면 진급이 표시됩니다.")
                 .setPositiveButton("삽입") { _, _ ->
                     viewLifecycleOwner.lifecycleScope.launch {
                         insertDemoDummies(db, userId)
@@ -170,7 +170,7 @@ class SettingsFragment : Fragment() {
                             apply()
                         }
                         Toast.makeText(requireContext(),
-                            "더미 2개씩 삽입 완료 · 진급단계 1로 초기화. 이제 각 운동을 1번만 깨끗이 하면 진급해요.",
+                            "기존 기록 삭제 후 완벽한 더미 2개씩 삽입 · 진급단계 1로 초기화 완료. 이제 각 운동을 1번만 깨끗이 하면 진급해요.",
                             Toast.LENGTH_LONG).show()
                     }
                 }
@@ -207,6 +207,8 @@ class SettingsFragment : Fragment() {
      * "최근 3회 = 더미2 + 실연1 모두 깨끗" → 진급이 발생하게 한다.
      */
     private suspend fun insertDemoDummies(db: FallZeroDatabase, userId: Int) {
+        // [변경] 기존 운동 기록 전체 삭제 → 깨끗한 슬레이트로 시작.
+        db.sessionDao().deleteAllRecordsForUser(userId)
         val now = System.currentTimeMillis()
         val sessionId = db.sessionDao().insertSession(
             TrainingSession(userId = userId, startedAt = now - 3000, completedAt = now - 1000, isCompleted = true)
